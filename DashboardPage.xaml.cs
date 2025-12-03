@@ -1,12 +1,16 @@
 using Microsoft.Maui.Controls;
+using PFE.Services;
 
 namespace PFE;
 
 public partial class DashboardPage : ContentPage
 {
-    public DashboardPage()
+
+    private readonly OdooConfigService _configService;
+    public DashboardPage(OdooConfigService configService)
     {
         InitializeComponent();
+        _configService = configService;
 
         BtnLeaves.Clicked += (s, e) =>
         {
@@ -16,10 +20,10 @@ public partial class DashboardPage : ContentPage
         BtnProfile.Clicked += (s, e) =>
         {
             Navigation.PushAsync(new UserProfilePage(
-                App.OdooUrl,
-                App.OdooDb,
-                App.UserId,
-                App.UserPassword
+                _configService.OdooUrl,
+                _configService.OdooDb,
+                _configService.UserId,
+                _configService.UserPassword
             ));
         };
     }

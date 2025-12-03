@@ -1,16 +1,17 @@
-﻿namespace PFE;
+﻿using PFE.Services;
 
-public partial class MainPage : ContentPage
+namespace PFE;
+
+public partial class LoginPage : ContentPage
 {
-    // ⬇️ URL & DB EN DUR ICI
-    private const string OdooUrl = "https://ipl-pfe-2025-groupe11.odoo.com";
-    private const string OdooDb = "ipl-pfe-2025-groupe11-main-26040231";
+    private readonly OdooConfigService _configService;
+    private readonly OdooClient _client;
 
-    private OdooClient _client;
-
-    public MainPage()
+    public LoginPage(OdooConfigService configService, OdooClient client)
     {
         InitializeComponent();
+        _client = client;
+        _configService = configService;
     }
 
     private async void OnLoginClicked(object sender, EventArgs e)
@@ -29,11 +30,9 @@ public partial class MainPage : ContentPage
             return;
         }
 
-        _client = new OdooClient(OdooUrl);
-
         try
         {
-            var (success, raw) = await _client.LoginAsync(OdooDb, login, password);
+            var (success, raw) = await _client.LoginAsync(login, password);
 
             if (success)
             {
@@ -41,11 +40,13 @@ public partial class MainPage : ContentPage
                 ResultLabel.TextColor = Colors.Green;
 
                 // On peut garder les infos globalement si tu veux les réutiliser
-                App.UserId = 0;               // pour l'instant on ne récupère pas encore l'id
-                App.UserPassword = password;  // si tu veux le réutiliser ensuite
+                _configService.UserId = 0;               // pour l'instant on ne récupère pas encore l'id
+                _configService.UserPassword = password;  // si tu veux le réutiliser ensuite
 
                 // ⬇⬇⬇ NAVIGATION VERS LA PAGE D'ACCUEIL
-                await Navigation.PushAsync(new DashboardPage());
+                var dashboardPage = App.Services.GetService<DashboardPage>();
+                await Navigation.PushAsync(dashboardPage);
+
             }
 
             else

@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using PFE.Services;
 
 namespace PFE
 {
@@ -14,9 +15,13 @@ namespace PFE
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                     fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
                 });
+            builder.Services.AddSingleton<OdooConfigService>();
+            builder.Services.AddSingleton<OdooClient>();
 
+            builder.Services.AddTransient<LoginPage>();
+            builder.Services.AddTransient<DashboardPage>();
 #if DEBUG
-    		builder.Logging.AddDebug();
+            builder.Logging.AddDebug();
 #endif
 
             return builder.Build();

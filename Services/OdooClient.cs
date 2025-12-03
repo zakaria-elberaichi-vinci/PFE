@@ -2,19 +2,19 @@
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using PFE.Services;
 
 namespace PFE
 {
     public class OdooClient
     {
         private readonly HttpClient _httpClient;
-        private readonly string _baseUrl;
+        private readonly OdooConfigService _configService;
 
-        // baseUrl = "https://ipl-pfe-2025-groupe11.odoo.com"
-        public OdooClient(string baseUrl)
+        public OdooClient(OdooConfigService configService)
         {
             _httpClient = new HttpClient();
-            _baseUrl = baseUrl.TrimEnd('/');
+            _configService = configService;
         }
 
         /// <summary>
@@ -22,10 +22,11 @@ namespace PFE
         /// Retourne (success, rawResponse) pour faciliter le debug.
         /// </summary>
         public async Task<(bool Success, string RawResponse)> LoginAsync(
-            string db, string login, string password)
+            string login, string password)
         {
             // IMPORTANT : endpoint JSON-RPC = /jsonrpc (sans /odoo)
-            var url = $"{_baseUrl}/jsonrpc";
+            var baseUrl = _configService.OdooUrl.TrimEnd('/');
+            var url = $"{baseUrl}/jsonrpc";
 
             var payload = new
             {
@@ -36,7 +37,7 @@ namespace PFE
                 {
                     service = "common",
                     method = "authenticate",
-                    args = new object[] { db, login, password, new { } }
+                    args = new object[] { _configService.OdooDb, login, password, new { } }
                 },
                 id = 1
             };
