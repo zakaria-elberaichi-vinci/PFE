@@ -19,7 +19,7 @@ namespace PFE
             builder.Services.AddSingleton<OdooClient>();
 
             builder.Services.AddTransient<LoginPage>();
-            builder.Services.AddTransient<DashboardPage>();
+            builder.Services.AddTransient<UserProfilePage>();
 #if DEBUG
             builder.Logging.AddDebug();
 #endif

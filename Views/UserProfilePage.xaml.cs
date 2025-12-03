@@ -1,24 +1,18 @@
 using System.Reflection.Metadata;
 using System.Text;
 using System.Text.Json;
+using PFE.Services;
 
 namespace PFE;
 
 public partial class UserProfilePage : ContentPage
 {
-    private readonly string _url;
-    private readonly string _db;
-    private readonly int _userId;
-    private readonly string _password;
-
-    public UserProfilePage(string url, string db, int userId, string password)
+    private readonly OdooConfigService _configService;
+    public UserProfilePage(OdooConfigService configService)
     {
         InitializeComponent();
 
-        _url = url;
-        _db = db;
-        _userId = userId;
-        _password = password;
+        _configService = configService;
 
         LoadUserInfos();
     }
@@ -39,16 +33,16 @@ public partial class UserProfilePage : ContentPage
                     method = "execute_kw",
                     args = new object[]
          {
-            _db,
-            _userId,
-            _password,
+            _configService.OdooDb,
+            _configService.UserId,
+            _configService.UserPassword,
             "hr.employee",
             "search_read",
             new object[]
             {
                 new object[]
                 {
-                    new object[] { "user_id", "=", _userId }
+                    new object[] { "user_id", "=", _configService.UserId }
                 }
             },
             new
@@ -69,7 +63,7 @@ public partial class UserProfilePage : ContentPage
 
             var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
 
-            var response = await client.PostAsync($"{_url}/jsonrpc", content);
+            var response = await client.PostAsync($"{_configService.OdooUrl}/jsonrpc", content);
             var resultString = await response.Content.ReadAsStringAsync();
 
             var json = JsonSerializer.Deserialize<JsonElement>(resultString);

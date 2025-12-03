@@ -17,7 +17,7 @@ public partial class LoginPage : ContentPage
     private async void OnLoginClicked(object sender, EventArgs e)
     {
         ResultLabel.Text = "Connexion en cours...";
-        ResultLabel.TextColor = Colors.Black;
+        ResultLabel.TextColor = Colors.White;
 
         string login = LoginEntry.Text?.Trim();
         string password = PasswordEntry.Text?.Trim();
@@ -44,8 +44,7 @@ public partial class LoginPage : ContentPage
                 _configService.UserPassword = password;  // si tu veux le réutiliser ensuite
 
                 // ⬇⬇⬇ NAVIGATION VERS LA PAGE D'ACCUEIL
-                var dashboardPage = App.Services.GetService<DashboardPage>();
-                await Navigation.PushAsync(dashboardPage);
+                await Navigation.PushAsync(new DashboardPage());
 
             }
 
