@@ -3,10 +3,8 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-
 namespace PFE
 {
-
     public class LeaveRecord
     {
         public string Name { get; set; } = "";
@@ -16,34 +14,58 @@ namespace PFE
 
     public class OdooClient
     {
-        private readonly HttpClient _httpClient;
-        private readonly string _baseUrl;
+        private readonly string _odooUrl;
+        private readonly string _odooDb;
+        private readonly int _userId;
+        private readonly string _userPassword;
+        private readonly HttpClient _client;
 
-        // baseUrl = "https://ipl-pfe-2025-groupe11.odoo.com"
-        public OdooClient(string baseUrl)
+        // Tu peux mettre la même valeur que App.OdooUrl
+        private const string baseUrl = "https://ipl-pfe-2025-groupe11.odoo.com";
+
+        // 👉 Constructeur utilisé APRÈS login (Dashboard, LeavesPage, LeaveRequestPage…)
+        public OdooClient(string odooUrl, string odooDb, int userId, string userPassword)
         {
-            _httpClient = new HttpClient();
-            _baseUrl = baseUrl.TrimEnd('/');
+            _odooUrl = odooUrl;
+            _odooDb = odooDb;
+            _userId = userId;
+            _userPassword = userPassword;
+            _client = new HttpClient();
         }
+
+        // 👉 Constructeur utilisé AVANT login (MainPage)
+        public OdooClient(string odooUrl)
+        {
+            _odooUrl = odooUrl;
+            _odooDb = string.Empty;
+            _userId = 0;
+            _userPassword = string.Empty;
+            _client = new HttpClient();
+        }
+
         private static string StateToFrench(string state) =>
-    state switch
-    {
-        "draft" => "Brouillon",
-        "confirm" => "En attente d'approbation",
-        "validate" => "Validé",
-        "refuse" => "Refusé",
-        "cancel" => "Annulé",
-        _ => state
-    };
+            state switch
+            {
+                "draft" => "Brouillon",
+                "confirm" => "En attente d'approbation",
+                "validate" => "Validé",
+                "refuse" => "Refusé",
+                "cancel" => "Annulé",
+                _ => state
+            };
+
+        // ---------------------------------------------------------
+        //  LOGIN
+        // ---------------------------------------------------------
 
         /// <summary>
         /// Authentifie l'utilisateur via JSON-RPC Odoo.
-        /// Retourne (success, rawResponse) pour faciliter le debug.
+        /// Retourne (success, userId, rawResponse) pour faciliter le debug.
         /// </summary>
         public async Task<(bool Success, int UserId, string RawResponse)> LoginAsync(
-    string db, string login, string password)
+            string db, string login, string password)
         {
-            var url = $"{_baseUrl}/jsonrpc";
+            var url = $"{baseUrl}/jsonrpc";
 
             var payload = new
             {
@@ -64,7 +86,7 @@ namespace PFE
             HttpResponseMessage response;
             try
             {
-                response = await _httpClient.PostAsync(url, content);
+                response = await _client.PostAsync(url, content);
             }
             catch (HttpRequestException ex)
             {
@@ -103,9 +125,17 @@ namespace PFE
             }
         }
 
-        public async Task<List<LeaveRecord>> GetLeavesAsync(string db, int uid, string password)
+        // ---------------------------------------------------------
+        //  LECTURE DES CONGÉS
+        // ---------------------------------------------------------
+
+        /// <summary>
+        /// Récupère les congés de l'utilisateur courant (_userId) dans Odoo.
+        /// Utilise _odooDb, _userId, _userPassword configurés dans le constructeur.
+        /// </summary>
+        public async Task<List<LeaveRecord>> GetLeavesAsync()
         {
-            var url = $"{_baseUrl}/jsonrpc";
+            var url = $"{baseUrl}/jsonrpc";
 
             var payload = new
             {
@@ -117,30 +147,29 @@ namespace PFE
                     method = "execute_kw",
                     args = new object[]
                     {
-                db,
-                uid,
-                password,
-                "hr.leave",      // modèle
-                "search_read",   // méthode
+                        _odooDb,
+                        _userId,
+                        _userPassword,
+                        "hr.leave",      // modèle
+                        "search_read",   // méthode
 
-                // ⬇⬇⬇ ICI : liste des arguments de search_read
-                // 1er argument = domaine []
-                new object[]
-                {
-                    new object[] { }   // domaine vide : []
-                },
+                        // domaine : ici vide, tu peux filtrer plus tard par employé
+                        new object[]
+                        {
+                            new object[] { }   // []
+                        },
 
-                // 2e argument = options (fields, limit, etc.)
-                new
-                {
-                    fields = new[]
-                    {
-                        "name",
-                        "state",
-                        "request_date_from",
-                        "request_date_to"
-                    }
-                }
+                        // options : champs à lire
+                        new
+                        {
+                            fields = new[]
+                            {
+                                "name",
+                                "state",
+                                "request_date_from",
+                                "request_date_to"
+                            }
+                        }
                     }
                 },
                 id = 2
@@ -149,7 +178,7 @@ namespace PFE
             var json = JsonSerializer.Serialize(payload);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            var response = await _httpClient.PostAsync(url, content);
+            var response = await _client.PostAsync(url, content);
             var responseString = await response.Content.ReadAsStringAsync();
 
             response.EnsureSuccessStatusCode();
@@ -163,7 +192,6 @@ namespace PFE
             if (!root.TryGetProperty("result", out var resultElement))
                 throw new Exception("Réponse Odoo inattendue : " + responseString);
 
-            // Odoo peut renvoyer false si pas de droits / pas de données
             if (resultElement.ValueKind == JsonValueKind.False)
                 return new List<LeaveRecord>();
 
@@ -205,7 +233,154 @@ namespace PFE
             return list;
         }
 
+        // ---------------------------------------------------------
+        //  CRÉATION D’UNE DEMANDE DE CONGÉ
+        // ---------------------------------------------------------
 
+        /// <summary>
+        /// Crée une demande de congé hr.leave dans Odoo.
+        /// Retourne l'identifiant de l'enregistrement créé.
+        /// </summary>
+        /// 
+        // Récupère l'employé lié à l'utilisateur courant (_userId)
+        private async Task<int> GetCurrentEmployeeIdAsync()
+        {
+            var url = $"{baseUrl}/jsonrpc";
+
+            var payload = new
+            {
+                jsonrpc = "2.0",
+                method = "call",
+                @params = new
+                {
+                    service = "object",
+                    method = "execute_kw",
+                    args = new object[]
+                    {
+                _odooDb,
+                _userId,
+                _userPassword,
+                "hr.employee",
+                "search_read",
+
+                // Domaine : hr.employee avec user_id = _userId
+                new object[]
+                {
+                    new object[] { "user_id", "=", _userId }
+                },
+
+                // Options
+                new
+                {
+                    fields = new[] { "id", "name" },
+                    limit = 1
+                }
+                    }
+                },
+                id = 10
+            };
+
+            var json = JsonSerializer.Serialize(payload);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var response = await _client.PostAsync(url, content);
+            var responseString = await response.Content.ReadAsStringAsync();
+
+            response.EnsureSuccessStatusCode();
+
+            using var doc = JsonDocument.Parse(responseString);
+            var root = doc.RootElement;
+
+            if (!root.TryGetProperty("result", out var resultElement) ||
+                resultElement.ValueKind != JsonValueKind.Array)
+            {
+                return 0;
+            }
+
+            var first = resultElement.EnumerateArray().FirstOrDefault();
+            if (first.ValueKind != JsonValueKind.Object)
+                return 0;
+
+            if (first.TryGetProperty("id", out var idEl) &&
+                idEl.ValueKind == JsonValueKind.Number)
+            {
+                return idEl.GetInt32();
+            }
+
+            return 0;
+        }
+
+        /// <summary>
+        /// Crée une demande de congé hr.leave dans Odoo
+        /// pour l'utilisateur courant (_userId / _userPassword).
+        /// </summary>
+        public async Task<int> CreateLeaveRequestAsync(
+     int leaveTypeId,
+     DateTime startDate,
+     DateTime endDate,
+     string reason)
+        {
+            // ⚠ TEMPORAIRE : forcer Maya Dévers (employee_id = 7)
+            int employeeId = 7;
+
+            var url = $"{baseUrl}/jsonrpc";
+
+            var values = new Dictionary<string, object>
+            {
+                ["employee_id"] = employeeId,
+                ["holiday_status_id"] = leaveTypeId,
+                ["request_date_from"] = startDate.ToString("yyyy-MM-dd"),
+                ["request_date_to"] = endDate.ToString("yyyy-MM-dd"),
+                ["name"] = string.IsNullOrWhiteSpace(reason)
+                                            ? "Demande de congé"
+                                            : reason
+            };
+
+            var payload = new
+            {
+                jsonrpc = "2.0",
+                method = "call",
+                @params = new
+                {
+                    service = "object",
+                    method = "execute_kw",
+                    args = new object[]
+                    {
+                _odooDb,
+                _userId,
+                _userPassword,
+                "hr.leave",
+                "create",
+                new object[]
+                {
+                    values
+                }
+                    }
+                },
+                id = 3
+            };
+
+            var json = JsonSerializer.Serialize(payload);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var response = await _client.PostAsync(url, content);
+            var responseString = await response.Content.ReadAsStringAsync();
+
+            response.EnsureSuccessStatusCode();
+
+            using var doc = JsonDocument.Parse(responseString);
+            var root = doc.RootElement;
+
+            if (root.TryGetProperty("error", out var errorElement))
+                throw new Exception("Erreur Odoo : " + errorElement.ToString());
+
+            if (!root.TryGetProperty("result", out var resultElement))
+                throw new Exception("Réponse Odoo inattendue : " + responseString);
+
+            if (resultElement.ValueKind != JsonValueKind.Number)
+                throw new Exception("Réponse Odoo inattendue (result n'est pas un entier) : " + responseString);
+
+            return resultElement.GetInt32();
+        }
     }
 }
-

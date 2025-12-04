@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="PFE.LeaveRequestPage"
+             Title="Demande de congé">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="20" Spacing="15">
+
+            <Label Text="Nouvelle demande de congé"
+                   FontSize="22"
+                   FontAttributes="Bold"
+                   HorizontalOptions="Center" />
+
+            <!-- Type de congé -->
+            <Label Text="Type de congé" />
+            <Picker x:Name="LeaveTypePicker"
+                    Title="Choisissez un type de congé" />
+
+            <!-- Date de début -->
+            <Label Text="Date de début" />
+            <DatePicker x:Name="StartDatePicker" />
+
+            <!-- Date de fin -->
+            <Label Text="Date de fin" />
+            <DatePicker x:Name="EndDatePicker" />
+
+            <!-- Motif -->
+            <Label Text="Motif (optionnel)" />
+            <Editor x:Name="ReasonEditor"
+                    AutoSize="TextChanges"
+                    HeightRequest="100"
+                    Placeholder="Ex : Vacances, rendez-vous médical..." />
+
+            <!-- Indicateur de chargement -->
+            <ActivityIndicator x:Name="LoadingIndicator"
+                               IsVisible="False"
+                               IsRunning="False" />
+
+            <!-- Bouton envoyer -->
+            <Button x:Name="SubmitButton"
+                    Text="Envoyer la demande"
+                    BackgroundColor="#0078D7"
+                    TextColor="White"
+                    CornerRadius="10"
+                    HeightRequest="50"
+                    Clicked="SubmitButton_Clicked" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>

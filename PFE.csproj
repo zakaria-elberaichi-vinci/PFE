@@ -68,6 +68,9 @@
 	  <MauiXaml Update="DashboardPage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
+	  <MauiXaml Update="LeaveRequestPage.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </MauiXaml>
 	  <MauiXaml Update="LeavesPage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>

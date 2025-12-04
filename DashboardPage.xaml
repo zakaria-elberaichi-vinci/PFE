@@ -17,11 +17,18 @@
                    TextColor="Green" />
 
             <Button Text="Voir mes congés"
-                    x:Name="BtnLeaves"
-                    BackgroundColor="#0078D7"
-                    TextColor="White"
-                    CornerRadius="10"
-                    HeightRequest="50" />
+                x:Name="BtnLeaves"
+                BackgroundColor="#0078D7"
+                TextColor="White"
+                CornerRadius="10"
+                HeightRequest="50" />
+
+            <Button Text="Rentrer une demande de congé"
+                x:Name="BtnNewLeave"
+                BackgroundColor="#FF9800"
+                TextColor="White"
+                CornerRadius="10"
+                HeightRequest="50" />
 
             <Button Text="Voir mes informations"
                     x:Name="BtnProfile"

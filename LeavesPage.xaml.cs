@@ -1,48 +1,55 @@
-using System;
-using System.Collections.Generic;
+ï»¿using Microsoft.Maui.Controls;
+using System.Collections.ObjectModel;
 
 namespace PFE;
 
 public partial class LeavesPage : ContentPage
 {
-    private readonly OdooClient _client;
-    private readonly string _db;
-    private readonly int _userId;
-    private readonly string _password;
+    private readonly OdooClient _odooClient;
 
-    public LeavesPage(string baseUrl, string db, int userId, string password)
+    public ObservableCollection<LeaveRecord> Leaves { get; } = new();
+
+    public LeavesPage(string odooUrl, string odooDb, int userId, string userPassword)
     {
         InitializeComponent();
 
-        _client = new OdooClient(baseUrl);
-        _db = db;
-        _userId = userId;
-        _password = password;
+        _odooClient = new OdooClient(odooUrl, odooDb, userId, userPassword);
+
+        LeavesCollectionView.ItemsSource = Leaves;
     }
 
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        await LoadLeavesAsync();
+    }
 
+    private async Task LoadLeavesAsync()
+    {
         try
         {
-            var leaves = await _client.GetLeavesAsync(_db, _userId, _password);
+            LoadingIndicator.IsVisible = true;
+            LoadingIndicator.IsRunning = true;
+            EmptyLabel.IsVisible = false;
+            Leaves.Clear();
 
-            if (leaves.Count == 0)
-            {
-                await DisplayAlert("Info", "Aucun congé trouvé pour cet utilisateur.", "OK");
-            }
+            var leaves = await _odooClient.GetLeavesAsync();
 
-            LeavesCollection.ItemsSource = leaves;
+            foreach (var leave in leaves)
+                Leaves.Add(leave);
+
+            EmptyLabel.IsVisible = Leaves.Count == 0;
         }
         catch (Exception ex)
         {
-            // on affiche le message complet pour voir la réponse Odoo
             await DisplayAlert("Erreur",
-                "Impossible de charger vos congés :\n\n" + ex.Message,
+                "Impossible de charger les congÃ©s.\n\nDÃ©tails : " + ex.Message,
                 "OK");
+        }
+        finally
+        {
+            LoadingIndicator.IsVisible = false;
+            LoadingIndicator.IsRunning = false;
         }
     }
 }
-
-

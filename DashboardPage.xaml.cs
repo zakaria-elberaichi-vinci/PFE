@@ -27,6 +27,15 @@ public partial class DashboardPage : ContentPage
                 App.UserPassword
             ));
         };
+        BtnNewLeave.Clicked += async (s, e) =>
+        {
+            await Navigation.PushAsync(new LeaveRequestPage(
+                App.OdooUrl,
+                App.OdooDb,
+                App.UserId,
+                App.UserPassword
+            ));
+        };
+
     }
-}
-    
+    }

@@ -4,32 +4,50 @@
              x:Class="PFE.LeavesPage"
              Title="Mes congés">
 
-    <ContentPage.Content>
-        <VerticalStackLayout Padding="20" Spacing="10">
-            <Label Text="Mes congés"
-                   FontSize="24"
-                   HorizontalOptions="Center"
-                   Margin="0,0,0,10" />
+    <VerticalStackLayout Padding="20" Spacing="10">
 
-            <CollectionView x:Name="LeavesCollection">
-                <CollectionView.ItemTemplate>
-                    <DataTemplate>
-                        <Frame Margin="0,5"
-                               Padding="10"
-                               CornerRadius="8"
-                               HasShadow="True">
-                            <VerticalStackLayout Spacing="4">
-                                <Label Text="{Binding Name}"
-                                       FontAttributes="Bold" />
-                                <Label Text="{Binding Period}"
-                                       FontSize="12" />
-                                <Label Text="{Binding Status}"
-                                       FontSize="12" />
-                            </VerticalStackLayout>
-                        </Frame>
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-            </CollectionView>
-        </VerticalStackLayout>
-    </ContentPage.Content>
+        <Label Text="Mes congés"
+               FontSize="22"
+               FontAttributes="Bold"
+               HorizontalOptions="Center" />
+
+        <!-- Indicateur de chargement -->
+        <ActivityIndicator x:Name="LoadingIndicator"
+                           IsVisible="False"
+                           IsRunning="False" />
+
+        <!-- Liste des congés -->
+        <CollectionView x:Name="LeavesCollectionView">
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Frame Margin="0,5"
+                   Padding="10"
+                   HasShadow="True"
+                   CornerRadius="10">
+                        <VerticalStackLayout>
+                            <!-- Titre du congé -->
+                            <Label Text="{Binding Name}"
+                           FontAttributes="Bold" />
+
+                            <!-- Période -->
+                            <Label Text="{Binding Period}" />
+
+                            <!-- Statut -->
+                            <Label Text="{Binding Status}"
+                           TextColor="Gray" />
+                        </VerticalStackLayout>
+                    </Frame>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+
+        <!-- Message vide -->
+        <Label x:Name="EmptyLabel"
+               Text="Aucun congé trouvé."
+               IsVisible="False"
+               HorizontalOptions="Center"
+               TextColor="Gray" />
+
+    </VerticalStackLayout>
 </ContentPage>
