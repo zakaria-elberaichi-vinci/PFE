@@ -27,65 +27,14 @@ public partial class UserProfilePage : ContentPage
     {
         try
         {
-            using var client = new HttpClient();
+            var client = new OdooClient(_url);
+            var userInfo = await client.GetUserInfoAsync(_db, _userId, _password);
 
-            var payload = new
-            {
-                jsonrpc = "2.0",
-                method = "call",
-                @params = new
-                {
-                    service = "object",
-                    method = "execute_kw",
-                    args = new object[]
-         {
-            _db,
-            _userId,
-            _password,
-            "hr.employee",
-            "search_read",
-            new object[]
-            {
-                new object[]
-                {
-                    new object[] { "user_id", "=", _userId }
-                }
-            },
-            new
-            {
-                fields = new[]
-                {
-                    "name",
-                    "work_email",
-                    "job_title",
-                    "department_id",
-                    "parent_id"
-                }
-            }
-         }
-                }
-            };
-
-
-            var content = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
-
-            var response = await client.PostAsync($"{_url}/jsonrpc", content);
-            var resultString = await response.Content.ReadAsStringAsync();
-
-            var json = JsonSerializer.Deserialize<JsonElement>(resultString);
-
-            var records = json.GetProperty("result").GetProperty("result");
-
-            if (records.GetArrayLength() > 0)
-            {
-                var user = records[0];
-
-                LblName.Text = user.GetProperty("name").GetString();
-                LblEmail.Text = user.GetProperty("work_email").GetString();
-                LblJob.Text = user.GetProperty("job_title").GetString();
-                LblDepartment.Text = user.GetProperty("department_id")[1].GetString();
-                LblManager.Text = user.GetProperty("parent_id")[1].GetString();
-            }
+            LblName.Text = userInfo.Name;
+            LblEmail.Text = userInfo.WorkEmail;
+            LblJob.Text = userInfo.JobTitle;
+            LblDepartment.Text = userInfo.Department;
+            LblManager.Text = userInfo.Manager;
         }
         catch (Exception ex)
         {
@@ -93,3 +42,4 @@ public partial class UserProfilePage : ContentPage
         }
     }
 }
+

@@ -14,6 +14,15 @@ namespace PFE
         public string Status { get; set; } = "";
     }
 
+    public class UserInfo
+    {
+        public string Name { get; set; } = "";
+        public string WorkEmail { get; set; } = "";
+        public string JobTitle { get; set; } = "";
+        public string Department { get; set; } = "";
+        public string Manager { get; set; } = "";
+    }
+
     public class OdooClient
     {
         private readonly HttpClient _httpClient;
@@ -203,6 +212,171 @@ namespace PFE
             }
 
             return list;
+        }
+
+        public async Task<UserInfo> GetUserInfoAsync(string db, int uid, string password)
+        {
+            var url = $"{_baseUrl}/jsonrpc";
+
+            var payload = new
+            {
+                jsonrpc = "2.0",
+                method = "call",
+                @params = new
+                {
+                    service = "object",
+                    method = "execute_kw",
+                    args = new object[]
+                    {
+                        db,
+                        uid,
+                        password,
+                        "hr.employee",
+                        "search_read",
+                        new object[]
+                        {
+                            new object[]
+                            {
+                                new object[] { "user_id", "=", uid }
+                            }
+                        },
+                        new
+                        {
+                            fields = new[]
+                            {
+                                "name",
+                                "work_email",
+                                "job_title",
+                                "department_id",
+                                "parent_id"
+                            }
+                        }
+                    }
+                },
+                id = 3
+            };
+
+            var json = JsonSerializer.Serialize(payload);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.PostAsync(url, content);
+            var responseString = await response.Content.ReadAsStringAsync();
+
+            response.EnsureSuccessStatusCode();
+
+            using var doc = JsonDocument.Parse(responseString);
+            var root = doc.RootElement;
+
+            if (root.TryGetProperty("error", out var errorElement))
+            {
+                // Si erreur de permissions, utiliser res.users comme fallback
+                return await GetUserInfoFallbackAsync(db, uid, password);
+            }
+
+            if (!root.TryGetProperty("result", out var resultElement))
+                throw new Exception("Réponse Odoo inattendue : " + responseString);
+
+            if (resultElement.ValueKind == JsonValueKind.False)
+                return new UserInfo();
+
+            if (resultElement.ValueKind != JsonValueKind.Array || resultElement.GetArrayLength() == 0)
+                return new UserInfo();
+
+            var user = resultElement[0];
+
+            string name = "";
+            if (user.TryGetProperty("name", out var nameEl) && nameEl.ValueKind == JsonValueKind.String)
+                name = nameEl.GetString() ?? "";
+
+            string email = "";
+            if (user.TryGetProperty("work_email", out var emailEl) && emailEl.ValueKind == JsonValueKind.String)
+                email = emailEl.GetString() ?? "";
+
+            string jobTitle = "";
+            if (user.TryGetProperty("job_title", out var jobEl) && jobEl.ValueKind == JsonValueKind.String)
+                jobTitle = jobEl.GetString() ?? "";
+
+            string department = "";
+            if (user.TryGetProperty("department_id", out var deptEl) && deptEl.ValueKind == JsonValueKind.Array && deptEl.GetArrayLength() > 1)
+                if (deptEl[1].ValueKind == JsonValueKind.String)
+                    department = deptEl[1].GetString() ?? "";
+
+            string manager = "";
+            if (user.TryGetProperty("parent_id", out var parentEl) && parentEl.ValueKind == JsonValueKind.Array && parentEl.GetArrayLength() > 1)
+                if (parentEl[1].ValueKind == JsonValueKind.String)
+                    manager = parentEl[1].GetString() ?? "";
+
+            return new UserInfo
+            {
+                Name = name,
+                WorkEmail = email,
+                JobTitle = jobTitle,
+                Department = department,
+                Manager = manager
+            };
+        }
+
+        private async Task<UserInfo> GetUserInfoFallbackAsync(string db, int uid, string password)
+        {
+            var url = $"{_baseUrl}/jsonrpc";
+
+            var payload = new
+            {
+                jsonrpc = "2.0",
+                method = "call",
+                @params = new
+                {
+                    service = "object",
+                    method = "execute_kw",
+                    args = new object[]
+                    {
+                        db,
+                        uid,
+                        password,
+                        "res.users",
+                        "read",
+                        new object[] { uid },
+                        new
+                        {
+                            fields = new[] { "name", "email", "login" }
+                        }
+                    }
+                },
+                id = 4
+            };
+
+            var json = JsonSerializer.Serialize(payload);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.PostAsync(url, content);
+            var responseString = await response.Content.ReadAsStringAsync();
+
+            response.EnsureSuccessStatusCode();
+
+            using var doc = JsonDocument.Parse(responseString);
+            var root = doc.RootElement;
+
+            if (!root.TryGetProperty("result", out var resultElement) || resultElement.ValueKind != JsonValueKind.Array || resultElement.GetArrayLength() == 0)
+                return new UserInfo();
+
+            var user = resultElement[0];
+
+            string name = "";
+            if (user.TryGetProperty("name", out var nameEl) && nameEl.ValueKind == JsonValueKind.String)
+                name = nameEl.GetString() ?? "";
+
+            string email = "";
+            if (user.TryGetProperty("email", out var emailEl) && emailEl.ValueKind == JsonValueKind.String)
+                email = emailEl.GetString() ?? "";
+
+            return new UserInfo
+            {
+                Name = name,
+                WorkEmail = email,
+                JobTitle = "Non disponible (droits insuffisants)",
+                Department = "Non disponible (droits insuffisants)",
+                Manager = "Non disponible (droits insuffisants)"
+            };
         }
 
 
