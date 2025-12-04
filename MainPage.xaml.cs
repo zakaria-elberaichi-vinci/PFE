@@ -33,21 +33,21 @@ public partial class MainPage : ContentPage
 
         try
         {
-            var (success, raw) = await _client.LoginAsync(OdooDb, login, password);
+            var (success, userId, raw) = await _client.LoginAsync(OdooDb, login, password);
 
             if (success)
             {
                 ResultLabel.Text = "✅ Connexion réussie à Odoo !";
                 ResultLabel.TextColor = Colors.Green;
 
-                // On peut garder les infos globalement si tu veux les réutiliser
-                App.UserId = 0;               // pour l'instant on ne récupère pas encore l'id
-                App.UserPassword = password;  // si tu veux le réutiliser ensuite
+                // ⚠️ NE PLUS METTRE 0 ICI
+                App.OdooUrl = OdooUrl;
+                App.OdooDb = OdooDb;
+                App.UserId = userId;      // <-- très important
+                App.UserPassword = password;
 
-                // ⬇⬇⬇ NAVIGATION VERS LA PAGE D'ACCUEIL
                 await Navigation.PushAsync(new DashboardPage());
             }
-
             else
             {
                 ResultLabel.Text = "❌ Échec de la connexion.\n\nDétails Odoo :\n" + raw;

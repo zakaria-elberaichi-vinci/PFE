@@ -8,9 +8,14 @@ public partial class DashboardPage : ContentPage
     {
         InitializeComponent();
 
-        BtnLeaves.Clicked += (s, e) =>
+        BtnLeaves.Clicked += async (s, e) =>
         {
-            DisplayAlert("Congés", "Ici on affichera les congés Odoo.", "OK");
+            await Navigation.PushAsync(new LeavesPage(
+                App.OdooUrl,
+                App.OdooDb,
+                App.UserId,
+                App.UserPassword
+            ));
         };
 
         BtnProfile.Clicked += (s, e) =>
