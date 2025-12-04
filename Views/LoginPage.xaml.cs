@@ -32,22 +32,20 @@ public partial class LoginPage : ContentPage
 
         try
         {
-            var (success, raw) = await _client.LoginAsync(login, password);
+            var (success, userId, raw) = await _client.LoginAsync(login, password);
 
             if (success)
             {
                 ResultLabel.Text = "✅ Connexion réussie à Odoo !";
                 ResultLabel.TextColor = Colors.Green;
 
-                // On peut garder les infos globalement si tu veux les réutiliser
-                _configService.UserId = 0;               // pour l'instant on ne récupère pas encore l'id
-                _configService.UserPassword = password;  // si tu veux le réutiliser ensuite
+                _configService.UserId = userId;
+                _configService.UserPassword = password;
 
-                // ⬇⬇⬇ NAVIGATION VERS LA PAGE D'ACCUEIL
-                await Navigation.PushAsync(new DashboardPage());
+                var dashboardPage = App.Services.GetService<DashboardPage>();
+                await Navigation.PushAsync(dashboardPage);
 
             }
-
             else
             {
                 ResultLabel.Text = "❌ Échec de la connexion.\n\nDétails Odoo :\n" + raw;

@@ -20,6 +20,9 @@ namespace PFE
 
             builder.Services.AddTransient<LoginPage>();
             builder.Services.AddTransient<UserProfilePage>();
+            builder.Services.AddTransient<DashboardPage>();
+            builder.Services.AddTransient<LeavesPage>();
+
 #if DEBUG
             builder.Logging.AddDebug();
 #endif

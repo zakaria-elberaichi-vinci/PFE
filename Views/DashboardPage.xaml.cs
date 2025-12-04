@@ -5,13 +5,15 @@ namespace PFE;
 
 public partial class DashboardPage : ContentPage
 {
-    public DashboardPage()
+
+    public DashboardPage(OdooConfigService configService)
     {
         InitializeComponent();
 
-        BtnLeaves.Clicked += (s, e) =>
+        BtnLeaves.Clicked += async (s, e) =>
         {
-            DisplayAlert("Congés", "Ici on affichera les congés Odoo.", "OK");
+            var leavesPage = App.Services.GetService<LeavesPage>();
+            await Navigation.PushAsync(leavesPage);
         };
 
         BtnProfile.Clicked += (s, e) =>
@@ -21,3 +23,4 @@ public partial class DashboardPage : ContentPage
         };
     }
 }
+    
