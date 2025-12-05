@@ -1,61 +1,19 @@
-﻿using PFE.Services;
+﻿using PFE.ViewModels;
 
-namespace PFE;
+namespace PFE.Views;
 
 public partial class LoginPage : ContentPage
 {
-    private readonly OdooConfigService _configService;
-    private readonly OdooClient _client;
-
-    public LoginPage(OdooConfigService configService, OdooClient client)
+    public LoginPage(AuthenticationViewModel vm, IServiceProvider services)
     {
         InitializeComponent();
-        _client = client;
-        _configService = configService;
-    }
+        BindingContext = vm;
 
-    private async void OnLoginClicked(object sender, EventArgs e)
-    {
-        ResultLabel.Text = "Connexion en cours...";
-        ResultLabel.TextColor = Colors.White;
-
-        string login = LoginEntry.Text?.Trim();
-        string password = PasswordEntry.Text?.Trim();
-
-        if (string.IsNullOrWhiteSpace(login) ||
-            string.IsNullOrWhiteSpace(password))
+        vm.OnLoginSucceeded = async () =>
         {
-            ResultLabel.Text = "Veuillez remplir login et mot de passe.";
-            ResultLabel.TextColor = Colors.Red;
-            return;
-        }
+            DashboardPage dashboardPage = services.GetRequiredService<DashboardPage>();
+            await Navigation.PushAsync(dashboardPage);
+        };
 
-        try
-        {
-            var (success, userId, raw) = await _client.LoginAsync(login, password);
-
-            if (success)
-            {
-                ResultLabel.Text = "✅ Connexion réussie à Odoo !";
-                ResultLabel.TextColor = Colors.Green;
-
-                _configService.UserId = userId;
-                _configService.UserPassword = password;
-
-                var dashboardPage = App.Services.GetService<DashboardPage>();
-                await Navigation.PushAsync(dashboardPage);
-
-            }
-            else
-            {
-                ResultLabel.Text = "❌ Échec de la connexion.\n\nDétails Odoo :\n" + raw;
-                ResultLabel.TextColor = Colors.Red;
-            }
-        }
-        catch (Exception ex)
-        {
-            ResultLabel.Text = $"Erreur : {ex.Message}";
-            ResultLabel.TextColor = Colors.Red;
-        }
     }
 }

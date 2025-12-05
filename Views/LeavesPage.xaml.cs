@@ -1,45 +1,22 @@
-using System;
-using System.Collections.Generic;
-using PFE.Services;
+using PFE.ViewModels;
 
-namespace PFE;
-
-public partial class LeavesPage : ContentPage
+namespace PFE.Views
 {
-    private readonly OdooConfigService _configService;
-    private readonly OdooClient _client;
-
-    public LeavesPage(OdooConfigService configService, OdooClient client)
+    public partial class LeavesPage : ContentPage
     {
-        InitializeComponent();
+        private readonly LeaveViewModel _vm;
 
-        _configService = configService;
-        _client = client;
-    }
-
-    protected override async void OnAppearing()
-    {
-        base.OnAppearing();
-
-        try
+        public LeavesPage(LeaveViewModel vm)
         {
-            var leaves = await _client.GetLeavesAsync();
-
-            if (leaves.Count == 0)
-            {
-                await DisplayAlert("Info", "Aucun congé trouvé pour cet utilisateur.", "OK");
-            }
-
-            LeavesCollection.ItemsSource = leaves;
+            InitializeComponent();
+            _vm = vm;
+            BindingContext = _vm;
         }
-        catch (Exception ex)
+
+        protected override async void OnAppearing()
         {
-            // on affiche le message complet pour voir la réponse Odoo
-            await DisplayAlert("Erreur",
-                "Impossible de charger vos congés :\n\n" + ex.Message,
-                "OK");
+            base.OnAppearing();
+            await _vm.LoadAsync();
         }
     }
 }
-
-

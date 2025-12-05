@@ -1,26 +1,26 @@
-using Microsoft.Maui.Controls;
-using PFE.Services;
+using PFE.ViewModels;
 
-namespace PFE;
+namespace PFE.Views;
 
 public partial class DashboardPage : ContentPage
 {
-
-    public DashboardPage(OdooConfigService configService)
+    private readonly IServiceProvider _services;
+    public DashboardPage(AppViewModel vm, IServiceProvider services)
     {
         InitializeComponent();
+        _services = services;
+        BindingContext = vm;
 
         BtnLeaves.Clicked += async (s, e) =>
         {
-            var leavesPage = App.Services.GetService<LeavesPage>();
+            LeavesPage leavesPage = _services.GetRequiredService<LeavesPage>();
             await Navigation.PushAsync(leavesPage);
         };
 
-        BtnProfile.Clicked += (s, e) =>
+        BtnProfile.Clicked += async (s, e) =>
         {
-            var userProfilePage = App.Services.GetService<UserProfilePage>();
-            Navigation.PushAsync(userProfilePage);
+            UserProfilePage userProfilePage = _services.GetRequiredService<UserProfilePage>();
+            await Navigation.PushAsync(userProfilePage);
         };
     }
 }
-    

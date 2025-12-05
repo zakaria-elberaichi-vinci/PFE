@@ -1,16 +1,13 @@
-﻿namespace PFE;
+﻿using PFE.Views;
+
+namespace PFE;
 
 public partial class App : Application
 {
-    public static IServiceProvider Services { get; private set; }
-
-    public App(IServiceProvider serviceProvider)
+    public App(LoginPage loginPage)
     {
         InitializeComponent();
 
-        Services = serviceProvider;
-
-        var loginPage = serviceProvider.GetService<LoginPage>();
         MainPage = new NavigationPage(loginPage);
     }
 }
