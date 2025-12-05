@@ -231,7 +231,7 @@ namespace PFE
                         db,
                         uid,
                         password,
-                        "hr.employee",
+                        "hr.employee.public",
                         "search_read",
                         new object[]
                         {
