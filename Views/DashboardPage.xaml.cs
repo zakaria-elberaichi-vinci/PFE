@@ -23,4 +23,13 @@ public partial class DashboardPage : ContentPage
             await Navigation.PushAsync(userProfilePage);
         };
     }
+
+    protected override async void OnAppearing()
+    {
+        base.OnAppearing();
+
+        bool isManager = await App.OdooClient.UserIsLeaveManagerAsync();
+        ManageLeavesButton.IsVisible = isManager;
+    }
+
 }
