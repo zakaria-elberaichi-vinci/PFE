@@ -311,6 +311,49 @@ namespace PFE.Services
             }
         }
 
+        public async Task<bool> UserIsLeaveManagerAsync()
+        {
+            EnsureAuthenticated();
+
+            var payload = new
+            {
+                jsonrpc = "2.0",
+                method = "call",
+                @params = new
+                {
+                    model = "res.users",
+                    method = "read",
+                    args = new object[] {
+                new int[] { UserId.Value },
+                new string[] { "groups_id" }
+            }
+                },
+                id = 10
+            };
+
+            var res = await _httpClient.PostAsync("/web/dataset/call_kw", BuildJsonContent(payload));
+            string text = await res.Content.ReadAsStringAsync();
+
+            using var doc = JsonDocument.Parse(text);
+            var root = doc.RootElement;
+
+            if (!root.TryGetProperty("result", out var result))
+                return false;
+
+            var arr = result[0];
+            var groups = arr.GetProperty("groups_id");
+
+            foreach (var g in groups.EnumerateArray())
+            {
+                int groupId = g.GetInt32();
+                if (groupId == 19) // TON ID de groupe "Time Off Responsible"
+                    return true;
+            }
+
+            return false;
+        }
+
+
     }
 }
 
