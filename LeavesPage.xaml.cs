@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Microsoft.Maui.Controls;
 
 namespace PFE;
 
@@ -30,19 +31,87 @@ public partial class LeavesPage : ContentPage
 
             if (leaves.Count == 0)
             {
-                await DisplayAlert("Info", "Aucun congé trouvé pour cet utilisateur.", "OK");
+                await DisplayAlert("Info", "Aucun conge trouve pour cet utilisateur.", "OK");
+                return;
             }
 
-            LeavesCollection.ItemsSource = leaves;
+            // Remplir la VerticalStackLayout avec les items
+            LeavesCollection.Children.Clear();
+            foreach (var leave in leaves)
+            {
+                var frame = new Frame
+                {
+                    Padding = 10,
+                    CornerRadius = 8,
+                    HasShadow = true,
+                    BorderColor = Colors.Transparent,
+                    BackgroundColor = Color.FromArgb("#33000000"),  // Noir semi-transparent (20% opacité)
+                    Content = new VerticalStackLayout
+                    {
+                        Spacing = 8,
+                        Children =
+                        {
+                            new Label
+                            {
+                                Text = leave.Name,
+                                FontAttributes = FontAttributes.Bold,
+                                FontSize = 14
+                            },
+                            new Label
+                            {
+                                Text = "Periode",
+                                FontSize = 10,
+                                TextColor = Color.FromArgb("#999999")
+                            },
+                            new Label
+                            {
+                                Text = leave.Period,
+                                FontSize = 12,
+                                TextColor = Color.FromArgb("#666666")
+                            },
+                            new Label
+                            {
+                                Text = "Statut",
+                                FontSize = 10,
+                                TextColor = Color.FromArgb("#999999"),
+                                Margin = new Thickness(0, 5, 0, 0)
+                            },
+                            CreateStatusBadge(leave.Status)
+                        }
+                    }
+                };
+
+                LeavesCollection.Children.Add(frame);
+            }
         }
         catch (Exception ex)
         {
-            // on affiche le message complet pour voir la réponse Odoo
             await DisplayAlert("Erreur",
-                "Impossible de charger vos congés :\n\n" + ex.Message,
+                "Impossible de charger vos conges :\n\n" + ex.Message,
                 "OK");
         }
     }
+
+    private Frame CreateStatusBadge(string status)
+    {
+        var statusColorConverter = new Helpers.StatusColorConverter();
+        var backgroundColor = (Color)statusColorConverter.Convert(status, typeof(Color), null, System.Globalization.CultureInfo.CurrentCulture);
+
+        return new Frame
+        {
+            Padding = new Thickness(8, 4),
+            CornerRadius = 4,
+            BorderColor = Colors.Transparent,
+            HasShadow = false,
+            BackgroundColor = backgroundColor,
+            Content = new Label
+            {
+                Text = status,
+                FontSize = 11,
+                FontAttributes = FontAttributes.Bold,
+                TextColor = Colors.White,
+                HorizontalOptions = LayoutOptions.Center
+            }
+        };
+    }
 }
-
-

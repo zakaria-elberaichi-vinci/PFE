@@ -13,8 +13,8 @@ public static class LeaveNameTranslator
         { "Unpredictable Reason", "Raison imprévisible" },
         { "Credit Time", "Temps de crédit" },
         { "Work Accident Time Off", "Congé accident du travail" },
-         { "Time Off", "Congé" },
-       
+        { "Time Off", "Congé" },
+        { "Compensatory Days", "Jours de compensation" }
     };
 
     public static string Translate(string englishName)

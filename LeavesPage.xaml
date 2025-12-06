@@ -12,49 +12,9 @@
     </ContentPage.Resources>
 
     <ContentPage.Content>
-        <VerticalStackLayout Padding="20" Spacing="10">
-            <Label Text="Mes congés"
-                   FontSize="24"
-                   HorizontalOptions="Center"
-                   Margin="0,0,0,10" />
-
-            <!-- ScrollView interne pour meilleur contrôle du scroll -->
-            <ScrollView VerticalOptions="FillAndExpand">
-                <VerticalStackLayout Spacing="10" Padding="0,0,0,20">
-                    <CollectionView x:Name="LeavesCollection">
-                        <CollectionView.ItemTemplate>
-                    <DataTemplate>
-                        <Frame Margin="0,5"
-                               Padding="10"
-                               CornerRadius="8"
-                               HasShadow="True">
-                            <VerticalStackLayout Spacing="8">
-                                <Label Text="{Binding Name}"
-                                       FontAttributes="Bold"
-                                       FontSize="14" />
-                                <Label Text="{Binding Period}"
-                                       FontSize="12"
-                                       TextColor="#666666" />
-                                
-                                <!-- Status avec badge coloré -->
-                                <Frame Padding="8,4"
-                                       CornerRadius="4"
-                                       BorderColor="Transparent"
-                                       HasShadow="False"
-                                       BackgroundColor="{Binding Status, Converter={StaticResource StatusColorConverter}}">
-                                    <Label Text="{Binding Status}"
-                                           FontSize="11"
-                                           FontAttributes="Bold"
-                                           TextColor="White"
-                                           HorizontalOptions="Center" />
-                                </Frame>
-                            </VerticalStackLayout>
-                        </Frame>
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-                    </CollectionView>
-                </VerticalStackLayout>
-            </ScrollView>
-        </VerticalStackLayout>
+        <!-- ScrollView directement sans header blanc -->
+        <ScrollView VerticalOptions="FillAndExpand" Padding="20">
+            <VerticalStackLayout x:Name="LeavesCollection" Spacing="12" Padding="0,0,0,30" />
+        </ScrollView>
     </ContentPage.Content>
 </ContentPage>
