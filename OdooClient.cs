@@ -1,7 +1,9 @@
-﻿using System.Net.Http;
+﻿using System.Diagnostics;
+using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using PFE.Helpers;
 
 
 namespace PFE
@@ -135,7 +137,7 @@ namespace PFE
                 {
                     fields = new[]
                     {
-                        "name",
+                        "holiday_status_id",
                         "state",
                         "request_date_from",
                         "request_date_to"
@@ -174,10 +176,18 @@ namespace PFE
 
             foreach (var item in resultElement.EnumerateArray())
             {
+                Debug.WriteLine("Item : " + item.ToString());
+                
+                // Récupérer le nom du type de congé depuis holiday_status_id [id, name]
                 string name = "";
-                if (item.TryGetProperty("name", out var nameEl) &&
-                    nameEl.ValueKind == JsonValueKind.String)
-                    name = nameEl.GetString() ?? "";
+                if (item.TryGetProperty("holiday_status_id", out var holidayStatusEl) &&
+                    holidayStatusEl.ValueKind == JsonValueKind.Array &&
+                    holidayStatusEl.GetArrayLength() > 1)
+                {
+                    var nameElement = holidayStatusEl[1];
+                    if (nameElement.ValueKind == JsonValueKind.String)
+                        name = nameElement.GetString() ?? "";
+                }
 
                 string from = "";
                 if (item.TryGetProperty("request_date_from", out var fromEl) &&
@@ -193,10 +203,12 @@ namespace PFE
                 if (item.TryGetProperty("state", out var stateEl) &&
                     stateEl.ValueKind == JsonValueKind.String)
                     state = stateEl.GetString() ?? "";
+                
+                Debug.WriteLine($"[GetLeavesAsync] Nom du congé: '{name}' | État: '{state}'");
 
                 list.Add(new LeaveRecord
                 {
-                    Name = string.IsNullOrWhiteSpace(name) ? "Congé" : name,
+                    Name = LeaveNameTranslator.Translate(name),
                     Period = $"{from} → {to}",
                     Status = StateToFrench(state)
                 });
