@@ -8,7 +8,7 @@
     <ScrollView>
         <VerticalStackLayout Padding="20" Spacing="25">
 
-            <Label Text="Bienvenue dans l'application PFE 🎉"
+            <Label Text="Bienvenue dans l'application PFE"
                    FontSize="24"
                    HorizontalOptions="Center" />
 
@@ -30,6 +30,12 @@
                     TextColor="White"
                     CornerRadius="10"
                     HeightRequest="50" />
+
+            <Button
+                    x:Name="ManageLeavesButton"
+                    Text="Gérer les demandes de congés"
+                    IsVisible="False"
+                    Clicked="ManageLeavesButton_Clicked"/>
 
         </VerticalStackLayout>
     </ScrollView>
