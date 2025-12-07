@@ -224,7 +224,7 @@ namespace PFE.Services
                 new object[] { },
                 new string[]
                 {
-                    "name",
+                    "holiday_status_id",
                     "state",
                     "request_date_from",
                     "request_date_to"
@@ -266,9 +266,14 @@ namespace PFE.Services
             foreach (var item in result.EnumerateArray())
             {
                 string name = "";
-                if (item.TryGetProperty("name", out var nameEl) &&
-                    nameEl.ValueKind == JsonValueKind.String)
-                    name = nameEl.GetString() ?? "";
+                if (item.TryGetProperty("holiday_status_id", out var holidayStatusEl) &&
+                    holidayStatusEl.ValueKind == JsonValueKind.Array &&
+                    holidayStatusEl.GetArrayLength() > 1)
+                {
+                    var nameElement = holidayStatusEl[1];
+                    if (nameElement.ValueKind == JsonValueKind.String)
+                        name = nameElement.GetString() ?? "";
+                }
 
                 string from = "";
                 if (item.TryGetProperty("request_date_from", out var fromEl) &&
@@ -286,7 +291,7 @@ namespace PFE.Services
                     state = stateEl.GetString() ?? "";
 
                 list.Add(new Leave(
-                    string.IsNullOrWhiteSpace(name) ? "Congé" : name,
+                    LeaveNameTranslator.Translate(name),
                     $"{from} → {to}",
                     LeaveStatusHelper.StateToFrench(state)
                     ));
