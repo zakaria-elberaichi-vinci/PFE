@@ -31,6 +31,13 @@
                     CornerRadius="10"
                     HeightRequest="50" />
 
+            <Button Text="Voir le calendrier"
+                    x:Name="BtnCalendar"
+                    BackgroundColor="#0078D7"
+                    TextColor="White"
+                    CornerRadius="10"
+                    HeightRequest="50" />
+
         </VerticalStackLayout>
     </ScrollView>
 

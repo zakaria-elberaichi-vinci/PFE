@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using PFE.Services;
 using PFE.ViewModels;
 using PFE.Views;
+using Syncfusion.Maui.Core.Hosting;
 
 namespace PFE
 {
@@ -13,6 +14,7 @@ namespace PFE
             MauiAppBuilder builder = MauiApp.CreateBuilder();
             builder
                 .UseMauiApp<App>()
+                .ConfigureSyncfusionCore()
                 .ConfigureFonts(fonts =>
                 {
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
@@ -49,6 +51,7 @@ namespace PFE
             builder.Services.AddTransient<UserProfilePage>();
             builder.Services.AddTransient<LeavesPage>();
             builder.Services.AddTransient<DashboardPage>();
+            builder.Services.AddTransient<CalendarPage>();
 
             builder.Services.AddSingleton<App>();
             builder.Services.AddTransient<Func<LoginPage>>(sp => () => sp.GetRequiredService<LoginPage>());

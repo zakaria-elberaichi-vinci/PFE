@@ -22,5 +22,11 @@ public partial class DashboardPage : ContentPage
             UserProfilePage userProfilePage = _services.GetRequiredService<UserProfilePage>();
             await Navigation.PushAsync(userProfilePage);
         };
+
+        BtnCalendar.Clicked += async (s, e) =>
+        {
+            CalendarPage calendarPage = _services.GetRequiredService<CalendarPage>();
+            await Navigation.PushAsync(calendarPage);
+        };
     }
 }
