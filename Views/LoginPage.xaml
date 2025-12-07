@@ -1,0 +1,55 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="PFE.Views.LoginPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:conv="clr-namespace:PFE.Converters">
+
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <conv:InverseBoolConverter x:Key="InverseBoolConverter" />
+            <conv:StringNotEmptyConverter x:Key="StringNotEmptyConverter" />
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
+
+    <ScrollView>
+        <VerticalStackLayout Padding="20" Spacing="20">
+
+            <Label Text="Test Connexion Odoo"
+                   FontSize="28"
+                   HorizontalOptions="Center" />
+            
+            <Entry Placeholder="Login (email Odoo)"
+                   Keyboard="Email"
+                   Text="{Binding Login}" />
+
+            <Entry Placeholder="Mot de passe"
+                   IsPassword="True"
+                   Text="{Binding Password}" />
+            
+            <Button Text="Se connecter"
+                    Command="{Binding LoginCommand}"
+                    HorizontalOptions="Fill"
+                    BackgroundColor="#0078D7"
+                    TextColor="White"
+                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}, FallbackValue=True}" />
+            
+            <ActivityIndicator IsRunning="{Binding IsBusy}"
+                               IsVisible="{Binding IsBusy}" />
+            
+            <Label Text="{Binding ErrorMessage}"
+                   FontSize="16"
+                   TextColor="Red"
+                   IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}" />
+            
+            <Label Text="Connexion réussie à Odoo !"
+                   FontSize="16"
+                   TextColor="Green"
+                   IsVisible="{Binding IsAuthenticated}" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>
