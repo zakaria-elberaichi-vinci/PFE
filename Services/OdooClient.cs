@@ -10,6 +10,8 @@ namespace PFE.Services
         private readonly HttpClient _httpClient;
         public int? UserId { get; private set; }
         public bool IsAuthenticated { get; private set; }
+        public int? EmployeeId { get; private set; }
+
 
         public OdooClient(HttpClient httpClient)
         {
@@ -83,6 +85,12 @@ namespace PFE.Services
 
                     IsAuthenticated = uid > 0;
                     UserId = IsAuthenticated ? uid : null;
+
+                    
+                    if (result.TryGetProperty("employee_id", out var empEl) && empEl.ValueKind == JsonValueKind.Array)
+                    {
+                        EmployeeId = empEl[0].GetInt32();
+                    }
 
                     return uid > 0;
 
@@ -200,6 +208,7 @@ namespace PFE.Services
 
         }
 
+    
         public async Task<List<Leave>> GetLeavesAsync()
         {
             var payload = new
@@ -311,6 +320,72 @@ namespace PFE.Services
             }
         }
 
+        
+        private async Task<bool> UserIsInGroupAsync(int groupId)
+        {
+            EnsureAuthenticated();
+
+            var payload = new
+            {
+                jsonrpc = "2.0",
+                method = "call",
+                @params = new
+                {
+                    model = "res.groups",
+                    method = "read",
+                    args = new object[] { new int[] { groupId }, new string[] { "all_user_ids" } },
+                    kwargs = new { }
+                },
+                id = 100 + groupId
+            };
+
+            var res = await _httpClient.PostAsync("/web/dataset/call_kw", BuildJsonContent(payload));
+            string text = await res.Content.ReadAsStringAsync();
+            System.Diagnostics.Debug.WriteLine($"UserIsInGroup({groupId}) response: " + text);
+
+            using var doc = JsonDocument.Parse(text);
+            var root = doc.RootElement;
+
+            if (!root.TryGetProperty("result", out var result))
+                return false;
+
+            var arr = result[0];
+            if (!arr.TryGetProperty("all_user_ids", out var usersEl))
+                return false;
+
+            foreach (var u in usersEl.EnumerateArray())
+            {
+                if (u.ValueKind == JsonValueKind.Number && u.GetInt32() == UserId)
+                    return true;
+            }
+            return false;
+        }
+
+        public async Task<UserRole> GetUserRoleAsync()
+        {
+            EnsureAuthenticated();
+
+            // 1. Administrator (ID 21)
+            if (await UserIsInGroupAsync(21))
+                return UserRole.Administrator;
+
+            // 2. All Approver (Officer: Manage all requests) (ID 20)
+            if (await UserIsInGroupAsync(20))
+                return UserRole.AllApprover;
+
+            // 3. Time Off Responsible (ID 19)
+            if (await UserIsInGroupAsync(19))
+                return UserRole.TimeOffResponsible;
+
+            return UserRole.None;
+        }
+
+
+
+
+
+        /*
+         * Ancienne méthode pour vérifier si l'utilisateur est gestionnaire des congés
         public async Task<bool> UserIsLeaveManagerAsync()
         {
             EnsureAuthenticated();
@@ -321,18 +396,17 @@ namespace PFE.Services
                 method = "call",
                 @params = new
                 {
-                    model = "res.users",
+                    model = "res.groups",
                     method = "read",
-                    args = new object[] {
-                new int[] { UserId.Value },
-                new string[] { "groups_id" }
-            }
+                    args = new object[] { new int[] { 19 }, new string[] { "all_user_ids" } },
+                    kwargs = new { }  // <- Obligatoire pour call_kw
                 },
-                id = 10
+                id = 21
             };
 
             var res = await _httpClient.PostAsync("/web/dataset/call_kw", BuildJsonContent(payload));
             string text = await res.Content.ReadAsStringAsync();
+            System.Diagnostics.Debug.WriteLine("Odoo response: " + text);
 
             using var doc = JsonDocument.Parse(text);
             var root = doc.RootElement;
@@ -340,18 +414,191 @@ namespace PFE.Services
             if (!root.TryGetProperty("result", out var result))
                 return false;
 
-            var arr = result[0];
-            var groups = arr.GetProperty("groups_id");
-
-            foreach (var g in groups.EnumerateArray())
+            var users = result[0].GetProperty("all_user_ids");
+            foreach (var u in users.EnumerateArray())
             {
-                int groupId = g.GetInt32();
-                if (groupId == 19) // TON ID de groupe "Time Off Responsible"
+                if (u.GetInt32() == UserId)
                     return true;
             }
 
             return false;
+        }*/
+
+        /*
+        public async Task<List<LeaveTimeOff>> GetLeavesToApproveAsync()
+        {
+            EnsureAuthenticated();
+
+            var payload = new
+            {
+                jsonrpc = "2.0",
+                method = "call",
+                @params = new
+                {
+                    model = "hr.leave",
+                    method = "search_read",
+                    args = new object[]
+                    {
+
+                // Ne surtout PAS filtrer sur manager_id !
+                new object[]
+                {
+                    new object[] { "state", "in", new string[] { "confirm", "validate1" } }
+                },
+                new string[]
+                {
+                    "name",
+                    "employee_id",
+                    "request_date_from",
+                    "request_date_to",
+                    "state"
+                    }
+                },
+                     kwargs = new { }
+                },
+                id = 11
+            };
+
+            var res = await _httpClient.PostAsync("/web/dataset/call_kw", BuildJsonContent(payload));
+            string text = await res.Content.ReadAsStringAsync();
+            System.Diagnostics.Debug.WriteLine("Odoo response: " + text);
+
+            using var doc = JsonDocument.Parse(text);
+            var root = doc.RootElement;
+
+            if (!root.TryGetProperty("result", out var result))
+                return new List<LeaveTimeOff>();
+
+            var list = new List<LeaveTimeOff>();
+
+            foreach (var item in result.EnumerateArray())
+            {
+                var employeeName = item.GetProperty("employee_id")[1].GetString() ?? "Employé inconnu";
+                var leaveType = item.GetProperty("holiday_status_id")[1].GetString() ?? "Type non spécifié";
+                var from = item.GetProperty("request_date_from").GetString() ?? "";
+                var to = item.GetProperty("request_date_to").GetString() ?? "";
+                var days = item.GetProperty("number_of_days").GetDouble();
+                var status = item.GetProperty("state").GetString() ?? "";
+
+                list.Add(new LeaveTimeOff
+                {
+                    EmployeeName = employeeName,
+                    LeaveType = leaveType,
+                    Period = $"{from} → {to}",
+                    Days = $"{days} jours",
+                    Status = status
+                });
+            }
+
+            return list;
+        }*/
+
+        public async Task<List<LeaveTimeOff>> GetLeavesToApproveAsync()
+        {
+            EnsureAuthenticated();
+
+            // 1. Récupérer les IDs des demandes en attente
+            var payloadIds = new
+            {
+                jsonrpc = "2.0",
+                method = "call",
+                @params = new
+                {
+                    model = "hr.leave",
+                    method = "search",
+                    args = new object[]
+                    {
+                new object[]
+                {
+                    new object[] { "state", "in", new string[] { "confirm", "validate1" } }
+                }
+                    },
+                    kwargs = new { }
+                },
+                id = 1
+            };
+
+            var resIds = await _httpClient.PostAsync("/web/dataset/call_kw", BuildJsonContent(payloadIds));
+            string textIds = await resIds.Content.ReadAsStringAsync();
+            using var docIds = JsonDocument.Parse(textIds);
+            var rootIds = docIds.RootElement;
+
+            if (!rootIds.TryGetProperty("result", out var resultIds) || resultIds.GetArrayLength() == 0)
+                return new List<LeaveTimeOff>();
+
+            var ids = resultIds.EnumerateArray().Select(x => x.GetInt32()).ToArray();
+
+            // 2. Lire les détails complets des demandes
+            var payloadDetail = new
+            {
+                jsonrpc = "2.0",
+                method = "call",
+                @params = new
+                {
+                    model = "hr.leave",
+                    method = "read",
+                    args = new object[]
+                    {
+                ids,
+                new string[]
+                {
+                    "employee_id",
+                    "holiday_status_id",
+                    "number_of_days",
+                    "request_date_from",
+                    "request_date_to",
+                    "state",
+                    "name",
+                    "can_validate",
+                    "can_refuse"
+                }
+                    },
+                    kwargs = new { }
+                },
+                id = 2
+            };
+
+            var resDetail = await _httpClient.PostAsync("/web/dataset/call_kw", BuildJsonContent(payloadDetail));
+            string textDetail = await resDetail.Content.ReadAsStringAsync();
+            using var docDetail = JsonDocument.Parse(textDetail);
+            var rootDetail = docDetail.RootElement;
+
+            if (!rootDetail.TryGetProperty("result", out var resultDetail))
+                return new List<LeaveTimeOff>();
+
+            // 3. Construire les objets LeaveTimeOff
+            var leaves = new List<LeaveTimeOff>();
+
+            foreach (var item in resultDetail.EnumerateArray())
+            {
+                string employeeName = item.GetProperty("employee_id")[1].GetString() ?? "Employé inconnu";
+                string leaveType = item.GetProperty("holiday_status_id")[1].GetString() ?? "Type non spécifié";
+                string period = $"{item.GetProperty("request_date_from").GetString()} → {item.GetProperty("request_date_to").GetString()}";
+                string days = $"{item.GetProperty("number_of_days").GetDouble()} jours";
+                string status = item.GetProperty("state").GetString() ?? "";
+                string reason = item.TryGetProperty("name", out var nameProp) && nameProp.ValueKind == JsonValueKind.String
+                    ? nameProp.GetString()!
+                    : "Aucune raison";
+
+                bool canValidate = item.TryGetProperty("can_validate", out var cv) && cv.GetBoolean();
+                bool canRefuse = item.TryGetProperty("can_refuse", out var cr) && cr.GetBoolean();
+
+                leaves.Add(new LeaveTimeOff
+                {
+                    EmployeeName = employeeName,
+                    LeaveType = leaveType,
+                    Period = period,
+                    Days = days,
+                    Status = status,
+                    Reason = reason,
+                    CanValidate = canValidate,
+                    CanRefuse = canRefuse
+                });
+            }
+
+            return leaves;
         }
+
 
 
     }

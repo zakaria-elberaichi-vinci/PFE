@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="PFE.Views.ManageLeavesPage">
+
+    <VerticalStackLayout Padding="20" Spacing="15">
+
+        <Label Text="Demandes à traiter"
+               FontSize="26"
+               FontAttributes="Bold"
+               HorizontalOptions="Center"/>
+
+        <CollectionView x:Name="LeavesList">
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <Frame Padding="10" Margin="5" BorderColor="#cccccc" CornerRadius="10">
+                        <VerticalStackLayout Spacing="4">
+
+                            <!-- NOM DE L'EMPLOYÉ -->
+                            <Label Text="{Binding EmployeeName, StringFormat='{0}'}"
+                       FontAttributes="Bold"
+                       FontSize="16"/>
+
+                            <!-- TYPE DE CONGÉ -->
+                            <Label Text="{Binding LeaveType, StringFormat='Type de congé : {0}'}"
+                       FontAttributes="Italic"
+                       TextColor="#555"
+                       FontSize="14"/>
+
+                            <!-- PÉRIODE -->
+                            <Label Text="{Binding Period, StringFormat='Période : {0}'}"
+                       TextColor="#333"
+                       FontSize="14"/>
+
+                            <!-- NOMBRE DE JOURS -->
+                            <Label Text="{Binding Days, StringFormat='Durée : {0}'}"
+                       TextColor="#333"
+                       FontSize="14"/>
+
+                            <!-- BOUTONS à droite -->
+                            <HorizontalStackLayout Spacing="8" Margin="0,8,0,0" HorizontalOptions="End">
+                                <Button Text="Valider"
+                            BackgroundColor="#4CAF50"
+                            TextColor="White"
+                            CornerRadius="8"
+                            HeightRequest="32"
+                            WidthRequest="80"
+                            FontSize="12"/>
+                                <Button Text="Refuser"
+                            BackgroundColor="#F44336"
+                            TextColor="White"
+                            CornerRadius="8"
+                            HeightRequest="32"
+                            WidthRequest="80"
+                            FontSize="12"/>
+                            </HorizontalStackLayout>
+
+                        </VerticalStackLayout>
+                    </Frame>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+    </VerticalStackLayout>
+
+</ContentPage>

@@ -52,6 +52,7 @@ namespace PFE
 
             builder.Services.AddSingleton<App>();
             builder.Services.AddTransient<Func<LoginPage>>(sp => () => sp.GetRequiredService<LoginPage>());
+            builder.Services.AddTransient<ManageLeavesPage>();
 #if DEBUG
             builder.Logging.AddDebug();
 #endif
