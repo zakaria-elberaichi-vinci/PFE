@@ -215,7 +215,7 @@ namespace PFE.Services
                 new object[] { },
                 new string[]
                 {
-                    "name",
+                    "holiday_status_id",
                     "state",
                     "request_date_from",
                     "request_date_to"
@@ -277,7 +277,7 @@ namespace PFE.Services
                     state = stateEl.GetString() ?? "";
 
                 list.Add(new Leave(
-                    string.IsNullOrWhiteSpace(name) ? "Congé" : name,
+                    LeaveNameTranslator.Translate(name),
                     $"{from} → {to}",
                     LeaveStatusHelper.StateToFrench(state)
                     ));
