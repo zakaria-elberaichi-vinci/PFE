@@ -23,7 +23,7 @@ namespace PFE.ViewModels
         }
 
         // Source de vérité globale lue depuis le client
-        public bool IsAuthenticated => _odooClient.IsAuthenticated;
+        public bool IsAuthenticated => _odooClient.session.Current.IsAuthenticated;
 
         public ObservableCollection<Leave> Leaves { get; }
 

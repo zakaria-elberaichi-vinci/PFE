@@ -40,9 +40,11 @@ namespace PFE.ViewModels
             private set { _isBusy = value; OnPropertyChanged(); }
         }
 
-        public bool IsAuthenticated => _odooClient.IsAuthenticated;
+        public bool IsAuthenticated => _odooClient.session.Current.IsAuthenticated;
 
-        public int? UserId => _odooClient.UserId;
+        public int? UserId => _odooClient.session.Current.UserId;
+
+        public bool IsManager => _odooClient.session.Current.IsManager;
 
         public string ErrorMessage
         {

@@ -9,8 +9,7 @@
           VerticalOptions="Center"
           BackgroundColor="#121212">
         
-        <Frame WidthRequest="320"
-               HeightRequest="360"
+        <Frame
                CornerRadius="12"
                Padding="12"
                BackgroundColor="#1E1E1E"

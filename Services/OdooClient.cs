@@ -2,26 +2,31 @@
 using System.Text.Json;
 using PFE.Helpers;
 using PFE.Models;
+using PFE.Context;
 
 namespace PFE.Services
 {
     public class OdooClient
     {
         private readonly HttpClient _httpClient;
-        public int? UserId { get; private set; }
-        public bool IsAuthenticated { get; private set; }
+        public readonly SessionContext session;
 
-        public OdooClient(HttpClient httpClient)
+        public OdooClient(HttpClient httpClient, SessionContext session)
         {
             _httpClient = httpClient;
-            UserId = null;
-            IsAuthenticated = false;
+            this.session = session;
         }
 
         private void EnsureAuthenticated()
         {
-            if (!IsAuthenticated || UserId is null)
+            if (!session.Current.IsAuthenticated || session.Current.UserId is null)
                 throw new InvalidOperationException("Utilisateur non authentifié.");
+        }
+
+        private void EnsureIsManager()
+        {
+            if (!session.Current.IsAuthenticated || session.Current.UserId is null || !session.Current.IsManager)
+                throw new InvalidOperationException("Utilisateur n'est pas un manager.");
         }
 
         private static StringContent BuildJsonContent(object payload)
@@ -33,7 +38,6 @@ namespace PFE.Services
             });
             return new StringContent(json, Encoding.UTF8, "application/json");
         }
-
 
         public async Task<bool> LoginAsync(
             string login, string password)
@@ -81,8 +85,19 @@ namespace PFE.Services
                 {
                     int uid = uidEl.GetInt32();
 
-                    IsAuthenticated = uid > 0;
-                    UserId = IsAuthenticated ? uid : null;
+                    var isAuthenticated = uid > 0;
+                    session.Current = session.Current with
+                    {
+                        IsAuthenticated = isAuthenticated,
+                        UserId = isAuthenticated ? uid : null,
+                        IsManager = false
+                    };
+
+                    if (isAuthenticated)
+                    {
+                        var isManager = await UserIsManagerAsync();
+                        session.Current = session.Current with { IsManager = isManager };
+                    }
 
                     return uid > 0;
 
@@ -111,7 +126,7 @@ namespace PFE.Services
                     {
             new object[]
             {
-                new object[] { "user_id", "=", UserId!.Value }
+                new object[] { "user_id", "=", session.Current.UserId!.Value }
             },
             new string[]
             {
@@ -200,6 +215,7 @@ namespace PFE.Services
 
         }
 
+    
         public async Task<List<Leave>> GetLeavesAsync()
         {
             var payload = new
@@ -305,17 +321,241 @@ namespace PFE.Services
             try
             {
                 res = await _httpClient.PostAsync("/web/session/logout", BuildJsonContent(payload));
+                res.EnsureSuccessStatusCode();
 
-                IsAuthenticated = false;
-                UserId = null;
+                session.Current = session.Current with
+                {
+                    IsAuthenticated = false,
+                    UserId = null,
+                    IsManager = false,
+
+                };
             }
             catch (HttpRequestException)
             {
-                IsAuthenticated = false;
-                UserId = null;
+                
+            } catch (TaskCanceledException)
+            {
+
+            } 
+            finally
+            {
+session.Current = session.Current with
+                {
+                    IsAuthenticated = false,
+                    UserId = null,
+                    IsManager = false,
+
+                };
             }
         }
+        private static class GroupIds
+        {
+            public const int Administrator = 21;
+            public const int AllApprover = 20;
+            public const int TimeOffResponsible = 19;
+        }
+        private async Task<bool> UserIsManagerAsync()
+        {
+            EnsureAuthenticated();
 
+            var payload = new
+            {
+                jsonrpc = "2.0",
+                method = "call",
+                @params = new
+                {
+                    model = "res.groups",
+                    method = "read",
+                    args = new object[] { new int[] { GroupIds.Administrator, GroupIds.AllApprover, GroupIds.TimeOffResponsible },
+                        new string[] { "all_user_ids" } },
+                    kwargs = new { }
+                },
+                id = 999
+            };
+
+            var res = await _httpClient.PostAsync("/web/dataset/call_kw", BuildJsonContent(payload));
+            res.EnsureSuccessStatusCode();
+
+            string text = await res.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(text);
+
+            if (!doc.RootElement.TryGetProperty("result", out var result) || result.ValueKind != JsonValueKind.Array)
+                return false;
+
+            foreach (var grp in result.EnumerateArray())
+            {
+                if (grp.TryGetProperty("all_user_ids", out var usersEl) && usersEl.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var u in usersEl.EnumerateArray())
+                    {
+                        if (u.ValueKind == JsonValueKind.Number && u.GetInt32() == session.Current.UserId)
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+
+        }
+
+        public async Task<List<LeaveTimeOff>> GetLeavesToApproveAsync()
+        {
+            EnsureIsManager();
+
+            // 1. Récupérer les IDs des demandes en attente
+            var payloadIds = new
+            {
+                jsonrpc = "2.0",
+                method = "call",
+                @params = new
+                {
+                    model = "hr.leave",
+                    method = "search",
+                    args = new object[]
+                    {
+                new object[]
+                {
+                    new object[] { "state", "in", new string[] { "confirm", "validate1" } }
+                }
+                    },
+                    kwargs = new { }
+                },
+                id = 1
+            };
+
+            var resIds = await _httpClient.PostAsync("/web/dataset/call_kw", BuildJsonContent(payloadIds));
+            string textIds = await resIds.Content.ReadAsStringAsync();
+            using var docIds = JsonDocument.Parse(textIds);
+            var rootIds = docIds.RootElement;
+
+            if (!rootIds.TryGetProperty("result", out var resultIds) || resultIds.GetArrayLength() == 0)
+                return new List<LeaveTimeOff>();
+
+            var ids = resultIds.EnumerateArray().Select(x => x.GetInt32()).ToArray();
+
+            // 2. Lire les détails complets des demandes
+            var payloadDetail = new
+            {
+                jsonrpc = "2.0",
+                method = "call",
+                @params = new
+                {
+                    model = "hr.leave",
+                    method = "read",
+                    args = new object[]
+                    {
+                ids,
+                new string[]
+                {
+                    "employee_id",
+                    "holiday_status_id",
+                    "number_of_days",
+                    "request_date_from",
+                    "request_date_to",
+                    "state",
+                    "name",
+                    "can_validate",
+                    "can_refuse"
+                }
+                    },
+                    kwargs = new { }
+                },
+                id = 2
+            };
+
+            var resDetail = await _httpClient.PostAsync("/web/dataset/call_kw", BuildJsonContent(payloadDetail));
+            string textDetail = await resDetail.Content.ReadAsStringAsync();
+            using var docDetail = JsonDocument.Parse(textDetail);
+            var rootDetail = docDetail.RootElement;
+
+            if (!rootDetail.TryGetProperty("result", out var resultDetail))
+                return new List<LeaveTimeOff>();
+
+            // 3. Construire les objets LeaveTimeOff
+            var leaves = new List<LeaveTimeOff>();
+
+            foreach (var item in resultDetail.EnumerateArray())
+            {
+                string employeeName = item.GetProperty("employee_id")[1].GetString() ?? "Employé inconnu";
+                string leaveType = item.GetProperty("holiday_status_id")[1].GetString() ?? "Type non spécifié";
+                string period = $"{item.GetProperty("request_date_from").GetString()} → {item.GetProperty("request_date_to").GetString()}";
+                string days = $"{item.GetProperty("number_of_days").GetDouble()} jours";
+                string status = item.GetProperty("state").GetString() ?? "";
+                string reason = item.TryGetProperty("name", out var nameProp) && nameProp.ValueKind == JsonValueKind.String
+                    ? nameProp.GetString()!
+                    : "Aucune raison";
+
+                bool canValidate = item.TryGetProperty("can_validate", out var cv) && cv.GetBoolean();
+                bool canRefuse = item.TryGetProperty("can_refuse", out var cr) && cr.GetBoolean();
+
+                leaves.Add(new LeaveTimeOff
+                {
+                    Id = item.GetProperty("id").GetInt32(),
+                    EmployeeName = employeeName,
+                    LeaveType = LeaveTypeHelper.Translate(leaveType ?? "Type non spécifié"),
+                    Period = period,
+                    Days = days,
+                    Status = status,
+                    Reason = reason,
+                    CanValidate = canValidate,
+                    CanRefuse = canRefuse
+                });
+            }
+
+            return leaves;
+        }
+
+        public async Task ApproveLeaveAsync(int leaveId)
+        {
+            EnsureIsManager();
+
+            var payload = new
+            {
+                jsonrpc = "2.0",
+                method = "call",
+                @params = new
+                {
+                    model = "hr.leave",
+                    method = "action_approve",
+                    args = new object[] { leaveId },
+                    kwargs = new { }
+                },
+                id = 0
+            };
+
+            var res = await _httpClient.PostAsync("/web/dataset/call_kw", BuildJsonContent(payload));
+            res.EnsureSuccessStatusCode();
+            string text = await res.Content.ReadAsStringAsync();
+
+            System.Diagnostics.Debug.WriteLine("ApproveLeaveAsync Odoo response: " + text);
+        }
+
+        public async Task RefuseLeaveAsync(int leaveId)
+        {
+            EnsureIsManager();
+
+            var payload = new
+            {
+                jsonrpc = "2.0",
+                method = "call",
+                @params = new
+                {
+                    model = "hr.leave",
+                    method = "action_refuse",
+                    args = new object[] { leaveId },
+                    kwargs = new { }
+                },
+                id = 0
+            };
+
+            var res = await _httpClient.PostAsync("/web/dataset/call_kw", BuildJsonContent(payload));
+            res.EnsureSuccessStatusCode();
+            string text = await res.Content.ReadAsStringAsync();
+
+            System.Diagnostics.Debug.WriteLine("RefuseLeaveAsync Odoo response: " + text);
+        }
     }
 }
 

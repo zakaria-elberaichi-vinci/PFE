@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using Microsoft.Extensions.Logging;
+using PFE.Context;
 using PFE.Services;
 using PFE.ViewModels;
 using PFE.Views;
@@ -39,7 +40,8 @@ namespace PFE
             {
                 IHttpClientFactory factory = sp.GetRequiredService<IHttpClientFactory>();
                 HttpClient http = factory.CreateClient(nameof(OdooClient));
-                return new OdooClient(http);
+                var session = sp.GetRequiredService<SessionContext>();
+                return new OdooClient(http, session);
             });
 
             builder.Services.AddSingleton<AppViewModel>();
@@ -52,9 +54,13 @@ namespace PFE
             builder.Services.AddTransient<LeavesPage>();
             builder.Services.AddTransient<DashboardPage>();
             builder.Services.AddTransient<CalendarPage>();
+            builder.Services.AddTransient<ManageLeavesPage>();
 
             builder.Services.AddSingleton<App>();
             builder.Services.AddTransient<Func<LoginPage>>(sp => () => sp.GetRequiredService<LoginPage>());
+
+            builder.Services.AddSingleton<SessionContext>();
+
 #if DEBUG
             builder.Logging.AddDebug();
 #endif
