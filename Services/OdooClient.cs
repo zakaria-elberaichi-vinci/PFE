@@ -585,8 +585,9 @@ namespace PFE.Services
 
                 leaves.Add(new LeaveTimeOff
                 {
+                    Id = item.GetProperty("id").GetInt32(),
                     EmployeeName = employeeName,
-                    LeaveType = leaveType,
+                    LeaveType = LeaveTypeHelper.Translate(leaveType ?? "Type non spécifié"),
                     Period = period,
                     Days = days,
                     Status = status,
@@ -598,6 +599,55 @@ namespace PFE.Services
 
             return leaves;
         }
+
+        public async Task ApproveLeaveAsync(int leaveId)
+        {
+            var payload = new
+            {
+                jsonrpc = "2.0",
+                method = "call",
+                @params = new
+                {
+                    model = "hr.leave",
+                    method = "action_approve",
+                    args = new object[] { leaveId },
+                    kwargs = new { }
+                },
+                id = 0
+            };
+
+            var res = await _httpClient.PostAsync("/web/dataset/call_kw", BuildJsonContent(payload));
+            res.EnsureSuccessStatusCode();
+            string text = await res.Content.ReadAsStringAsync();
+
+            System.Diagnostics.Debug.WriteLine("ApproveLeaveAsync Odoo response: " + text);
+        }
+
+        public async Task RefuseLeaveAsync(int leaveId)
+        {
+            var payload = new
+            {
+                jsonrpc = "2.0",
+                method = "call",
+                @params = new
+                {
+                    model = "hr.leave",
+                    method = "action_refuse",
+                    args = new object[] { leaveId },
+                    kwargs = new { }
+                },
+                id = 0
+            };
+
+            var res = await _httpClient.PostAsync("/web/dataset/call_kw", BuildJsonContent(payload));
+            res.EnsureSuccessStatusCode();
+            string text = await res.Content.ReadAsStringAsync();
+
+            System.Diagnostics.Debug.WriteLine("RefuseLeaveAsync Odoo response: " + text);
+        }
+
+
+
 
 
 

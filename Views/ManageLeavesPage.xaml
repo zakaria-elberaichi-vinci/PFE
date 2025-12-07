@@ -1,66 +1,77 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="PFE.Views.ManageLeavesPage">
+             x:Class="PFE.Views.ManageLeavesPage"
+             xmlns:controls="clr-namespace:PFE.Controls">
 
-    <VerticalStackLayout Padding="20" Spacing="15">
+    <Grid>
 
-        <Label Text="Demandes à traiter"
-               FontSize="26"
-               FontAttributes="Bold"
-               HorizontalOptions="Center"/>
+        <!-- Contenu principal avec largeur limitée -->
+        <ScrollView>
+            <VerticalStackLayout Padding="20" Spacing="15"
+                                 HorizontalOptions="Center"
+                                 WidthRequest="400">
 
-        <CollectionView x:Name="LeavesList">
-            <CollectionView.ItemTemplate>
-                <DataTemplate>
-                    <Frame Padding="10" Margin="5" BorderColor="#cccccc" CornerRadius="10">
-                        <VerticalStackLayout Spacing="4">
-
-                            <!-- NOM DE L'EMPLOYÉ -->
-                            <Label Text="{Binding EmployeeName, StringFormat='{0}'}"
+                <Label Text="Demandes à traiter"
+                       FontSize="26"
                        FontAttributes="Bold"
-                       FontSize="16"/>
+                       HorizontalOptions="Center"/>
 
-                            <!-- TYPE DE CONGÉ -->
-                            <Label Text="{Binding LeaveType, StringFormat='Type de congé : {0}'}"
-                       FontAttributes="Italic"
-                       TextColor="#555"
-                       FontSize="14"/>
+                <CollectionView x:Name="LeavesList">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate>
+                            <Frame Padding="10" Margin="5" BorderColor="#cccccc" CornerRadius="10"
+                                   HorizontalOptions="FillAndExpand">
+                                <VerticalStackLayout Spacing="4" HorizontalOptions="FillAndExpand">
 
-                            <!-- PÉRIODE -->
-                            <Label Text="{Binding Period, StringFormat='Période : {0}'}"
-                       TextColor="#333"
-                       FontSize="14"/>
+                                    <!-- NOM DE L'EMPLOYÉ -->
+                                    <Label Text="{Binding EmployeeName}" FontAttributes="Bold" FontSize="16"/>
 
-                            <!-- NOMBRE DE JOURS -->
-                            <Label Text="{Binding Days, StringFormat='Durée : {0}'}"
-                       TextColor="#333"
-                       FontSize="14"/>
+                                    <!-- TYPE DE CONGÉ -->
+                                    <Label Text="{Binding LeaveType, StringFormat='Type de congé : {0}'}"
+                                           FontAttributes="Italic" TextColor="#555" FontSize="14"/>
 
-                            <!-- BOUTONS à droite -->
-                            <HorizontalStackLayout Spacing="8" Margin="0,8,0,0" HorizontalOptions="End">
-                                <Button Text="Valider"
-                            BackgroundColor="#4CAF50"
-                            TextColor="White"
-                            CornerRadius="8"
-                            HeightRequest="32"
-                            WidthRequest="80"
-                            FontSize="12"/>
-                                <Button Text="Refuser"
-                            BackgroundColor="#F44336"
-                            TextColor="White"
-                            CornerRadius="8"
-                            HeightRequest="32"
-                            WidthRequest="80"
-                            FontSize="12"/>
-                            </HorizontalStackLayout>
+                                    <!-- PÉRIODE -->
+                                    <Label Text="{Binding Period, StringFormat='Période : {0}'}"
+                                           TextColor="#333" FontSize="14"/>
 
-                        </VerticalStackLayout>
-                    </Frame>
-                </DataTemplate>
-            </CollectionView.ItemTemplate>
-        </CollectionView>
+                                    <!-- NOMBRE DE JOURS -->
+                                    <Label Text="{Binding Days, StringFormat='Durée : {0}'}"
+                                           TextColor="#333" FontSize="14"/>
 
-    </VerticalStackLayout>
+                                    <!-- BOUTONS à droite -->
+                                    <HorizontalStackLayout Spacing="8" Margin="0,8,0,0" HorizontalOptions="End">
+                                        <Button Text="Valider"
+                                                Clicked="ApproveButton_Clicked"
+                                                BackgroundColor="#4CAF50"
+                                                TextColor="White"
+                                                CornerRadius="8"
+                                                HeightRequest="32"
+                                                WidthRequest="80"
+                                                FontSize="12"/>
+                                        <Button Text="Refuser"
+                                                Clicked="RefuseButton_Clicked"
+                                                BackgroundColor="#F44336"
+                                                TextColor="White"
+                                                CornerRadius="8"
+                                                HeightRequest="32"
+                                                WidthRequest="80"
+                                                FontSize="12"/>
+                                    </HorizontalStackLayout>
+
+                                </VerticalStackLayout>
+                            </Frame>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <!-- Popup de confirmation -->
+        <controls:ConfirmationPopup x:Name="LeaveConfirmationPopup"
+                                    VerticalOptions="FillAndExpand"
+                                    HorizontalOptions="FillAndExpand"/>
+    </Grid>
 
 </ContentPage>
