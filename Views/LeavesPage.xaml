@@ -4,7 +4,6 @@
              xmlns:conv="clr-namespace:PFE.Converters"
              xmlns:local="clr-namespace:PFE.Helpers"
              x:Class="PFE.Views.LeavesPage"
-             Title="Mes congés"
              ControlTemplate="{StaticResource CommonPageTemplate}">
 
     <ContentPage.Resources>
@@ -13,10 +12,19 @@
         </ResourceDictionary>
     </ContentPage.Resources>
 
-    <ScrollView>
-        <VerticalStackLayout Padding="20" Spacing="10">
+    <Grid RowDefinitions="Auto,*">
 
-            <Label Text="Veuillez vous connecter pour voir vos congés."
+        <Label Text="Mes congés"
+               FontSize="24"
+               FontAttributes="Bold"
+               HorizontalOptions="Center"
+               Margin="0,10,0,10"
+               Padding="20,0" />
+
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Padding="20" Spacing="10">
+
+                <Label Text="Veuillez vous connecter pour voir vos congés."
                    TextColor="Tomato"
                    FontAttributes="Italic"
                    IsVisible="{Binding IsAuthenticated, Converter={StaticResource InverseBoolConverter}}" />
@@ -71,6 +79,8 @@
                                IsVisible="{Binding IsBusy}"
                                Color="DodgerBlue" />
 
-        </VerticalStackLayout>
-    </ScrollView>
+            </VerticalStackLayout>
+        </ScrollView>
+
+    </Grid>
 </ContentPage>
