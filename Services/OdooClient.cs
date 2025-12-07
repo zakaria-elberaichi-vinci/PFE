@@ -257,9 +257,14 @@ namespace PFE.Services
             foreach (var item in result.EnumerateArray())
             {
                 string name = "";
-                if (item.TryGetProperty("name", out var nameEl) &&
-                    nameEl.ValueKind == JsonValueKind.String)
-                    name = nameEl.GetString() ?? "";
+                if (item.TryGetProperty("holiday_status_id", out var holidayStatusEl) &&
+                    holidayStatusEl.ValueKind == JsonValueKind.Array &&
+                    holidayStatusEl.GetArrayLength() > 1)
+                {
+                    var nameElement = holidayStatusEl[1];
+                    if (nameElement.ValueKind == JsonValueKind.String)
+                        name = nameElement.GetString() ?? "";
+                }
 
                 string from = "";
                 if (item.TryGetProperty("request_date_from", out var fromEl) &&
