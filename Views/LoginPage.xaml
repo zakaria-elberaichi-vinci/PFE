@@ -28,7 +28,13 @@
             <Entry Placeholder="Mot de passe"
                    IsPassword="True"
                    Text="{Binding Password}" />
-            
+
+            <HorizontalStackLayout Spacing="10">
+                <CheckBox IsChecked="{Binding RememberMe}" />
+                <Label Text="Se souvenir de moi"
+                       VerticalOptions="Center" />
+            </HorizontalStackLayout>
+
             <Button Text="Se connecter"
                     Command="{Binding LoginCommand}"
                     HorizontalOptions="Fill"

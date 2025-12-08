@@ -324,7 +324,7 @@ namespace PFE.Services
             return list;
         }
 
-        public async void Logout()
+        public void Logout()
         {
             session.Current = session.Current with
             {
