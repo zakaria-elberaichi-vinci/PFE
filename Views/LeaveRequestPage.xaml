@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="PFE.Views.LeaveRequestPage"
+             xmlns:conv="clr-namespace:PFE.Converters"
+             Title="Demande de congé">
+
+    <ContentPage.Resources>
+        <conv:GreaterThanZeroToBoolConverter x:Key="GtZeroConverter" />
+    </ContentPage.Resources>
+
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Text="Recharger les types de congés"
+                     Priority="0"
+                     Order="Primary"
+                     Command="{Binding RefreshCommand}" />
+    </ContentPage.ToolbarItems>
+
+    <ScrollView>
+        <VerticalStackLayout Padding="20"
+                             Spacing="15">
+            
+            <Label Text="{Binding ErrorMessage}"
+                   TextColor="Tomato"
+                   HorizontalTextAlignment="Center"
+                   FontSize="16" />
+            
+            <ContentView IsVisible="{Binding IsEmployee}">
+                <VerticalStackLayout Spacing="15">
+                    
+                    <Frame Padding="12"
+                           BackgroundColor="Transparent">
+                        <Grid ColumnDefinitions="*,*,*"
+                              ColumnSpacing="12">
+                            <VerticalStackLayout Grid.Column="0"
+                                                 Spacing="4"
+                                                 HorizontalOptions="Center">
+                                <Label Text="Alloué"
+                                       FontAttributes="Bold"
+                                       FontSize="12"
+                                       TextColor="#555" />
+                                <Label Text="{Binding TotalAllocated}"
+                                       FontSize="20"
+                                       FontAttributes="Bold"
+                                       TextColor="#2D7EF7" />
+                            </VerticalStackLayout>
+
+                            <VerticalStackLayout Grid.Column="1"
+                                                 Spacing="4"
+                                                 HorizontalOptions="Center">
+                                <Label Text="Pris"
+                                       FontAttributes="Bold"
+                                       FontSize="12"
+                                       TextColor="#555" />
+                                <Label Text="{Binding TotalTaken}"
+                                       FontSize="20"
+                                       FontAttributes="Bold"
+                                       TextColor="#E06C6C" />
+                            </VerticalStackLayout>
+
+                            <VerticalStackLayout Grid.Column="2"
+                                                 Spacing="4"
+                                                 HorizontalOptions="Center">
+                                <Label Text="Restant"
+                                       FontAttributes="Bold"
+                                       FontSize="12"
+                                       TextColor="#555" />
+                                <Label Text="{Binding TotalRemaining}"
+                                       FontSize="20"
+                                       FontAttributes="Bold"
+                                       TextColor="#2E7D32" />
+                            </VerticalStackLayout>
+                        </Grid>
+                    </Frame>
+
+                    <Label Text="Date de début" />
+                    <DatePicker Date="{Binding StartDate, Mode=TwoWay}" />
+
+                    <Label Text="Date de fin" />
+                    <DatePicker Date="{Binding EndDate, Mode=TwoWay}" />
+
+                    <Label Text="Type de congé" />
+                    <Picker ItemsSource="{Binding LeaveTypes}"
+                            ItemDisplayBinding="{Binding Name}"
+                            SelectedItem="{Binding SelectedLeaveType, Mode=TwoWay}"
+                            IsEnabled="{Binding IsLeaveTypeEnabled}"
+                            Title="Choisissez un type de congé" />
+
+                    <Label Text="Motif (optionnel)" />
+                    <Editor Text="{Binding Reason, Mode=TwoWay}"
+                            AutoSize="TextChanges"
+                            HeightRequest="100"
+                            Placeholder="Ex : Vacances, rendez-vous médical..." />
+
+                    <ActivityIndicator IsVisible="{Binding IsBusy}"
+                                       IsRunning="{Binding IsBusy}" />
+
+                    <Button Text="Envoyer la demande"
+                            BackgroundColor="#0078D7"
+                            TextColor="White"
+                            CornerRadius="10"
+                            HeightRequest="50"
+                            Clicked="SubmitButton_Clicked"
+                            IsEnabled="{Binding TotalRemaining, Converter={StaticResource GtZeroConverter}}"/>
+
+                </VerticalStackLayout>
+            </ContentView>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

@@ -48,12 +48,14 @@ namespace PFE
             builder.Services.AddTransient<UserProfileViewModel>();
             builder.Services.AddTransient<LeaveViewModel>();
             builder.Services.AddTransient<ManageLeavesViewModel>();
+            builder.Services.AddTransient<LeaveRequestViewModel>();
 
             builder.Services.AddTransient<LoginPage>();
             builder.Services.AddTransient<UserProfilePage>();
             builder.Services.AddTransient<LeavesPage>();
             builder.Services.AddTransient<DashboardPage>();
             builder.Services.AddTransient<ManageLeavesPage>();
+            builder.Services.AddTransient<LeaveRequestPage>();
 
             builder.Services.AddSingleton<App>();
             builder.Services.AddTransient<Func<LoginPage>>(sp => () => sp.GetRequiredService<LoginPage>());

@@ -38,17 +38,12 @@
             
             <ActivityIndicator IsRunning="{Binding IsBusy}"
                                IsVisible="{Binding IsBusy}" />
-            
+
             <Label Text="{Binding ErrorMessage}"
                    FontSize="16"
                    TextColor="Tomato"
                    HorizontalTextAlignment="Center"
                    IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}" />
-            
-            <Label Text="Connexion réussie à Odoo !"
-                   FontSize="16"
-                   TextColor="Green"
-                   IsVisible="{Binding IsAuthenticated}" />
 
         </VerticalStackLayout>
     </ScrollView>

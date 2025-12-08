@@ -39,6 +39,14 @@
                     HeightRequest="50"
                     IsVisible="False" />
 
+            <Button Text="Rentrer une demande de congé"
+                    x:Name="BtnNewLeave"
+                    BackgroundColor="Green"
+                    TextColor="White"
+                    CornerRadius="10"
+                    HeightRequest="50"
+                    IsVisible="False"/>
+
             <Button Text="Voir mes informations"
                     x:Name="BtnProfile"
                     BackgroundColor="Green"

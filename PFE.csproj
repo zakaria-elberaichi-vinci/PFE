@@ -60,12 +60,12 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <AndroidResource Remove="NewFolder1\**" />
-	  <Compile Remove="NewFolder1\**" />
-	  <EmbeddedResource Remove="NewFolder1\**" />
-	  <MauiCss Remove="NewFolder1\**" />
-	  <MauiXaml Remove="NewFolder1\**" />
-	  <None Remove="NewFolder1\**" />
+		<AndroidResource Remove="NewFolder1\**" />
+		<Compile Remove="NewFolder1\**" />
+		<EmbeddedResource Remove="NewFolder1\**" />
+		<MauiCss Remove="NewFolder1\**" />
+		<MauiXaml Remove="NewFolder1\**" />
+		<None Remove="NewFolder1\**" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -74,21 +74,30 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <Compile Update="Views\LoginPage.xaml.cs">
-	    <DependentUpon>LoginPage.xaml</DependentUpon>
-	  </Compile>
+		<Compile Update="Views\LoginPage.xaml.cs">
+			<DependentUpon>LoginPage.xaml</DependentUpon>
+		</Compile>
 	</ItemGroup>
 
 	<ItemGroup>
-	  <MauiXaml Update="Views\DashboardPage.xaml">
-	    <Generator>MSBuild:Compile</Generator>
-	  </MauiXaml>
-	  <MauiXaml Update="Views\LeavesPage.xaml">
-	    <Generator>MSBuild:Compile</Generator>
-	  </MauiXaml>
-	  <MauiXaml Update="Views\UserProfilePage.xaml">
-	    <Generator>MSBuild:Compile</Generator>
-	  </MauiXaml>
+		<MauiXaml Update="Controls\ConfirmationPopup.xaml">
+			<Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="Views\LeaveRequestPage.xaml">
+			<Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="LeavesPage.xaml">
+			<Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="Views\DashboardPage.xaml">
+			<Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="Views\LeavesPage.xaml">
+			<Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="Views\UserProfilePage.xaml">
+			<Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
 	</ItemGroup>
 
 </Project>

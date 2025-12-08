@@ -37,14 +37,22 @@ public partial class DashboardPage : ContentPage
             LoginPage loginPage = _services.GetRequiredService<LoginPage>();
             Application.Current.MainPage = new NavigationPage(loginPage);
         };
+
+        BtnNewLeave.Clicked += async (s, e) =>
+        {
+            LeaveRequestPage leaveRequestPage = _services.GetRequiredService<LeaveRequestPage>();
+            await Navigation.PushAsync(leaveRequestPage);
+        };
     }
 
     protected override async void OnAppearing()
     {
         base.OnAppearing();
         bool isManager = _client.session.Current.IsManager;
+        bool isEmployee = !isManager;
 
-        BtnLeaves.IsVisible = !isManager;
+        BtnLeaves.IsVisible = isEmployee;
+        BtnNewLeave.IsVisible = isEmployee;
         BtnManageLeaves.IsVisible = isManager;
     }
 

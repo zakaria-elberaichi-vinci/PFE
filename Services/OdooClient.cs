@@ -21,13 +21,13 @@ namespace PFE.Services
 
         private void EnsureAuthenticated()
         {
-            if (!session.Current.IsAuthenticated || session.Current.UserId is null)
+            if (!session.Current.IsAuthenticated)
                 throw new InvalidOperationException("Utilisateur non authentifié.");
         }
 
         private void EnsureIsManager()
         {
-            if (!session.Current.IsAuthenticated || session.Current.UserId is null || !session.Current.IsManager)
+            if (session.Current.IsAuthenticated && !session.Current.IsManager)
                 throw new InvalidOperationException("Utilisateur n'est pas un manager.");
         }
 
@@ -91,13 +91,29 @@ namespace PFE.Services
                     {
                         IsAuthenticated = isAuthenticated,
                         UserId = isAuthenticated ? uid : null,
-                        IsManager = false
+                        IsManager = false,
+                        EmployeeId = null
                     };
 
                     if (isAuthenticated)
                     {
-                        bool isManager = await UserIsManagerAsync();
-                        session.Current = session.Current with { IsManager = isManager };
+
+                        Task<bool> isManagerTask = UserIsManagerAsync();
+                        Task<int> employeeIdTask = GetEmployeeIdAsync();
+
+                        try
+                        {
+                            await Task.WhenAll(isManagerTask, employeeIdTask);
+
+                            bool isManager = await isManagerTask;
+                            int employeeId = await employeeIdTask;
+
+                            session.Current = session.Current with { IsManager = isManager, EmployeeId = employeeId };
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Erreur lors des requêtes parallèles: {ex}");
+                        }
                     }
 
                     return uid > 0;
@@ -314,7 +330,8 @@ namespace PFE.Services
             {
                 IsAuthenticated = false,
                 UserId = null,
-                IsManager = false
+                IsManager = false,
+                EmployeeId = null,
             };
 
             Uri baseUri = _httpClient.BaseAddress!;
@@ -538,6 +555,400 @@ namespace PFE.Services
 
             HttpResponseMessage res = await _httpClient.PostAsync("/web/dataset/call_kw", BuildJsonContent(payload));
             res.EnsureSuccessStatusCode();
+        }
+
+        private async Task<int> GetEmployeeIdAsync()
+        {
+            EnsureAuthenticated();
+
+            var payload = new
+            {
+                jsonrpc = "2.0",
+                method = "call",
+                @params = new
+                {
+                    model = "hr.employee.public",
+                    method = "search_read",
+                    args = new object[]
+                    {
+            new object[]
+            {
+                new object[] { "user_id", "=", session.Current.UserId!.Value }
+            },
+            new string[]
+            {
+                "id",
+            }
+                    },
+                    kwargs = new
+                    {
+                        limit = 1,
+                    }
+                },
+                id = 2
+            };
+
+            HttpResponseMessage res = await _httpClient.PostAsync("/web/dataset/call_kw", BuildJsonContent(payload));
+            string text = await res.Content.ReadAsStringAsync();
+            res.EnsureSuccessStatusCode();
+
+            using JsonDocument doc = JsonDocument.Parse(text);
+
+            if (!doc.RootElement.TryGetProperty("result", out JsonElement resEl))
+                throw new InvalidOperationException("Réponse Odoo invalide: 'result' manquant.");
+
+            if (resEl.ValueKind != JsonValueKind.Array)
+                throw new InvalidOperationException("Réponse Odoo inattendue: 'result' n'est pas un tableau.");
+
+            if (resEl.GetArrayLength() == 0)
+                throw new InvalidOperationException("Aucun employé associé à cet utilisateur (user_id).");
+
+            JsonElement first = resEl[0];
+
+            if (!first.TryGetProperty("id", out JsonElement idElement) || idElement.ValueKind != JsonValueKind.Number)
+                throw new InvalidOperationException("Champ 'id' introuvable ou invalide dans le résultat.");
+
+            int employeeId = idElement.GetInt32();
+            return employeeId;
+
+        }
+        private async Task<bool> HasOverlappingLeaveAsync(DateTime startDate, DateTime endDate)
+        {
+            EnsureAuthenticated();
+
+            string start = startDate.ToString("yyyy-MM-dd");
+            string end = endDate.ToString("yyyy-MM-dd");
+
+            object[] domain = new object[]
+            {
+        new object[] { "employee_id", "=", session.Current.EmployeeId!.Value },
+        new object[] { "state", "not in", new object[] { "cancel", "refuse" } },
+        new object[] { "request_date_from", "<=", end },
+        new object[] { "request_date_to", ">=", start }
+            };
+
+            var payload = new
+            {
+                jsonrpc = "2.0",
+                method = "call",
+                @params = new
+                {
+                    model = "hr.leave",
+                    method = "search_count",
+                    args = new object[] { domain },
+                    kwargs = new { }
+                },
+                id = 801
+            };
+
+            HttpResponseMessage res = await _httpClient.PostAsync("/web/dataset/call_kw", BuildJsonContent(payload));
+            string text = await res.Content.ReadAsStringAsync();
+            if (!res.IsSuccessStatusCode)
+            {
+                System.Diagnostics.Debug.WriteLine($"[HasOverlappingLeaveAsync] HTTP {(int)res.StatusCode} {res.ReasonPhrase} | Body: {text}");
+                res.EnsureSuccessStatusCode();
+            }
+
+            using JsonDocument doc = JsonDocument.Parse(text);
+            JsonElement root = doc.RootElement;
+
+            if (!root.TryGetProperty("result", out JsonElement countEl) || countEl.ValueKind != JsonValueKind.Number)
+                throw new InvalidOperationException("Réponse Odoo inattendue pour search_count sur hr.leave.");
+
+            int count = countEl.GetInt32();
+            return count > 0;
+        }
+        private async Task<bool> HasValidatedAllocationForTypeAsync(int leaveTypeId, DateTime startDate, DateTime endDate)
+        {
+            EnsureAuthenticated();
+
+            string start = startDate.ToString("yyyy-MM-dd");
+            string end = endDate.ToString("yyyy-MM-dd");
+
+            object[] domain = new object[]
+            {
+        new object[] { "employee_id", "=", session.Current.EmployeeId!.Value },
+        new object[] { "holiday_status_id", "=", leaveTypeId },
+        new object[] { "state", "in", new object[] { "validate" } },
+        new object[] { "date_from", "<=", end },
+        "|",
+            new object[] { "date_to", "=", false },
+            new object[] { "date_to", ">=", start }
+            };
+
+            var payload = new
+            {
+                jsonrpc = "2.0",
+                method = "call",
+                @params = new
+                {
+                    model = "hr.leave.allocation",
+                    method = "search_count",
+                    args = new object[] { domain },
+                    kwargs = new { }
+                },
+                id = 802
+            };
+
+            HttpResponseMessage res = await _httpClient.PostAsync("/web/dataset/call_kw", BuildJsonContent(payload));
+            string text = await res.Content.ReadAsStringAsync();
+            if (!res.IsSuccessStatusCode)
+            {
+                System.Diagnostics.Debug.WriteLine($"[HasValidatedAllocationForTypeAsync] HTTP {(int)res.StatusCode} {res.ReasonPhrase} | Body: {text}");
+                res.EnsureSuccessStatusCode();
+            }
+
+            System.Diagnostics.Debug.WriteLine($"ALLOCATIONS {text}");
+            using JsonDocument doc = JsonDocument.Parse(text);
+            JsonElement root = doc.RootElement;
+            if (!root.TryGetProperty("result", out JsonElement countEl) || countEl.ValueKind != JsonValueKind.Number)
+                throw new InvalidOperationException("Réponse Odoo inattendue pour search_count sur hr.leave.allocation.");
+
+            int count = countEl.GetInt32();
+            return count > 0;
+        }
+        public async Task<HashSet<int>> GetAllowedLeaveTypeIdsAsync(DateTime startDate, DateTime endDate)
+        {
+            string start = startDate.ToString("yyyy-MM-dd");
+            string end = endDate.ToString("yyyy-MM-dd");
+
+            object[] domain = new object[]
+            {
+        new object[] { "employee_id", "=", session.Current.EmployeeId!.Value },
+        new object[] { "state", "in", new object[] { "validate" /*, "validate1"*/ } },
+        new object[] { "date_from", "<=", end },
+        "|",
+        new object[] { "date_to", "=", false },
+        new object[] { "date_to", ">=", start }
+            };
+
+            var payload = new
+            {
+                jsonrpc = "2.0",
+                method = "call",
+                @params = new
+                {
+                    model = "hr.leave.allocation",
+                    method = "search_read",
+                    args = new object[]
+                    {
+                domain,
+                new string[] { "holiday_status_id" }
+                    },
+                    kwargs = new { limit = 1000 }
+                },
+                id = 900
+            };
+
+            HttpResponseMessage res = await _httpClient.PostAsync("/web/dataset/call_kw", BuildJsonContent(payload));
+            string text = await res.Content.ReadAsStringAsync();
+            if (!res.IsSuccessStatusCode)
+            {
+                System.Diagnostics.Debug.WriteLine($"[GetAllowedLeaveTypeIdsAsync] HTTP {(int)res.StatusCode} {res.ReasonPhrase} | Body: {text}");
+                res.EnsureSuccessStatusCode();
+            }
+
+            using JsonDocument doc = JsonDocument.Parse(text);
+            JsonElement root = doc.RootElement;
+            if (!root.TryGetProperty("result", out JsonElement resultEl) || resultEl.ValueKind != JsonValueKind.Array)
+                throw new InvalidOperationException("Réponse Odoo invalide: 'result' manquant ou non-array pour hr.leave.allocation.");
+
+            HashSet<int> allowed = new HashSet<int>();
+            foreach (JsonElement row in resultEl.EnumerateArray())
+            {
+                if (row.TryGetProperty("holiday_status_id", out JsonElement hs) &&
+                    hs.ValueKind == JsonValueKind.Array &&
+                    hs.GetArrayLength() >= 1 &&
+                    hs[0].ValueKind == JsonValueKind.Number)
+                {
+                    allowed.Add(hs[0].GetInt32());
+                }
+            }
+
+            return allowed;
+        }
+
+        public async Task<(int totalAlloc, int totalLeaves)> GetNumberTimeOffAsync()
+        {
+            int year = DateTime.Today.Year;
+            string dateFrom = new DateTime(year, 1, 1).ToString("yyyy-MM-dd");
+            string dateTo = new DateTime(year, 12, 31).ToString("yyyy-MM-dd");
+
+            int employeeId = session.Current.EmployeeId!.Value;
+
+
+            object[] argsAlloc = new object[]
+            {
+    new object[]
+    {
+        new object[] { "employee_id", "=", employeeId },
+        new object[] { "state", "=", "validate" },
+        new object[] { "date_from", "<=", dateTo },
+
+        // OR à plat dans la liste (pas imbriqué)
+        "|",
+        new object[] { "date_to", "=", false },
+        new object[] { "date_to", ">=", dateFrom }
+    },
+    new object[] { "number_of_days:sum" },
+    new object[] { "holiday_status_id" }
+            };
+
+
+            object[] argsLeaves = new object[]
+            {
+        new object[]
+        {
+            new object[] {"employee_id", "=", employeeId},
+            new object[] {"state", "in", new object[] { "validate", "validate1" } },
+            new object[] {"request_date_from", ">=", dateFrom},
+            new object[] {"request_date_to",   "<=", dateTo},
+        },
+        new object[] { "number_of_days:sum" },
+        new object[] { "holiday_status_id" }
+            };
+
+            var payloadAlloc = new
+            {
+                jsonrpc = "2.0",
+                method = "call",
+                @params = new
+                {
+                    model = "hr.leave.allocation",
+                    method = "read_group",
+                    args = argsAlloc,
+                    kwargs = new { }
+                },
+                id = 1
+            };
+
+            var payloadLeaves = new
+            {
+                jsonrpc = "2.0",
+                method = "call",
+                @params = new
+                {
+                    model = "hr.leave",
+                    method = "read_group",
+                    args = argsLeaves,
+                    kwargs = new { }
+                },
+                id = 2
+            };
+
+            Task<HttpResponseMessage> allocTask = _httpClient.PostAsync("/web/dataset/call_kw", BuildJsonContent(payloadAlloc));
+            Task<HttpResponseMessage> leavesTask = _httpClient.PostAsync("/web/dataset/call_kw", BuildJsonContent(payloadLeaves));
+
+            await Task.WhenAll(allocTask, leavesTask);
+
+            HttpResponseMessage allocRes = await allocTask;
+            HttpResponseMessage leavesRes = await leavesTask;
+
+            allocRes.EnsureSuccessStatusCode();
+            leavesRes.EnsureSuccessStatusCode();
+
+            string allocJson = await allocRes.Content.ReadAsStringAsync();
+            string leavesJson = await leavesRes.Content.ReadAsStringAsync();
+
+            double totalAllocDays = SumReadGroupNumberOfDays(allocJson);
+            double totalLeavesDays = SumReadGroupNumberOfDays(leavesJson);
+
+            System.Diagnostics.Debug.WriteLine($"{totalAllocDays} {totalLeavesDays}");
+            return ((int)Math.Round(totalAllocDays), (int)Math.Round(totalLeavesDays));
+
+        }
+        private double SumReadGroupNumberOfDays(string json)
+        {
+            using JsonDocument doc = JsonDocument.Parse(json);
+            JsonElement root = doc.RootElement;
+
+            if (root.TryGetProperty("error", out JsonElement _))
+                return 0.0;
+
+            if (!root.TryGetProperty("result", out JsonElement resultElem) || resultElem.ValueKind != JsonValueKind.Array)
+                return 0.0;
+
+            double sum = 0.0;
+
+            foreach (JsonElement row in resultElem.EnumerateArray())
+            {
+                if (row.ValueKind != JsonValueKind.Object) continue;
+
+                if (row.TryGetProperty("number_of_days", out JsonElement v))
+                {
+                    sum += CoerceToDouble(v);
+                }
+            }
+
+            return sum;
+        }
+        private static double CoerceToDouble(JsonElement elem)
+        {
+            return elem.ValueKind switch
+            {
+                JsonValueKind.Number => elem.TryGetDouble(out double d) ? d : 0.0,
+                JsonValueKind.String => double.TryParse(elem.GetString(), System.Globalization.NumberStyles.Any,
+                                System.Globalization.CultureInfo.InvariantCulture, out double dv) ? dv : 0.0,
+                JsonValueKind.Null => 0.0,
+                _ => 0.0
+            };
+        }
+
+        public async Task<int> CreateLeaveRequestAsync(
+         int leaveTypeId,
+         DateTime startDate,
+         DateTime endDate,
+         string reason)
+        {
+
+            EnsureAuthenticated();
+
+            if (await HasOverlappingLeaveAsync(startDate, endDate))
+                throw new InvalidOperationException("Vous avez déjà une demande de congé qui chevauche cette période.");
+
+            if (!await HasValidatedAllocationForTypeAsync(leaveTypeId, startDate, endDate))
+                throw new InvalidOperationException("Vous n’avez pas d’allocation validée pour ce type de congé. Veuillez en demander une avant.");
+
+            Dictionary<string, object> values = new Dictionary<string, object>
+            {
+                ["employee_id"] = session.Current.EmployeeId!.Value,
+                ["holiday_status_id"] = leaveTypeId,
+                ["request_date_from"] = startDate.ToString("yyyy-MM-dd"),
+                ["request_date_to"] = endDate.ToString("yyyy-MM-dd"),
+                ["name"] = string.IsNullOrWhiteSpace(reason) ? "Demande de congé" : reason
+            };
+
+            var payload = new
+            {
+                jsonrpc = "2.0",
+                method = "call",
+                @params = new
+                {
+                    model = "hr.leave",
+                    method = "create",
+                    args = new object[] { values },
+                    kwargs = new { }
+                },
+                id = 1
+            };
+
+            HttpResponseMessage res = await _httpClient.PostAsync("/web/dataset/call_kw", BuildJsonContent(payload));
+            string text = await res.Content.ReadAsStringAsync();
+            res.EnsureSuccessStatusCode();
+
+            using JsonDocument doc = JsonDocument.Parse(text);
+            JsonElement root = doc.RootElement;
+
+            if (root.TryGetProperty("error", out JsonElement errEl))
+                throw new Exception("Erreur Odoo : " + errEl.ToString());
+
+            if (!root.TryGetProperty("result", out JsonElement resEl))
+                throw new Exception("Réponse Odoo inattendue : " + text);
+
+            if (resEl.ValueKind != JsonValueKind.Number)
+                throw new Exception("Réponse Odoo inattendue (result n'est pas un entier) : " + text);
+
+            return resEl.GetInt32();
         }
     }
 }
