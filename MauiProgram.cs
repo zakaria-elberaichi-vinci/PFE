@@ -4,7 +4,6 @@ using PFE.Context;
 using PFE.Services;
 using PFE.ViewModels;
 using PFE.Views;
-using Syncfusion.Maui.Core.Hosting;
 
 namespace PFE
 {
@@ -15,12 +14,12 @@ namespace PFE
             MauiAppBuilder builder = MauiApp.CreateBuilder();
             builder
                 .UseMauiApp<App>()
-                .ConfigureSyncfusionCore()
                 .ConfigureFonts(fonts =>
                 {
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                     fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
                 });
+            builder.Services.AddSingleton(new CookieContainer());
 
             builder.Services.AddHttpClient(nameof(OdooClient), client =>
                         {
@@ -28,10 +27,10 @@ namespace PFE
                             client.DefaultRequestHeaders.UserAgent.ParseAdd("PFE-Client/1.0");
                         })
                             .SetHandlerLifetime(Timeout.InfiniteTimeSpan)
-                            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+                            .ConfigurePrimaryHttpMessageHandler(sp => new SocketsHttpHandler
                             {
                                 UseCookies = true,
-                                CookieContainer = new CookieContainer(),
+                                CookieContainer = sp.GetRequiredService<CookieContainer>(),
                                 AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
                                 AllowAutoRedirect = true
                             });
@@ -40,20 +39,20 @@ namespace PFE
             {
                 IHttpClientFactory factory = sp.GetRequiredService<IHttpClientFactory>();
                 HttpClient http = factory.CreateClient(nameof(OdooClient));
-                var session = sp.GetRequiredService<SessionContext>();
-                return new OdooClient(http, session);
+                SessionContext session = sp.GetRequiredService<SessionContext>();
+                CookieContainer cookies = sp.GetRequiredService<CookieContainer>();
+                return new OdooClient(http, session, cookies);
             });
 
-            builder.Services.AddSingleton<AppViewModel>();
             builder.Services.AddTransient<AuthenticationViewModel>();
             builder.Services.AddTransient<UserProfileViewModel>();
             builder.Services.AddTransient<LeaveViewModel>();
+            builder.Services.AddTransient<ManageLeavesViewModel>();
 
             builder.Services.AddTransient<LoginPage>();
             builder.Services.AddTransient<UserProfilePage>();
             builder.Services.AddTransient<LeavesPage>();
             builder.Services.AddTransient<DashboardPage>();
-            builder.Services.AddTransient<CalendarPage>();
             builder.Services.AddTransient<ManageLeavesPage>();
 
             builder.Services.AddSingleton<App>();

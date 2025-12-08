@@ -1,8 +1,9 @@
-﻿namespace PFE.Helpers;
+﻿
+namespace PFE.Helpers;
 
 public static class LeaveTypeHelper
 {
-    private static readonly Dictionary<string, string> _translations = new()
+    private static readonly Dictionary<string, string> _translations = new(StringComparer.OrdinalIgnoreCase)
     {
         { "Paid Time Off", "Congés payés" },
         { "Sick Time Off", "Congé maladie" },
@@ -24,11 +25,21 @@ public static class LeaveTypeHelper
         { "Brief Holiday (Birth)", "Congé de naissance" }
     };
 
-    public static string Translate(string type)
+    public static string Translate(string englishName)
     {
-        if (string.IsNullOrWhiteSpace(type))
-            return "Type inconnu";
+        if (string.IsNullOrWhiteSpace(englishName))
+            return "Type non spécifié";
 
-        return _translations.TryGetValue(type, out var fr) ? fr : type;
+        if (_translations.TryGetValue(englishName.Trim(), out string? frenchName))
+            return frenchName;
+
+        //Partial search
+        foreach (KeyValuePair<string, string> kvp in _translations)
+        {
+            if (englishName.Contains(kvp.Key, StringComparison.OrdinalIgnoreCase))
+                return kvp.Value;
+        }
+
+        return englishName;
     }
 }

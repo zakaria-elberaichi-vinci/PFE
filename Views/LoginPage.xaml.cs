@@ -9,10 +9,10 @@ public partial class LoginPage : ContentPage
         InitializeComponent();
         BindingContext = vm;
 
-        vm.OnLoginSucceeded = async () =>
+        vm.OnLoginSucceeded = () =>
         {
             DashboardPage dashboardPage = services.GetRequiredService<DashboardPage>();
-            await Navigation.PushAsync(dashboardPage);
+            Application.Current.MainPage = new NavigationPage(dashboardPage);
         };
 
     }

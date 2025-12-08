@@ -3,37 +3,29 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="PFE.Views.DashboardPage"
              Title="Dashboard">
-
     <ScrollView>
-        <VerticalStackLayout Padding="20" Spacing="25">
-
+        <VerticalStackLayout Padding="20"
+                             Spacing="25">
             <Label Text="Bienvenue dans l'application PFE"
                    FontSize="24"
                    HorizontalOptions="Center" />
 
-            <Label Text="Vous êtes maintenant connecté à Odoo !" 
+            <Label Text="Vous êtes maintenant connecté à Odoo !"
                    FontSize="18"
                    HorizontalOptions="Center"
                    TextColor="Green" />
 
             <Button Text="Voir mes congés"
                     x:Name="BtnLeaves"
-                    BackgroundColor="#0078D7"
+                    BackgroundColor="Green"
                     TextColor="White"
                     CornerRadius="10"
-                    HeightRequest="50" />
+                    HeightRequest="50"
+                    IsVisible="False" />
 
-            <Button Text="Voir mes informations"
-                    x:Name="BtnProfile"
-                    BackgroundColor="#4CAF50"
-                    TextColor="White"
-                    CornerRadius="10"
-                    HeightRequest="50" />
-
-            <Button
-                    x:Name="BtnManageLeaves"
+            <Button x:Name="BtnManageLeaves"
                     Text="Gérer les demandes de congés"
-                    BackgroundColor="YellowGreen"
+                    BackgroundColor="Green"
                     TextColor="White"
                     CornerRadius="10"
                     HeightRequest="50"
@@ -41,12 +33,26 @@
 
             <Button Text="Voir le calendrier"
                     x:Name="BtnCalendar"
-                    BackgroundColor="#0078D7"
+                    BackgroundColor="Green"
+                    TextColor="White"
+                    CornerRadius="10"
+                    HeightRequest="50"
+                    IsVisible="False" />
+
+            <Button Text="Voir mes informations"
+                    x:Name="BtnProfile"
+                    BackgroundColor="Green"
+                    TextColor="White"
+                    CornerRadius="10"
+                    HeightRequest="50" />
+
+            <Button Text="Se déconnecter"
+                    x:Name="BtnLogout"
+                    BackgroundColor="Red"
                     TextColor="White"
                     CornerRadius="10"
                     HeightRequest="50" />
 
         </VerticalStackLayout>
     </ScrollView>
-
 </ContentPage>

@@ -1,77 +1,27 @@
-﻿using PFE.Models;
-using PFE.Services;
+﻿using PFE.ViewModels;
 
-namespace PFE.Views;
-
-public partial class ManageLeavesPage : ContentPage
+namespace PFE.Views
 {
-    private readonly OdooClient _odoo;
-
-    public ManageLeavesPage(OdooClient odoo)
+    public partial class ManageLeavesPage : ContentPage
     {
-        InitializeComponent();
-        _odoo = odoo;
-    }
+        private readonly ManageLeavesViewModel _vm;
 
-    protected override async void OnAppearing()
-    {
-        base.OnAppearing();
-
-        try
+        public ManageLeavesPage(ManageLeavesViewModel vm)
         {
+            InitializeComponent();
+            _vm = vm;
+            BindingContext = _vm;
 
-            // Récupérer les données déjà transformées depuis Odoo
-            var list = await _odoo.GetLeavesToApproveAsync();
-
-            // Envoyer directement à la CollectionView
-            LeavesList.ItemsSource = list;
+            _vm.NotificationRequested += (s, message) =>
+            {
+                LeaveConfirmationPopup.Show(message);
+            };
         }
-        catch (Exception ex)
+
+        protected override async void OnAppearing()
         {
-            Console.WriteLine("Erreur GetLeavesToApproveAsync : " + ex.Message);
-            LeavesList.ItemsSource = new List<LeaveTimeOff>();
-        }
-    }
-
-    private async void ApproveButton_Clicked(object sender, EventArgs e)
-    {
-        if (sender is Button btn && btn.BindingContext is LeaveTimeOff leave)
-        {
-            try
-            {
-                // Appel Odoo pour valider la demande
-                await _odoo.ApproveLeaveAsync(leave.Id); // il faudra ajouter Id dans le modèle LeaveTimeOff
-                LeaveConfirmationPopup.Show("La demande de congé a été validée avec succès !");
-
-                // Rafraîchir la liste
-                var leaves = await _odoo.GetLeavesToApproveAsync();
-                LeavesList.ItemsSource = leaves;
-            }
-            catch (Exception ex)
-            {
-                await DisplayAlert("Erreur", "Impossible de valider la demande : " + ex.Message, "OK");
-            }
-        }
-    }
-
-    private async void RefuseButton_Clicked(object sender, EventArgs e)
-    {
-        if (sender is Button btn && btn.BindingContext is LeaveTimeOff leave)
-        {
-            try
-            {
-                // Appel Odoo pour refuser la demande
-                await _odoo.RefuseLeaveAsync(leave.Id); // il faudra ajouter Id dans le modèle LeaveTimeOff
-                LeaveConfirmationPopup.Show("La demande de congé a été refusée avec succès !");
-
-                // Rafraîchir la liste
-                var leaves = await _odoo.GetLeavesToApproveAsync();
-                LeavesList.ItemsSource = leaves;
-            }
-            catch (Exception ex)
-            {
-                await DisplayAlert("Erreur", "Impossible de refuser la demande : " + ex.Message, "OK");
-            }
+            base.OnAppearing();
+            await _vm.LoadAsync();
         }
     }
 }

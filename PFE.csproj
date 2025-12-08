@@ -70,17 +70,12 @@
 
 	<ItemGroup>
 		<PackageReference Include="Microsoft.Extensions.Http" Version="10.0.0" />
-		<PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.0" />
-		<PackageReference Include="Syncfusion.Maui.Calendar" Version="31.2.16" />
 	</ItemGroup>
 
 	<ItemGroup>
 	  <Compile Update="Views\LoginPage.xaml.cs">
 	    <DependentUpon>LoginPage.xaml</DependentUpon>
-	  </Compile>
-	  <Compile Update="Views\CalendarPage.xaml.cs">
-	    <DependentUpon>CalendarPage.xaml</DependentUpon>
 	  </Compile>
 	</ItemGroup>
 
@@ -89,9 +84,6 @@
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
 	  <MauiXaml Update="Views\LeavesPage.xaml">
-	    <Generator>MSBuild:Compile</Generator>
-	  </MauiXaml>
-	  <MauiXaml Update="Views\CalendarPage.xaml">
 	    <Generator>MSBuild:Compile</Generator>
 	  </MauiXaml>
 	  <MauiXaml Update="Views\UserProfilePage.xaml">

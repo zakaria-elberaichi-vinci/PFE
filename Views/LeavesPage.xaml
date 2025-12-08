@@ -2,82 +2,75 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:conv="clr-namespace:PFE.Converters"
-             xmlns:local="clr-namespace:PFE.Helpers"
              x:Class="PFE.Views.LeavesPage"
-             ControlTemplate="{StaticResource CommonPageTemplate}">
+             Title="Mes congés">
 
     <ContentPage.Resources>
         <ResourceDictionary>
-            <local:StatusColorConverter x:Key="StatusColorConverter" />
+            <conv:StatusColorConverter x:Key="StatusColorConverter" />
+            <conv:StringNotEmptyConverter x:Key="StringNotEmptyConverter" />
         </ResourceDictionary>
     </ContentPage.Resources>
 
     <Grid RowDefinitions="Auto,*">
 
-        <Label Text="Mes congés"
-               FontSize="24"
-               FontAttributes="Bold"
-               HorizontalOptions="Center"
-               Margin="0,10,0,10"
-               Padding="20,0" />
-
         <ScrollView Grid.Row="1">
-            <VerticalStackLayout Padding="20" Spacing="10">
+            <VerticalStackLayout Padding="20"
+                                 Spacing="10">
 
-                <Label Text="Veuillez vous connecter pour voir vos congés."
-                   TextColor="Tomato"
-                   FontAttributes="Italic"
-                   IsVisible="{Binding IsAuthenticated, Converter={StaticResource InverseBoolConverter}}" />
-            
-            <CollectionView ItemsSource="{Binding Leaves}"
-                            IsVisible="{Binding IsAuthenticated}"
-                            Margin="0,0,0,30">
-                <CollectionView.ItemTemplate>
-                    <DataTemplate>
-                        <Frame Margin="0,5"
-                               Padding="10"
-                               CornerRadius="8"
-                               HasShadow="True"
-                               BackgroundColor="#33000000">
-                            <VerticalStackLayout Spacing="8">
-                                <Label Text="{Binding Name}"
-                                       FontAttributes="Bold"
-                                       FontSize="14" />
-                                <Label Text="Periode"
-                                       FontSize="10"
-                                       TextColor="#999999" />
-                                <Label Text="{Binding Period}"
-                                       FontSize="12"
-                                       TextColor="#666666" />
-                                <Label Text="Statut"
-                                       FontSize="10"
-                                       TextColor="#999999"
-                                       Margin="0,5,0,0" />
-                                <Frame Padding="8,4"
-                                       CornerRadius="4"
-                                       BorderColor="Transparent"
-                                       HasShadow="False"
-                                       BackgroundColor="{Binding Status, Converter={StaticResource StatusColorConverter}}">
-                                    <Label Text="{Binding Status}"
-                                           FontSize="11"
+                <CollectionView ItemsSource="{Binding Leaves}"
+                                IsVisible="{Binding IsEmployee}"
+                                Margin="0,0,0,30">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate>
+                            <Frame Margin="0,5"
+                                   Padding="10"
+                                   CornerRadius="8"
+                                   HasShadow="True"
+                                   BackgroundColor="#33000000">
+                                <VerticalStackLayout Spacing="8">
+                                    <Label Text="{Binding Type}"
                                            FontAttributes="Bold"
-                                           TextColor="White"
-                                           HorizontalOptions="Center" />
-                                </Frame>
-                            </VerticalStackLayout>
-                        </Frame>
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-            </CollectionView>
-            
-            <Label Text="{Binding ErrorMessage}"
-                   TextColor="Tomato"
-                   FontAttributes="Italic"
-                   Margin="0,10,0,0" />
-            
-            <ActivityIndicator IsRunning="{Binding IsBusy}"
-                               IsVisible="{Binding IsBusy}"
-                               Color="DodgerBlue" />
+                                           FontSize="14" />
+                                    <Label Text="Periode"
+                                           FontSize="10"
+                                           TextColor="#999999" />
+                                    <Label Text="{Binding StartDate, StringFormat='Début : {0:dd/MM/yyyy}'}"
+                                           FontSize="12"
+                                           TextColor="#666666" />
+                                    <Label Text="{Binding EndDate, StringFormat='Fin : {0:dd/MM/yyyy}'}"
+                                           FontSize="12"
+                                           TextColor="#666666" />
+                                    <Label Text="Statut"
+                                           FontSize="10"
+                                           TextColor="#999999"
+                                           Margin="0,5,0,0" />
+                                    <Frame Padding="8,4"
+                                           CornerRadius="4"
+                                           BorderColor="Transparent"
+                                           HasShadow="False"
+                                           BackgroundColor="{Binding Status, Converter={StaticResource StatusColorConverter}}">
+                                        <Label Text="{Binding Status}"
+                                               FontSize="11"
+                                               FontAttributes="Bold"
+                                               TextColor="White"
+                                               HorizontalOptions="Center" />
+                                    </Frame>
+                                </VerticalStackLayout>
+                            </Frame>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+
+                <Label Text="{Binding ErrorMessage}"
+                       FontSize="16"
+                       TextColor="Tomato"
+                       HorizontalTextAlignment="Center"
+                       IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}" />
+
+                <ActivityIndicator IsRunning="{Binding IsBusy}"
+                                   IsVisible="{Binding IsBusy}"
+                                   Color="DodgerBlue" />
 
             </VerticalStackLayout>
         </ScrollView>
