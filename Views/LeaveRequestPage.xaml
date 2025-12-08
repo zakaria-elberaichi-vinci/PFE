@@ -100,8 +100,7 @@
                             TextColor="White"
                             CornerRadius="10"
                             HeightRequest="50"
-                            Clicked="SubmitButton_Clicked"
-                            IsEnabled="{Binding TotalRemaining, Converter={StaticResource GtZeroConverter}}"/>
+                            Clicked="SubmitButton_Clicked"/>
 
                 </VerticalStackLayout>
             </ContentView>

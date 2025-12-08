@@ -1,5 +1,7 @@
 ﻿using System.Globalization;
 
+namespace PFE.Converters;
+
 public class GreaterThanZeroToBoolConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)

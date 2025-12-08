@@ -241,6 +241,35 @@ namespace PFE.ViewModels
             }
         }
 
+
+        public async Task RefreshTotalsAsync()
+        {
+            try
+            {
+                IsBusy = true;
+                ErrorMessage = string.Empty;
+
+                (int allocated, int taken) = await _odooClient.GetNumberTimeOffAsync();
+
+                TotalAllocated = allocated;
+                TotalTaken = taken;
+                TotalRemaining = allocated - taken;
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = "Impossible de rafraîchir les totaux de congés.\n\nDétails : " + ex.Message;
+
+                TotalAllocated = 0;
+                TotalTaken = 0;
+                TotalRemaining = 0;
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
+
+
         public async Task<(bool Success, int? CreatedId, string Message)> SubmitAsync()
         {
             if (!IsEmployee)

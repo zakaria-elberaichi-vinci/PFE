@@ -38,6 +38,8 @@ namespace PFE.Views
 
             if (success)
             {
+                await _vm.RefreshLeaveTypesAsync();
+
                 await DisplayAlert("Demande envoyée", message, "OK");
                 await Navigation.PopAsync();
             }
