@@ -13,12 +13,14 @@ namespace PFE.ViewModels
         private string _password = string.Empty;
         private bool _isBusy;
         private string _errorMessage = string.Empty;
+        private bool _rememberMe;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
         public AuthenticationViewModel(OdooClient odooClient)
         {
             _odooClient = odooClient;
+            LoadRememberedCredentials();
             LoginCommand = new RelayCommand(async _ => await LoginAsync(), _ => !IsBusy);
         }
 
@@ -52,6 +54,19 @@ namespace PFE.ViewModels
             private set { _errorMessage = value; OnPropertyChanged(); }
         }
 
+        public bool RememberMe
+        {
+            get => _rememberMe;
+            set
+            {
+                if (_rememberMe == value) return;
+                _rememberMe = value;
+                OnPropertyChanged();
+
+                SaveRememberPreferenceOnly();
+            }
+        }
+
         public ICommand LoginCommand { get; }
 
         public Action? OnLoginSucceeded { get; set; }
@@ -69,9 +84,12 @@ namespace PFE.ViewModels
                 OnPropertyChanged(nameof(UserId));
 
                 if (success)
+                {
+                    await PersistCredentialsAsync();
                     OnLoginSucceeded?.Invoke();
+                }
                 else
-                    ErrorMessage = "Échec de connexion. Vérifiez vos identifiants.";
+                { ErrorMessage = "Échec de connexion. Vérifiez vos identifiants."; }
 
             }
             catch (Exception ex)
@@ -83,6 +101,67 @@ namespace PFE.ViewModels
                 IsBusy = false;
             }
         }
+
+        private const string RememberMeKey = "auth.rememberme";
+        private const string LoginKey = "auth.login";
+        private const string PasswordKey = "auth.password";
+
+
+        private async void LoadRememberedCredentials()
+        {
+            // Preferences pour bool & login
+            RememberMe = Preferences.Get(RememberMeKey, false);
+            if (RememberMe)
+            {
+                Login = Preferences.Get(LoginKey, string.Empty);
+
+                // Password dans SecureStorage (si disponible)
+                try
+                {
+                    var pwd = await SecureStorage.GetAsync(PasswordKey);
+                    if (!string.IsNullOrEmpty(pwd))
+                        Password = pwd;
+                }
+                catch
+                {
+                    // En cas d’indisponibilité (simulateur, device lock, etc.), on ignore.
+                }
+            }
+        }
+
+        private void SaveRememberPreferenceOnly()
+        {
+            Preferences.Set(RememberMeKey, RememberMe);
+            if (!RememberMe)
+            {
+                // Si l’utilisateur décoche, on nettoie les identifiants
+                Preferences.Remove(LoginKey);
+                SecureStorage.Remove(PasswordKey);
+            }
+        }
+
+        private async Task PersistCredentialsAsync()
+        {
+            Preferences.Set(RememberMeKey, RememberMe);
+
+            if (RememberMe)
+            {
+                Preferences.Set(LoginKey, Login);
+                try
+                {
+                    await SecureStorage.SetAsync(PasswordKey, Password ?? string.Empty);
+                }
+                catch
+                {
+                }
+            }
+            else
+            {
+                Preferences.Remove(LoginKey);
+                SecureStorage.Remove(PasswordKey);
+            }
+        }
+
 
         private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
