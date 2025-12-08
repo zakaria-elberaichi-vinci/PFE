@@ -76,6 +76,8 @@ namespace PFE.ViewModels
 
         public ICommand RefreshCommand { get; }
 
+        public bool IsAuthenticated => _odooClient.session.Current.IsAuthenticated;
+
         public async Task LoadAsync()
         {
             IsBusy = true;
@@ -83,6 +85,12 @@ namespace PFE.ViewModels
 
             try
             {
+                if (!IsAuthenticated)
+                {
+                    ErrorMessage = "Veuillez vous connecter pour accéder à vos informations.";
+                    Clear();
+                    return;
+                }
                 UserProfile profile = await _odooClient.GetUserInfosAsync();
                 if (profile == null)
                 {
@@ -110,6 +118,7 @@ namespace PFE.ViewModels
             finally
             {
                 IsBusy = false;
+                OnPropertyChanged(nameof(IsAuthenticated));
             }
         }
 

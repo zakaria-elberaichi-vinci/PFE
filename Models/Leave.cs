@@ -1,8 +1,9 @@
 ﻿namespace PFE.Models
 {
     public record Leave(
-        string Name,
-        string Period,
+        string Type,
+        DateTime StartDate,
+        DateTime EndDate,
         string Status
         );
 }

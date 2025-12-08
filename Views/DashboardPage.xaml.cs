@@ -1,16 +1,16 @@
-using PFE.ViewModels;
 using PFE.Services;
 
 namespace PFE.Views;
 
 public partial class DashboardPage : ContentPage
 {
+    private readonly OdooClient _client;
     private readonly IServiceProvider _services;
-    public DashboardPage(AppViewModel vm, IServiceProvider services)
+    public DashboardPage(OdooClient client, IServiceProvider services)
     {
         InitializeComponent();
         _services = services;
-        BindingContext = vm;
+        _client = client;
 
         BtnLeaves.Clicked += async (s, e) =>
         {
@@ -23,41 +23,37 @@ public partial class DashboardPage : ContentPage
             UserProfilePage userProfilePage = _services.GetRequiredService<UserProfilePage>();
             await Navigation.PushAsync(userProfilePage);
         };
+
+        BtnManageLeaves.Clicked += async (s, e) =>
+        {
+            ManageLeavesPage manageLeavesPage = _services.GetRequiredService<ManageLeavesPage>();
+            await Navigation.PushAsync(manageLeavesPage);
+        };
+
+        BtnLogout.Clicked += (s, e) =>
+        {
+            _client.Logout();
+
+            LoginPage loginPage = _services.GetRequiredService<LoginPage>();
+            Application.Current.MainPage = new NavigationPage(loginPage);
+        };
+
+        BtnNewLeave.Clicked += async (s, e) =>
+        {
+            LeaveRequestPage leaveRequestPage = _services.GetRequiredService<LeaveRequestPage>();
+            await Navigation.PushAsync(leaveRequestPage);
+        };
     }
 
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        bool isManager = _client.session.Current.IsManager;
+        bool isEmployee = !isManager;
 
-        var odoo = _services.GetRequiredService<OdooClient>();
-
-        if (!odoo.IsAuthenticated)
-        {
-            Console.WriteLine("Utilisateur non authentifié !");
-            ManageLeavesButton.IsVisible = false;
-            return;
-        }
-
-        try
-        {
-            var role = await odoo.GetUserRoleAsync();
-            Console.WriteLine($"GetUserRoleAsync => {role}");
-            ManageLeavesButton.IsVisible = role != PFE.Models.UserRole.None;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine("Erreur GetUserRoleAsync : " + ex.Message);
-            ManageLeavesButton.IsVisible = false;
-        }
+        BtnLeaves.IsVisible = isEmployee;
+        BtnNewLeave.IsVisible = isEmployee;
+        BtnManageLeaves.IsVisible = isManager;
     }
-
-
-
-    private async void ManageLeavesButton_Clicked(object sender, EventArgs e)
-    {
-        var page = _services.GetRequiredService<ManageLeavesPage>();
-        await Navigation.PushAsync(page);
-    }
-
 
 }

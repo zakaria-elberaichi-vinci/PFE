@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace PFE.Helpers;
+namespace PFE.Converters;
 
 public class StatusColorConverter : IValueConverter
 {

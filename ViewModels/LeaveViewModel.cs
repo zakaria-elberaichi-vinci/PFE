@@ -22,8 +22,7 @@ namespace PFE.ViewModels
             RefreshCommand = new RelayCommand(async _ => await LoadAsync(), _ => !IsBusy);
         }
 
-        // Source de vérité globale lue depuis le client
-        public bool IsAuthenticated => _odooClient.IsAuthenticated;
+        public bool IsEmployee => _odooClient.session.Current.IsAuthenticated && !_odooClient.session.Current.IsManager;
 
         public ObservableCollection<Leave> Leaves { get; }
 
@@ -53,20 +52,22 @@ namespace PFE.ViewModels
 
             try
             {
-                if (!IsAuthenticated)
+                if (!IsEmployee)
                 {
-                    ErrorMessage = "Vous n'êtes pas connecté.";
+                    ErrorMessage = "Veuillez vous connecter en tant qu'employé.";
                     Leaves.Clear();
                     return;
                 }
 
                 List<Leave> list = await _odooClient.GetLeavesAsync();
+
                 Leaves.Clear();
+
                 foreach (Leave item in list)
                     Leaves.Add(item);
 
                 if (Leaves.Count == 0)
-                    ErrorMessage = "Aucun congé trouvé pour cet utilisateur.";
+                    ErrorMessage = "Aucun congé trouvé.";
             }
             catch (Exception ex)
             {
@@ -75,11 +76,11 @@ namespace PFE.ViewModels
             finally
             {
                 IsBusy = false;
-                OnPropertyChanged(nameof(IsAuthenticated));
+                OnPropertyChanged(nameof(IsEmployee));
             }
         }
 
-        private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 }

@@ -1,42 +1,56 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:conv="clr-namespace:PFE.Converters"
              x:Class="PFE.Views.UserProfilePage"
-             Title="Mes Informations"
-             ControlTemplate="{StaticResource CommonPageTemplate}">
+             xmlns:conv="clr-namespace:PFE.Converters"
+             Title="Mes Informations">
 
-    <ScrollView>
-        <VerticalStackLayout Padding="20" Spacing="15">
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <conv:StringNotEmptyConverter x:Key="StringNotEmptyConverter" />
+        </ResourceDictionary>
+    </ContentPage.Resources>
 
-            <Label Text="Mes informations"
-                   FontSize="26"
-                   HorizontalOptions="Center" />
-            
-            <Label Text="Nom :" FontAttributes="Bold" />
-            <Label Text="{Binding Name}" />
-            
-            <Label Text="Email :" FontAttributes="Bold" />
-            <Label Text="{Binding WorkEmail}" />
-            
-            <Label Text="Poste :" FontAttributes="Bold" />
-            <Label Text="{Binding JobTitle}" />
-            
-            <Label Text="Département :" FontAttributes="Bold" />
-            <Label Text="{Binding DepartmentName}" />
-            
-            <Label Text="Manager :" FontAttributes="Bold" />
-            <Label Text="{Binding ManagerName}" />
-            
-            <Label Text="{Binding ErrorMessage}"
-                   TextColor="Tomato"
-                   FontAttributes="Italic"
-                   IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}" />
-            
-            <ActivityIndicator IsRunning="{Binding IsBusy}"
-                               IsVisible="{Binding IsBusy}"
-                               Color="DodgerBlue" />
+    <VerticalStackLayout Padding="20"
+                         Spacing="15">
+        
+        <Label Text="{Binding ErrorMessage}"
+               TextColor="Tomato"
+               HorizontalTextAlignment="Center"
+               FontSize="16"
+               IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}" />
 
-        </VerticalStackLayout>
-    </ScrollView>
+        <ContentView IsVisible="{Binding IsAuthenticated}">
+            <ScrollView>
+                <VerticalStackLayout Spacing="15">
+
+                    <Label Text="Nom :"
+                           FontAttributes="Bold" />
+                    <Label Text="{Binding Name}" />
+
+                    <Label Text="Email :"
+                           FontAttributes="Bold" />
+                    <Label Text="{Binding WorkEmail}" />
+
+                    <Label Text="Poste :"
+                           FontAttributes="Bold" />
+                    <Label Text="{Binding JobTitle}" />
+
+                    <Label Text="Département :"
+                           FontAttributes="Bold" />
+                    <Label Text="{Binding DepartmentName}" />
+
+                    <Label Text="Manager :"
+                           FontAttributes="Bold" />
+                    <Label Text="{Binding ManagerName}" />
+
+                    <ActivityIndicator IsRunning="{Binding IsBusy}"
+                                       IsVisible="{Binding IsBusy}"
+                                       Color="DodgerBlue" />
+
+                </VerticalStackLayout>
+            </ScrollView>
+        </ContentView>
+
+    </VerticalStackLayout>
 </ContentPage>
