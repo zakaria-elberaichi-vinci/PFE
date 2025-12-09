@@ -106,7 +106,6 @@ namespace PFE.ViewModels
         private const string LoginKey = "auth.login";
         private const string PasswordKey = "auth.password";
 
-
         private async void LoadRememberedCredentials()
         {
             // Preferences pour bool & login
@@ -118,7 +117,7 @@ namespace PFE.ViewModels
                 // Password dans SecureStorage (si disponible)
                 try
                 {
-                    var pwd = await SecureStorage.GetAsync(PasswordKey);
+                    string? pwd = await SecureStorage.GetAsync(PasswordKey);
                     if (!string.IsNullOrEmpty(pwd))
                         Password = pwd;
                 }

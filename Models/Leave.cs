@@ -4,6 +4,7 @@
         string Type,
         DateTime StartDate,
         DateTime EndDate,
-        string Status
+        string Status,
+        int Days
         );
 }

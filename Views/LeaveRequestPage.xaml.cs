@@ -5,12 +5,14 @@ namespace PFE.Views
     public partial class LeaveRequestPage : ContentPage
     {
         private readonly LeaveRequestViewModel _vm;
+        private readonly IServiceProvider _sp;
 
-        public LeaveRequestPage(LeaveRequestViewModel vm)
+        public LeaveRequestPage(LeaveRequestViewModel vm, IServiceProvider sp)
         {
             InitializeComponent();
             _vm = vm;
             BindingContext = _vm;
+            _sp = sp;
         }
 
         protected override async void OnAppearing()
@@ -23,6 +25,7 @@ namespace PFE.Views
             if (_vm.IsAccessDenied)
             {
                 await DisplayAlert("Accès refusé", _vm.ErrorMessage, "OK");
+
                 await Navigation.PopAsync();
                 return;
             }
@@ -40,10 +43,9 @@ namespace PFE.Views
 
             if (success)
             {
-                await _vm.RefreshLeaveTypesAsync();
-
                 await DisplayAlert("Demande envoyée", message, "OK");
-                await Navigation.PopAsync();
+                LeavesPage leavesPage = _sp.GetRequiredService<LeavesPage>();
+                await Navigation.PushAsync(leavesPage);
             }
             else
             {

@@ -12,9 +12,9 @@ namespace PFE.Views
             _vm = vm;
             BindingContext = _vm;
 
-            _vm.NotificationRequested += (s, message) =>
+            _vm.NotificationRequested += async (s, message) =>
             {
-                LeaveConfirmationPopup.Show(message);
+                await DisplayAlert("Confirmation", message, "OK");
             };
         }
 

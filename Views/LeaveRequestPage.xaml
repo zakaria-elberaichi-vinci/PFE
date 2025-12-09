@@ -1,33 +1,17 @@
-<?xml version="1.0" encoding="utf-8" ?>
+<?xml version="1.0" encoding="utf-8"?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="PFE.Views.LeaveRequestPage"
-             xmlns:conv="clr-namespace:PFE.Converters"
              Title="Demande de congé">
-
-    <ContentPage.Resources>
-        <conv:GreaterThanZeroToBoolConverter x:Key="GtZeroConverter" />
-    </ContentPage.Resources>
-
-    <ContentPage.ToolbarItems>
-        <ToolbarItem Text="Recharger les types de congés"
-                     Priority="0"
-                     Order="Primary"
-                     Command="{Binding RefreshCommand}" />
-    </ContentPage.ToolbarItems>
 
     <ScrollView>
         <VerticalStackLayout Padding="20"
                              Spacing="15">
-            
-            <Label Text="{Binding ErrorMessage}"
-                   TextColor="Tomato"
-                   HorizontalTextAlignment="Center"
-                   FontSize="16" />
-            
+
             <ContentView IsVisible="{Binding IsEmployee}">
                 <VerticalStackLayout Spacing="15">
-                    
+
+                    <Label Text="{Binding StartDate.Year, StringFormat='Allocations de lannée {0}'}" FontSize="16"/>
                     <Frame Padding="12"
                            BackgroundColor="Transparent">
                         <Grid ColumnDefinitions="*,*,*"
@@ -83,8 +67,7 @@
                     <Picker ItemsSource="{Binding LeaveTypes}"
                             ItemDisplayBinding="{Binding Name}"
                             SelectedItem="{Binding SelectedLeaveType, Mode=TwoWay}"
-                            IsEnabled="{Binding IsLeaveTypeEnabled}"
-                            Title="Choisissez un type de congé" />
+                            Title="Choisissez un type de congé"/>
 
                     <Label Text="Motif (optionnel)" />
                     <Editor Text="{Binding Reason, Mode=TwoWay}"
@@ -100,8 +83,22 @@
                             TextColor="White"
                             CornerRadius="10"
                             HeightRequest="50"
-                            Clicked="SubmitButton_Clicked"/>
+                            Clicked="SubmitButton_Clicked"
+                            IsEnabled="{Binding CanSubmit}" />
 
+                    <Label Text="{Binding ErrorMessage}"
+                           TextColor="Tomato"
+                           HorizontalTextAlignment="Center"
+                           FontSize="16" />
+                </VerticalStackLayout>
+            </ContentView>
+
+            <ContentView IsVisible="{Binding IsAccessDenied}">
+                <VerticalStackLayout>
+                    <Label Text="Accès refusé : cette page est réservée aux employés connectés."
+                           TextColor="Tomato"
+                           HorizontalTextAlignment="Center"
+                           FontSize="16" />
                 </VerticalStackLayout>
             </ContentView>
 

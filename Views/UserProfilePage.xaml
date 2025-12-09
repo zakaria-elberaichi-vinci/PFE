@@ -8,6 +8,7 @@
     <ContentPage.Resources>
         <ResourceDictionary>
             <conv:StringNotEmptyConverter x:Key="StringNotEmptyConverter" />
+            <conv:NullOrEmptyToDefaultConverter x:Key="NullOrEmptyConverter" />
         </ResourceDictionary>
     </ContentPage.Resources>
 
@@ -24,25 +25,50 @@
             <ScrollView>
                 <VerticalStackLayout Spacing="15">
 
-                    <Label Text="Nom :"
-                           FontAttributes="Bold" />
-                    <Label Text="{Binding Name}" />
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                        <Label Grid.Column="0"
+                               Text="Nom :"
+                               FontAttributes="Bold"
+                               VerticalOptions="Center" />
+                        <Label Grid.Column="1"
+                               Text="{Binding Name, Converter={StaticResource NullOrEmptyConverter}}" />
+                    </Grid>
 
-                    <Label Text="Email :"
-                           FontAttributes="Bold" />
-                    <Label Text="{Binding WorkEmail}" />
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                        <Label Grid.Column="0"
+                               Text="Email :"
+                               FontAttributes="Bold"
+                               VerticalOptions="Center" />
+                        <Label Grid.Column="1"
+                               Text="{Binding WorkEmail, Converter={StaticResource NullOrEmptyConverter}}" />
+                    </Grid>
 
-                    <Label Text="Poste :"
-                           FontAttributes="Bold" />
-                    <Label Text="{Binding JobTitle}" />
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                        <Label Grid.Column="0"
+                               Text="Poste :"
+                               FontAttributes="Bold"
+                               VerticalOptions="Center" />
+                        <Label Grid.Column="1"
+                               Text="{Binding JobTitle, Converter={StaticResource NullOrEmptyConverter}}" />
+                    </Grid>
 
-                    <Label Text="Département :"
-                           FontAttributes="Bold" />
-                    <Label Text="{Binding DepartmentName}" />
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                        <Label Grid.Column="0"
+                               Text="Département :"
+                               FontAttributes="Bold"
+                               VerticalOptions="Center" />
+                        <Label Grid.Column="1"
+                               Text="{Binding DepartmentName, Converter={StaticResource NullOrEmptyConverter}}" />
+                    </Grid>
 
-                    <Label Text="Manager :"
-                           FontAttributes="Bold" />
-                    <Label Text="{Binding ManagerName}" />
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                        <Label Grid.Column="0"
+                               Text="Manager :"
+                               FontAttributes="Bold"
+                               VerticalOptions="Center" />
+                        <Label Grid.Column="1"
+                               Text="{Binding ManagerName, Converter={StaticResource NullOrEmptyConverter}}" />
+                    </Grid>
 
                     <ActivityIndicator IsRunning="{Binding IsBusy}"
                                        IsVisible="{Binding IsBusy}"
