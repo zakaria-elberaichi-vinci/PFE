@@ -7,7 +7,7 @@ namespace PFE.Models
         string Type,
         DateTime StartDate,
         DateTime EndDate,
-        double Days,
+        int Days,
         string Status,
         string Reason,
         bool CanValidate,
