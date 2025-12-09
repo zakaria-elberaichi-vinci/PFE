@@ -2,10 +2,18 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+<<<<<<< HEAD
 using PFE.Models;
 using PFE.Services;
 using Syncfusion.Maui.Calendar;
 using static PFE.Helpers.DateHelper;
+=======
+using Microsoft.Maui.Networking;
+using PFE.Helpers;
+using PFE.Models;
+using PFE.Services;
+using static PFE.Helpers.LeaveTypeHelper;
+>>>>>>> 52175ee (bug pour le type en offline resoulu modifie dans ViewModels/LeaveRequestViewModel.cs)
 
 namespace PFE.ViewModels
 {
@@ -262,6 +270,68 @@ namespace PFE.ViewModels
 
         private async Task LoadBlockedDatesAsync()
         {
+<<<<<<< HEAD
+=======
+            if (!IsEmployee)
+            {
+                IsAccessDenied = true;
+                ErrorMessage = "Accès refusé : cette page est réservée aux employés connectés.";
+                return;
+            }
+
+            if (!AreDatesValid)
+            {
+                IsLeaveTypeEnabled = false;
+                LeaveTypes = new ObservableCollection<LeaveTypeItem>();
+                SelectedLeaveType = null;
+                return;
+            }
+
+            // Si pas d'internet : utiliser fallback local pour éviter le message d'erreur redondant
+            if (Connectivity.Current.NetworkAccess != NetworkAccess.Internet)
+            {
+                try
+                {
+                    IsBusy = true;
+                    ErrorMessage = string.Empty;
+
+                    // Mode hors-ligne : afficher la liste locale complète des types (pas de validation serveur possible)
+                    LeaveTypes = new ObservableCollection<LeaveTypeItem>(LeaveTypeItems);
+                    SelectedLeaveType = LeaveTypes.FirstOrDefault();
+                    IsLeaveTypeEnabled = LeaveTypes.Count > 0 && IsEmployee;
+
+                    // Totaux non disponibles hors-ligne — on met à 0 et on informe l'utilisateur
+                    TotalAllocated = 0;
+                    TotalTaken = 0;
+                    TotalRemaining = 0;
+
+                    if (LeaveTypes.Count == 0)
+                    {
+                        ErrorMessage = "Aucun type de congé local disponible.";
+                        IsLeaveTypeEnabled = false;
+                    }
+                    else
+                    {
+                        ErrorMessage = "Mode hors‑ligne : les types affichés proviennent du cache local. Certaines validations seront effectuées au moment de l'envoi.";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ErrorMessage = "Erreur interne en mode hors‑ligne : " + ex.Message;
+                    LeaveTypes = new ObservableCollection<LeaveTypeItem>();
+                    SelectedLeaveType = null;
+                    IsLeaveTypeEnabled = false;
+                }
+                finally
+                {
+                    IsBusy = false;
+                }
+
+                return;
+            }
+
+            // Mode en ligne : comportement existant
+>>>>>>> 52175ee (bug pour le type en offline resoulu modifie dans ViewModels/LeaveRequestViewModel.cs)
             try
             {
                 IsBusy = true;
@@ -290,9 +360,37 @@ namespace PFE.ViewModels
             }
             catch (Exception ex)
             {
+<<<<<<< HEAD
                 ErrorMessage = "Impossible de charger les dates non disponibles pour les congés.";
                 System.Diagnostics.Debug.WriteLine($"Error LoadBlockedDatesAsync: {ex.Message}");
                 _blockedDatesSet.Clear();
+=======
+                // En cas d'erreur réseau imprévue, proposer fallback local pour une meilleure UX
+                if (Connectivity.Current.NetworkAccess != NetworkAccess.Internet)
+                {
+                    // traiter comme hors-ligne (déjà géré ci-dessus mais on double-check)
+                    LeaveTypes = new ObservableCollection<LeaveTypeItem>(LeaveTypeItems);
+                    SelectedLeaveType = LeaveTypes.FirstOrDefault();
+                    IsLeaveTypeEnabled = LeaveTypes.Count > 0;
+
+                    TotalAllocated = 0;
+                    TotalTaken = 0;
+                    TotalRemaining = 0;
+
+                    ErrorMessage = "Mode hors‑ligne détecté pendant le chargement : types locaux affichés.";
+                }
+                else
+                {
+                    ErrorMessage = "Impossible de charger les types de congés disponibles.\n\nDétails : " + ex.Message;
+                    LeaveTypes = new ObservableCollection<LeaveTypeItem>();
+                    SelectedLeaveType = null;
+                    IsLeaveTypeEnabled = false;
+
+                    TotalAllocated = 0;
+                    TotalTaken = 0;
+                    TotalRemaining = 0;
+                }
+>>>>>>> 52175ee (bug pour le type en offline resoulu modifie dans ViewModels/LeaveRequestViewModel.cs)
             }
             finally
             {
