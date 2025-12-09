@@ -2,106 +2,192 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="PFE.Views.LeaveRequestPage"
-             Title="Demande de congé">
+             Title="Demande de congé"
+             BackgroundColor="#0F172A">
 
     <ScrollView>
-        <VerticalStackLayout Padding="20"
-                             Spacing="15">
+        <Grid Padding="24">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
 
-            <ContentView IsVisible="{Binding IsEmployee}">
-                <VerticalStackLayout Spacing="15">
+            <!-- Header -->
+            <VerticalStackLayout Grid.Row="0"
+                                 Spacing="6"
+                                 Margin="0,10,0,20">
+                <Label Text="Demande de congé"
+                       FontSize="26"
+                       FontAttributes="Bold"
+                       TextColor="White" />
+                <Label Text="Créer une nouvelle demande synchronisée avec Odoo"
+                       FontSize="14"
+                       TextColor="#9CA3AF" />
+            </VerticalStackLayout>
 
-                    <Label Text="{Binding StartDate.Year, StringFormat='Allocations de lannée {0}'}" FontSize="16"/>
-                    <Frame Padding="12"
-                           BackgroundColor="Transparent">
-                        <Grid ColumnDefinitions="*,*,*"
-                              ColumnSpacing="12">
-                            <VerticalStackLayout Grid.Column="0"
-                                                 Spacing="4"
-                                                 HorizontalOptions="Center">
-                                <Label Text="Alloué"
-                                       FontAttributes="Bold"
-                                       FontSize="12"
-                                       TextColor="#555" />
-                                <Label Text="{Binding TotalAllocated}"
-                                       FontSize="20"
-                                       FontAttributes="Bold"
-                                       TextColor="#2D7EF7" />
-                            </VerticalStackLayout>
+            <!-- Contenu principal -->
+            <VerticalStackLayout Grid.Row="1"
+                                 Spacing="18">
 
-                            <VerticalStackLayout Grid.Column="1"
-                                                 Spacing="4"
-                                                 HorizontalOptions="Center">
-                                <Label Text="Pris"
-                                       FontAttributes="Bold"
-                                       FontSize="12"
-                                       TextColor="#555" />
-                                <Label Text="{Binding TotalTaken}"
-                                       FontSize="20"
-                                       FontAttributes="Bold"
-                                       TextColor="#E06C6C" />
-                            </VerticalStackLayout>
-
-                            <VerticalStackLayout Grid.Column="2"
-                                                 Spacing="4"
-                                                 HorizontalOptions="Center">
-                                <Label Text="Restant"
-                                       FontAttributes="Bold"
-                                       FontSize="12"
-                                       TextColor="#555" />
-                                <Label Text="{Binding TotalRemaining}"
-                                       FontSize="20"
-                                       FontAttributes="Bold"
-                                       TextColor="#2E7D32" />
-                            </VerticalStackLayout>
-                        </Grid>
+                <!-- Message : accès refusé -->
+                <ContentView IsVisible="{Binding IsAccessDenied}">
+                    <Frame CornerRadius="14"
+                           Padding="14"
+                           BackgroundColor="#7F1D1D"
+                           BorderColor="#F87171">
+                        <Label Text="Accès refusé : cette page est réservée aux employés connectés."
+                               TextColor="White"
+                               FontSize="14"
+                               HorizontalTextAlignment="Center" />
                     </Frame>
+                </ContentView>
 
-                    <Label Text="Date de début" />
-                    <DatePicker Date="{Binding StartDate, Mode=TwoWay}" />
+                <!-- Message d'erreur global -->
+                <Label Text="{Binding ErrorMessage}"
+                       TextColor="#F97373"
+                       HorizontalTextAlignment="Center"
+                       FontSize="14"
+                       LineBreakMode="WordWrap" />
 
-                    <Label Text="Date de fin" />
-                    <DatePicker Date="{Binding EndDate, Mode=TwoWay}" />
+                <!-- Bloc employé -->
+                <ContentView IsVisible="{Binding IsEmployee}">
+                    <VerticalStackLayout Spacing="18">
 
-                    <Label Text="Type de congé" />
-                    <Picker ItemsSource="{Binding LeaveTypes}"
-                            ItemDisplayBinding="{Binding Name}"
-                            SelectedItem="{Binding SelectedLeaveType, Mode=TwoWay}"
-                            Title="Choisissez un type de congé"/>
+                        <!-- Carte allocations -->
+                        <Frame CornerRadius="18"
+                               HasShadow="True"
+                               Padding="16"
+                               BackgroundColor="#111827"
+                               BorderColor="#1F2937">
+                            <VerticalStackLayout Spacing="10">
+                                <Label Text="{Binding StartDate.Year, StringFormat='Allocations de l''année {0}'}"
+                                       FontSize="14"
+                                       TextColor="#9CA3AF" />
 
-                    <Label Text="Motif (optionnel)" />
-                    <Editor Text="{Binding Reason, Mode=TwoWay}"
-                            AutoSize="TextChanges"
-                            HeightRequest="100"
-                            Placeholder="Ex : Vacances, rendez-vous médical..." />
+                                <Grid ColumnDefinitions="*,*,*"
+                                      ColumnSpacing="12"
+                                      Margin="0,4,0,0">
 
-                    <ActivityIndicator IsVisible="{Binding IsBusy}"
-                                       IsRunning="{Binding IsBusy}" />
+                                    <VerticalStackLayout Grid.Column="0"
+                                                         Spacing="4"
+                                                         HorizontalOptions="Center">
+                                        <Label Text="Alloué"
+                                               FontAttributes="Bold"
+                                               FontSize="12"
+                                               TextColor="#D1D5DB" />
+                                        <Label Text="{Binding TotalAllocated}"
+                                               FontSize="20"
+                                               FontAttributes="Bold"
+                                               TextColor="#60A5FA" />
+                                    </VerticalStackLayout>
 
-                    <Button Text="Envoyer la demande"
-                            BackgroundColor="#0078D7"
-                            TextColor="White"
-                            CornerRadius="10"
-                            HeightRequest="50"
-                            Clicked="SubmitButton_Clicked"
-                            IsEnabled="{Binding CanSubmit}" />
+                                    <VerticalStackLayout Grid.Column="1"
+                                                         Spacing="4"
+                                                         HorizontalOptions="Center">
+                                        <Label Text="Pris"
+                                               FontAttributes="Bold"
+                                               FontSize="12"
+                                               TextColor="#D1D5DB" />
+                                        <Label Text="{Binding TotalTaken}"
+                                               FontSize="20"
+                                               FontAttributes="Bold"
+                                               TextColor="#FCA5A5" />
+                                    </VerticalStackLayout>
 
-                    <Label Text="{Binding ErrorMessage}"
-                           TextColor="Tomato"
-                           HorizontalTextAlignment="Center"
-                           FontSize="16" />
-                </VerticalStackLayout>
-            </ContentView>
+                                    <VerticalStackLayout Grid.Column="2"
+                                                         Spacing="4"
+                                                         HorizontalOptions="Center">
+                                        <Label Text="Restant"
+                                               FontAttributes="Bold"
+                                               FontSize="12"
+                                               TextColor="#D1D5DB" />
+                                        <Label Text="{Binding TotalRemaining}"
+                                               FontSize="20"
+                                               FontAttributes="Bold"
+                                               TextColor="#4ADE80" />
+                                    </VerticalStackLayout>
 
-            <ContentView IsVisible="{Binding IsAccessDenied}">
-                <VerticalStackLayout>
-                    <Label Text="Accès refusé : cette page est réservée aux employés connectés."
-                           TextColor="Tomato"
-                           HorizontalTextAlignment="Center"
-                           FontSize="16" />
-                </VerticalStackLayout>
-            </ContentView>
+                                </Grid>
+                            </VerticalStackLayout>
+                        </Frame>
 
-        </VerticalStackLayout>
+                        <!-- Carte formulaire -->
+                        <Frame CornerRadius="18"
+                               HasShadow="True"
+                               Padding="18"
+                               BackgroundColor="#111827"
+                               BorderColor="#1F2937">
+
+                            <VerticalStackLayout Spacing="14">
+
+                                <!-- Dates -->
+                                <VerticalStackLayout Spacing="6">
+                                    <Label Text="Date de début"
+                                           TextColor="#E5E7EB"
+                                           FontSize="14" />
+                                    <DatePicker Date="{Binding StartDate, Mode=TwoWay}"
+                                                TextColor="White"
+                                                BackgroundColor="#020617" />
+                                </VerticalStackLayout>
+
+                                <VerticalStackLayout Spacing="6">
+                                    <Label Text="Date de fin"
+                                           TextColor="#E5E7EB"
+                                           FontSize="14" />
+                                    <DatePicker Date="{Binding EndDate, Mode=TwoWay}"
+                                                TextColor="White"
+                                                BackgroundColor="#020617" />
+                                </VerticalStackLayout>
+
+                                <!-- Type de congé -->
+                                <VerticalStackLayout Spacing="6">
+                                    <Label Text="Type de congé"
+                                           TextColor="#E5E7EB"
+                                           FontSize="14" />
+                                    <Picker ItemsSource="{Binding LeaveTypes}"
+                                            ItemDisplayBinding="{Binding Name}"
+                                            SelectedItem="{Binding SelectedLeaveType, Mode=TwoWay}"
+                                            Title="Choisissez un type de congé"
+                                            TextColor="White"
+                                            BackgroundColor="#020617" />
+                                </VerticalStackLayout>
+
+                                <!-- Motif -->
+                                <VerticalStackLayout Spacing="6">
+                                    <Label Text="Motif (optionnel)"
+                                           TextColor="#E5E7EB"
+                                           FontSize="14" />
+                                    <Editor Text="{Binding Reason, Mode=TwoWay}"
+                                            AutoSize="TextChanges"
+                                            HeightRequest="110"
+                                            TextColor="White"
+                                            BackgroundColor="#020617"
+                                            Placeholder="Ex : Vacances, rendez-vous médical..." />
+                                </VerticalStackLayout>
+
+                                <!-- Loader -->
+                                <ActivityIndicator IsVisible="{Binding IsBusy}"
+                                                   IsRunning="{Binding IsBusy}"
+                                                   Color="#60A5FA"
+                                                   HorizontalOptions="Center" />
+
+                                <!-- Bouton -->
+                                <Button Text="Envoyer la demande"
+                                        BackgroundColor="#2563EB"
+                                        TextColor="White"
+                                        CornerRadius="999"
+                                        HeightRequest="50"
+                                        FontAttributes="Bold"
+                                        Clicked="SubmitButton_Clicked"
+                                        IsEnabled="{Binding CanSubmit}" />
+
+                            </VerticalStackLayout>
+                        </Frame>
+
+                    </VerticalStackLayout>
+                </ContentView>
+
+            </VerticalStackLayout>
+        </Grid>
     </ScrollView>
 </ContentPage>

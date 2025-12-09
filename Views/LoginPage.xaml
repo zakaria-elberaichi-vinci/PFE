@@ -3,8 +3,8 @@
     x:Class="PFE.Views.LoginPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:conv="clr-namespace:PFE.Converters">
-
+    xmlns:conv="clr-namespace:PFE.Converters"
+    BackgroundColor="#0F172A">
 
     <ContentPage.Resources>
         <ResourceDictionary>
@@ -13,45 +13,106 @@
         </ResourceDictionary>
     </ContentPage.Resources>
 
-
     <ScrollView>
-        <VerticalStackLayout Padding="20" Spacing="20">
+        <Grid Padding="24">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
 
-            <Label Text="Test Connexion Odoo"
-                   FontSize="28"
-                   HorizontalOptions="Center" />
-            
-            <Entry Placeholder="Login (email Odoo)"
-                   Keyboard="Email"
-                   Text="{Binding Login}" />
+            <!-- Header -->
+            <VerticalStackLayout Grid.Row="0"
+                                 Spacing="6"
+                                 Margin="0,20,0,30">
+                <Label Text="Connexion"
+                       FontSize="28"
+                       FontAttributes="Bold"
+                       TextColor="White" />
 
-            <Entry Placeholder="Mot de passe"
-                   IsPassword="True"
-                   Text="{Binding Password}" />
+                <Label Text="Accédez à votre espace Odoo Time Off"
+                       FontSize="14"
+                       TextColor="#9CA3AF" />
+            </VerticalStackLayout>
 
-            <HorizontalStackLayout Spacing="10">
-                <CheckBox IsChecked="{Binding RememberMe}" />
-                <Label Text="Se souvenir de moi"
-                       VerticalOptions="Center" />
-            </HorizontalStackLayout>
+            <!-- Carte de login -->
+            <Frame Grid.Row="1"
+                   CornerRadius="18"
+                   HasShadow="True"
+                   Padding="20"
+                   BackgroundColor="#111827"
+                   BorderColor="#1F2937">
+                <VerticalStackLayout Spacing="16">
 
-            <Button Text="Se connecter"
-                    Command="{Binding LoginCommand}"
-                    HorizontalOptions="Fill"
-                    BackgroundColor="#0078D7"
-                    TextColor="White"
-                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}, FallbackValue=True}" />
-            
-            <ActivityIndicator IsRunning="{Binding IsBusy}"
-                               IsVisible="{Binding IsBusy}" />
+                    <!-- Champ login -->
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Adresse e-mail Odoo"
+                               FontSize="13"
+                               TextColor="#D1D5DB" />
+                        <Entry Placeholder="nom.prenom@exemple.com"
+                               Keyboard="Email"
+                               Text="{Binding Login}"
+                               TextColor="White"
+                               PlaceholderColor="#6B7280"
+                               BackgroundColor="#020617"
+                               HeightRequest="44"
+                               Margin="0"
+                               HorizontalOptions="Fill"
+                               ClearButtonVisibility="WhileEditing" />
+                    </VerticalStackLayout>
 
-            <Label Text="{Binding ErrorMessage}"
-                   FontSize="16"
-                   TextColor="Tomato"
-                   HorizontalTextAlignment="Center"
-                   IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}" />
+                    <!-- Champ mot de passe -->
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Mot de passe"
+                               FontSize="13"
+                               TextColor="#D1D5DB" />
+                        <Entry Placeholder="••••••••"
+                               IsPassword="True"
+                               Text="{Binding Password}"
+                               TextColor="White"
+                               PlaceholderColor="#6B7280"
+                               BackgroundColor="#020617"
+                               HeightRequest="44"
+                               Margin="0"
+                               HorizontalOptions="Fill" />
+                    </VerticalStackLayout>
 
-        </VerticalStackLayout>
+                    <!-- Remember me -->
+                    <HorizontalStackLayout Spacing="10"
+                                           Margin="0,4,0,0">
+                        <CheckBox IsChecked="{Binding RememberMe}" />
+                        <Label Text="Se souvenir de moi"
+                               TextColor="#E5E7EB"
+                               VerticalOptions="Center" />
+                    </HorizontalStackLayout>
+
+                    <!-- Bouton login -->
+                    <Button Text="Se connecter"
+                            Command="{Binding LoginCommand}"
+                            HorizontalOptions="Fill"
+                            BackgroundColor="#3B82F6"
+                            TextColor="White"
+                            CornerRadius="12"
+                            HeightRequest="48"
+                            FontSize="15"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}, FallbackValue=True}" />
+
+                    <!-- Loader -->
+                    <ActivityIndicator IsRunning="{Binding IsBusy}"
+                                       IsVisible="{Binding IsBusy}"
+                                       Color="#60A5FA"
+                                       HorizontalOptions="Center" />
+
+                    <!-- Erreur -->
+                    <Label Text="{Binding ErrorMessage}"
+                           FontSize="14"
+                           TextColor="#F97373"
+                           HorizontalTextAlignment="Center"
+                           LineBreakMode="WordWrap"
+                           IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}" />
+
+                </VerticalStackLayout>
+            </Frame>
+        </Grid>
     </ScrollView>
 
 </ContentPage>

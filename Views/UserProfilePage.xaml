@@ -3,7 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="PFE.Views.UserProfilePage"
              xmlns:conv="clr-namespace:PFE.Converters"
-             Title="Mes Informations">
+             Title="Mes Informations"
+             BackgroundColor="#0F172A">
 
     <ContentPage.Resources>
         <ResourceDictionary>
@@ -12,71 +13,130 @@
         </ResourceDictionary>
     </ContentPage.Resources>
 
-    <VerticalStackLayout Padding="20"
-                         Spacing="15">
-        
-        <Label Text="{Binding ErrorMessage}"
-               TextColor="Tomato"
-               HorizontalTextAlignment="Center"
-               FontSize="16"
-               IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}" />
+    <ScrollView>
+        <Grid Padding="24">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
 
-        <ContentView IsVisible="{Binding IsAuthenticated}">
-            <ScrollView>
-                <VerticalStackLayout Spacing="15">
+            <!-- Header -->
+            <VerticalStackLayout Grid.Row="0"
+                                 Spacing="6"
+                                 Margin="0,20,0,20">
+                <Label Text="Mon profil"
+                       FontSize="26"
+                       FontAttributes="Bold"
+                       TextColor="White" />
+                <Label Text="Informations synchronisées depuis Odoo"
+                       FontSize="14"
+                       TextColor="#9CA3AF" />
+            </VerticalStackLayout>
 
-                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-                        <Label Grid.Column="0"
-                               Text="Nom :"
-                               FontAttributes="Bold"
-                               VerticalOptions="Center" />
-                        <Label Grid.Column="1"
-                               Text="{Binding Name, Converter={StaticResource NullOrEmptyConverter}}" />
-                    </Grid>
+            <!-- Contenu principal -->
+            <VerticalStackLayout Grid.Row="1"
+                                 Spacing="16">
 
-                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-                        <Label Grid.Column="0"
-                               Text="Email :"
-                               FontAttributes="Bold"
-                               VerticalOptions="Center" />
-                        <Label Grid.Column="1"
-                               Text="{Binding WorkEmail, Converter={StaticResource NullOrEmptyConverter}}" />
-                    </Grid>
+                <!-- Message d'erreur -->
+                <Label Text="{Binding ErrorMessage}"
+                       TextColor="#F97373"
+                       HorizontalTextAlignment="Center"
+                       FontSize="14"
+                       LineBreakMode="WordWrap"
+                       IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}" />
 
-                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-                        <Label Grid.Column="0"
-                               Text="Poste :"
-                               FontAttributes="Bold"
-                               VerticalOptions="Center" />
-                        <Label Grid.Column="1"
-                               Text="{Binding JobTitle, Converter={StaticResource NullOrEmptyConverter}}" />
-                    </Grid>
+                <!-- Carte profil -->
+                <ContentView IsVisible="{Binding IsAuthenticated}">
+                    <Frame CornerRadius="18"
+                           HasShadow="True"
+                           Padding="18"
+                           BackgroundColor="#111827"
+                           BorderColor="#1F2937">
+                        <ScrollView>
+                            <VerticalStackLayout Spacing="16">
 
-                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-                        <Label Grid.Column="0"
-                               Text="Département :"
-                               FontAttributes="Bold"
-                               VerticalOptions="Center" />
-                        <Label Grid.Column="1"
-                               Text="{Binding DepartmentName, Converter={StaticResource NullOrEmptyConverter}}" />
-                    </Grid>
+                                <!-- Bloc Nom -->
+                                <Grid ColumnDefinitions="Auto,*"
+                                      ColumnSpacing="12">
+                                    <Label Grid.Column="0"
+                                           Text="Nom"
+                                           FontAttributes="Bold"
+                                           TextColor="#D1D5DB"
+                                           VerticalOptions="Center" />
+                                    <Label Grid.Column="1"
+                                           Text="{Binding Name, Converter={StaticResource NullOrEmptyConverter}}"
+                                           TextColor="#E5E7EB"
+                                           VerticalOptions="Center" />
+                                </Grid>
 
-                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-                        <Label Grid.Column="0"
-                               Text="Manager :"
-                               FontAttributes="Bold"
-                               VerticalOptions="Center" />
-                        <Label Grid.Column="1"
-                               Text="{Binding ManagerName, Converter={StaticResource NullOrEmptyConverter}}" />
-                    </Grid>
+                                <!-- Bloc Email -->
+                                <Grid ColumnDefinitions="Auto,*"
+                                      ColumnSpacing="12">
+                                    <Label Grid.Column="0"
+                                           Text="Email"
+                                           FontAttributes="Bold"
+                                           TextColor="#D1D5DB"
+                                           VerticalOptions="Center" />
+                                    <Label Grid.Column="1"
+                                           Text="{Binding WorkEmail, Converter={StaticResource NullOrEmptyConverter}}"
+                                           TextColor="#E5E7EB"
+                                           VerticalOptions="Center" />
+                                </Grid>
 
-                    <ActivityIndicator IsRunning="{Binding IsBusy}"
-                                       IsVisible="{Binding IsBusy}"
-                                       Color="DodgerBlue" />
+                                <!-- Bloc Poste -->
+                                <Grid ColumnDefinitions="Auto,*"
+                                      ColumnSpacing="12">
+                                    <Label Grid.Column="0"
+                                           Text="Poste"
+                                           FontAttributes="Bold"
+                                           TextColor="#D1D5DB"
+                                           VerticalOptions="Center" />
+                                    <Label Grid.Column="1"
+                                           Text="{Binding JobTitle, Converter={StaticResource NullOrEmptyConverter}}"
+                                           TextColor="#E5E7EB"
+                                           VerticalOptions="Center" />
+                                </Grid>
 
-                </VerticalStackLayout>
-            </ScrollView>
-        </ContentView>
+                                <!-- Bloc Département -->
+                                <Grid ColumnDefinitions="Auto,*"
+                                      ColumnSpacing="12">
+                                    <Label Grid.Column="0"
+                                           Text="Département"
+                                           FontAttributes="Bold"
+                                           TextColor="#D1D5DB"
+                                           VerticalOptions="Center" />
+                                    <Label Grid.Column="1"
+                                           Text="{Binding DepartmentName, Converter={StaticResource NullOrEmptyConverter}}"
+                                           TextColor="#E5E7EB"
+                                           VerticalOptions="Center" />
+                                </Grid>
 
-    </VerticalStackLayout>
+                                <!-- Bloc Manager -->
+                                <Grid ColumnDefinitions="Auto,*"
+                                      ColumnSpacing="12">
+                                    <Label Grid.Column="0"
+                                           Text="Manager"
+                                           FontAttributes="Bold"
+                                           TextColor="#D1D5DB"
+                                           VerticalOptions="Center" />
+                                    <Label Grid.Column="1"
+                                           Text="{Binding ManagerName, Converter={StaticResource NullOrEmptyConverter}}"
+                                           TextColor="#E5E7EB"
+                                           VerticalOptions="Center" />
+                                </Grid>
+
+                                <!-- Loader -->
+                                <ActivityIndicator IsRunning="{Binding IsBusy}"
+                                                   IsVisible="{Binding IsBusy}"
+                                                   Color="#60A5FA"
+                                                   HorizontalOptions="Center" />
+
+                            </VerticalStackLayout>
+                        </ScrollView>
+                    </Frame>
+                </ContentView>
+
+            </VerticalStackLayout>
+        </Grid>
+    </ScrollView>
 </ContentPage>
