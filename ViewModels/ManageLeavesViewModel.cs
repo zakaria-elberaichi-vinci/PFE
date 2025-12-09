@@ -42,6 +42,8 @@ namespace PFE.ViewModels
 
         public bool IsManager => _odoo.session.Current.IsManager;
 
+        private int ManagerUserId => _odoo.session.Current.UserId ?? 0;
+
         public ObservableCollection<LeaveToApprove> Leaves { get; }
 
         /// <summary>
@@ -103,11 +105,11 @@ namespace PFE.ViewModels
                 List<LeaveToApprove> list = await _odoo.GetLeavesToApproveAsync();
 
                 // Détecter les nouvelles demandes
-                HashSet<int> seenIds = _notificationService.GetSeenLeaveIds();
+                HashSet<int> seenIds = await _notificationService.GetSeenLeaveIdsAsync(ManagerUserId);
                 _newLeaves = list.Where(l => !seenIds.Contains(l.Id)).ToList();
 
                 // Marquer toutes les demandes actuelles comme vues
-                _notificationService.MarkLeavesAsSeen(list.Select(l => l.Id));
+                await _notificationService.MarkLeavesAsSeenAsync(ManagerUserId, list.Select(l => l.Id));
 
                 Leaves.Clear();
                 foreach (LeaveToApprove item in list)
@@ -183,7 +185,7 @@ namespace PFE.ViewModels
             List<LeaveToApprove> list = await _odoo.GetLeavesToApproveAsync();
 
             // Marquer comme vues
-            _notificationService.MarkLeavesAsSeen(list.Select(l => l.Id));
+            await _notificationService.MarkLeavesAsSeenAsync(ManagerUserId, list.Select(l => l.Id));
 
             Leaves.Clear();
             foreach (LeaveToApprove item in list)

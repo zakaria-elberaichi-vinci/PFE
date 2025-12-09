@@ -17,7 +17,7 @@ namespace PFE.Services
     public class BackgroundNotificationService : IBackgroundNotificationService
     {
         private readonly OdooClient _odooClient;
-        private readonly ILeaveNotificationService _leaveNotificationService;
+        private readonly IDatabaseService _databaseService;
         private readonly SessionContext _session;
         private CancellationTokenSource? _cts;
         private Task? _pollingTask;
@@ -28,11 +28,11 @@ namespace PFE.Services
 
         public BackgroundNotificationService(
             OdooClient odooClient,
-            ILeaveNotificationService leaveNotificationService,
+            IDatabaseService databaseService,
             SessionContext session)
         {
             _odooClient = odooClient;
-            _leaveNotificationService = leaveNotificationService;
+            _databaseService = databaseService;
             _session = session;
         }
 
@@ -60,6 +60,9 @@ namespace PFE.Services
 
         private async Task PollForNewLeavesAsync(CancellationToken cancellationToken)
         {
+            // Initialiser la base de données
+            await _databaseService.InitializeAsync();
+
             while (!cancellationToken.IsCancellationRequested)
             {
                 try
@@ -90,10 +93,13 @@ namespace PFE.Services
                 return;
             }
 
+            int managerUserId = _session.Current.UserId ?? 0;
+            if (managerUserId == 0) return;
+
             try
             {
                 List<LeaveToApprove> leaves = await _odooClient.GetLeavesToApproveAsync();
-                HashSet<int> seenIds = _leaveNotificationService.GetSeenLeaveIds();
+                HashSet<int> seenIds = await _databaseService.GetSeenLeaveIdsAsync(managerUserId);
 
                 List<LeaveToApprove> newLeaves = leaves.Where(l => !seenIds.Contains(l.Id)).ToList();
 
@@ -105,7 +111,7 @@ namespace PFE.Services
                 // Marquer comme vues
                 if (newLeaves.Count > 0)
                 {
-                    _leaveNotificationService.MarkLeavesAsSeen(newLeaves.Select(l => l.Id));
+                    await _databaseService.MarkLeavesAsSeenAsync(managerUserId, newLeaves.Select(l => l.Id));
                 }
             }
             catch (Exception ex)

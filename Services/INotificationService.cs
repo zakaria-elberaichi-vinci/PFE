@@ -5,16 +5,16 @@ namespace PFE.Services
         /// <summary>
         /// Récupère les IDs des demandes déjà vues par le manager
         /// </summary>
-        HashSet<int> GetSeenLeaveIds();
+        Task<HashSet<int>> GetSeenLeaveIdsAsync(int managerUserId);
 
         /// <summary>
         /// Marque des demandes comme vues
         /// </summary>
-        void MarkLeavesAsSeen(IEnumerable<int> leaveIds);
+        Task MarkLeavesAsSeenAsync(int managerUserId, IEnumerable<int> leaveIds);
 
         /// <summary>
         /// Efface toutes les demandes vues
         /// </summary>
-        void ClearSeenLeaves();
+        Task ClearSeenLeavesAsync(int managerUserId);
     }
 }

@@ -2,38 +2,29 @@ namespace PFE.Services
 {
     public class LeaveNotificationService : ILeaveNotificationService
     {
-        private const string SeenLeavesKey = "seen_leave_ids";
+        private readonly IDatabaseService _databaseService;
 
-        public HashSet<int> GetSeenLeaveIds()
+        public LeaveNotificationService(IDatabaseService databaseService)
         {
-            string stored = Preferences.Get(SeenLeavesKey, string.Empty);
-
-            if (string.IsNullOrEmpty(stored))
-                return new HashSet<int>();
-
-            return stored
-                .Split(',', StringSplitOptions.RemoveEmptyEntries)
-                .Select(s => int.TryParse(s, out int id) ? id : -1)
-                .Where(id => id > 0)
-                .ToHashSet();
+            _databaseService = databaseService;
         }
 
-        public void MarkLeavesAsSeen(IEnumerable<int> leaveIds)
+        public async Task<HashSet<int>> GetSeenLeaveIdsAsync(int managerUserId)
         {
-            HashSet<int> existing = GetSeenLeaveIds();
-
-            foreach (int id in leaveIds)
-            {
-                existing.Add(id);
-            }
-
-            string value = string.Join(",", existing);
-            Preferences.Set(SeenLeavesKey, value);
+            await _databaseService.InitializeAsync();
+            return await _databaseService.GetSeenLeaveIdsAsync(managerUserId);
         }
 
-        public void ClearSeenLeaves()
+        public async Task MarkLeavesAsSeenAsync(int managerUserId, IEnumerable<int> leaveIds)
         {
-            Preferences.Remove(SeenLeavesKey);
+            await _databaseService.InitializeAsync();
+            await _databaseService.MarkLeavesAsSeenAsync(managerUserId, leaveIds);
+        }
+
+        public async Task ClearSeenLeavesAsync(int managerUserId)
+        {
+            await _databaseService.InitializeAsync();
+            await _databaseService.ClearSeenNotificationsAsync(managerUserId);
         }
     }
 }

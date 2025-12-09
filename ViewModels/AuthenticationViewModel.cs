@@ -9,6 +9,7 @@ namespace PFE.ViewModels
     {
         private readonly OdooClient _odooClient;
         private readonly IBackgroundNotificationService _backgroundNotificationService;
+        private readonly IBackgroundLeaveStatusService _backgroundLeaveStatusService;
 
         private string _login = string.Empty;
         private string _password = string.Empty;
@@ -18,10 +19,14 @@ namespace PFE.ViewModels
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
-        public AuthenticationViewModel(OdooClient odooClient, IBackgroundNotificationService backgroundNotificationService)
+        public AuthenticationViewModel(
+            OdooClient odooClient, 
+            IBackgroundNotificationService backgroundNotificationService,
+            IBackgroundLeaveStatusService backgroundLeaveStatusService)
         {
             _odooClient = odooClient;
             _backgroundNotificationService = backgroundNotificationService;
+            _backgroundLeaveStatusService = backgroundLeaveStatusService;
             LoadRememberedCredentials();
             LoginCommand = new RelayCommand(async _ => await LoginAsync(), _ => !IsBusy);
         }
@@ -89,10 +94,16 @@ namespace PFE.ViewModels
                 {
                     await PersistCredentialsAsync();
 
-                    // Démarrer le service de notification en arrière-plan si manager
+                    // Démarrer le service approprié selon le rôle
                     if (_odooClient.session.Current.IsManager)
                     {
+                        // Manager : notifications pour nouvelles demandes de congé
                         _backgroundNotificationService.Start();
+                    }
+                    else
+                    {
+                        // Employé : notifications pour acceptation/refus de congé
+                        _backgroundLeaveStatusService.Start();
                     }
 
                     OnLoginSucceeded?.Invoke();
@@ -117,13 +128,11 @@ namespace PFE.ViewModels
 
         private async void LoadRememberedCredentials()
         {
-            // Preferences pour bool & login
             RememberMe = Preferences.Get(RememberMeKey, false);
             if (RememberMe)
             {
                 Login = Preferences.Get(LoginKey, string.Empty);
 
-                // Password dans SecureStorage (si disponible)
                 try
                 {
                     string? pwd = await SecureStorage.GetAsync(PasswordKey);
@@ -132,7 +141,6 @@ namespace PFE.ViewModels
                 }
                 catch
                 {
-                    // En cas d’indisponibilité (simulateur, device lock, etc.), on ignore.
                 }
             }
         }
@@ -142,7 +150,6 @@ namespace PFE.ViewModels
             Preferences.Set(RememberMeKey, RememberMe);
             if (!RememberMe)
             {
-                // Si l’utilisateur décoche, on nettoie les identifiants
                 Preferences.Remove(LoginKey);
                 SecureStorage.Remove(PasswordKey);
             }

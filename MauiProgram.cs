@@ -21,6 +21,9 @@ namespace PFE
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                     fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
                 });
+
+            // Database Service (SQLite)
+            builder.Services.AddSingleton<IDatabaseService, DatabaseService>();
             
             builder.Services.AddSingleton(new CookieContainer());
 
@@ -49,6 +52,7 @@ namespace PFE
 
             builder.Services.AddSingleton<ILeaveNotificationService, LeaveNotificationService>();
             builder.Services.AddSingleton<IBackgroundNotificationService, BackgroundNotificationService>();
+            builder.Services.AddSingleton<IBackgroundLeaveStatusService, BackgroundLeaveStatusService>();
 
             builder.Services.AddTransient<AuthenticationViewModel>();
             builder.Services.AddTransient<UserProfileViewModel>();
