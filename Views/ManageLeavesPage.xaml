@@ -18,7 +18,6 @@
             <VerticalStackLayout Padding="24"
                                  Spacing="18">
 
-                <!-- Header -->
                 <VerticalStackLayout Spacing="4"
                                      Margin="0,0,0,8">
                     <Label Text="Demandes à traiter"
@@ -30,22 +29,19 @@
                            TextColor="#9CA3AF" />
                 </VerticalStackLayout>
 
-                <!-- Message d'erreur -->
                 <Label Text="{Binding ErrorMessage}"
                        TextColor="#F97373"
                        HorizontalTextAlignment="Center"
                        FontSize="14"
                        LineBreakMode="WordWrap"
                        IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}" />
-
-                <!-- Loader -->
                 <ActivityIndicator IsRunning="{Binding IsBusy}"
                                    IsVisible="{Binding IsBusy}"
                                    Color="#60A5FA"
                                    HorizontalOptions="Center"
                                    VerticalOptions="Center" />
 
-                <!-- Liste des demandes -->
+   
                 <CollectionView x:Name="LeavesList"
                                 ItemsSource="{Binding Leaves}"
                                 IsVisible="{Binding IsManager}"
@@ -60,11 +56,10 @@
                                    BackgroundColor="#111827"
                                    BorderColor="#1F2937">
 
-                                <!-- Grille : infos à gauche, actions à droite -->
                                 <Grid ColumnDefinitions="*,Auto"
                                       ColumnSpacing="12">
 
-                                    <!-- Infos congé -->
+                       
                                     <VerticalStackLayout Grid.Column="0"
                                                          Spacing="6"
                                                          VerticalOptions="Center">
@@ -90,7 +85,6 @@
                                                FontSize="13" />
                                     </VerticalStackLayout>
 
-                                    <!-- Boutons -->
                                     <VerticalStackLayout Grid.Column="1"
                                                          Spacing="8"
                                                          HorizontalOptions="End"

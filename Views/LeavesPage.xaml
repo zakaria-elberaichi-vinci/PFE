@@ -18,7 +18,7 @@
             <VerticalStackLayout Padding="24"
                                  Spacing="18">
 
-                <!-- Header -->
+             
                 <VerticalStackLayout Spacing="4"
                                      Margin="0,0,0,8">
                     <Label Text="Mes congés"
@@ -30,7 +30,7 @@
                            TextColor="#9CA3AF" />
                 </VerticalStackLayout>
 
-                <!-- Filtres -->
+               
                 <Frame CornerRadius="16"
                        Padding="14"
                        BackgroundColor="#111827"
@@ -45,7 +45,7 @@
                         <Grid ColumnDefinitions="*,*"
                               ColumnSpacing="12">
 
-                            <!-- Année -->
+                           
                             <VerticalStackLayout Grid.Column="0"
                                                  Spacing="4">
                                 <Label Text="Année"
@@ -59,7 +59,7 @@
                                         TextColor="White" />
                             </VerticalStackLayout>
 
-                            <!-- Statut -->
+                           
                             <VerticalStackLayout Grid.Column="1"
                                                  Spacing="4">
                                 <Label Text="Statut"
@@ -76,7 +76,7 @@
                     </VerticalStackLayout>
                 </Frame>
 
-                <!-- Liste des congés -->
+               
                 <CollectionView ItemsSource="{Binding Leaves}"
                                 IsVisible="{Binding IsEmployee}"
                                 Margin="0,10,0,30">
@@ -96,13 +96,13 @@
                                    BorderColor="#1F2937">
                                 <VerticalStackLayout Spacing="8">
 
-                                    <!-- Type -->
+                                  
                                     <Label Text="{Binding Type}"
                                            FontAttributes="Bold"
                                            FontSize="15"
                                            TextColor="#E5E7EB" />
 
-                                    <!-- Période -->
+                                   
                                     <Label Text="Période"
                                            FontSize="11"
                                            TextColor="#6B7280" />
@@ -116,12 +116,11 @@
                                                TextColor="#D1D5DB" />
                                     </HorizontalStackLayout>
 
-                                    <!-- Durée (si ton modèle expose Days) -->
                                     <Label Text="{Binding Days, StringFormat='Durée : {0} jours'}"
                                            FontSize="13"
                                            TextColor="#9CA3AF" />
 
-                                    <!-- Statut badge -->
+                               
                                     <VerticalStackLayout Spacing="4"
                                                          Margin="0,4,0,0">
                                         <Label Text="Statut"
@@ -145,7 +144,7 @@
                     </CollectionView.ItemTemplate>
                 </CollectionView>
 
-                <!-- Message d'erreur -->
+              
                 <Label Text="{Binding ErrorMessage}"
                        FontSize="14"
                        TextColor="#F97373"
@@ -153,7 +152,7 @@
                        LineBreakMode="WordWrap"
                        IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}" />
 
-                <!-- Loader -->
+            
                 <ActivityIndicator IsRunning="{Binding IsBusy}"
                                    IsVisible="{Binding IsBusy}"
                                    Color="#60A5FA"

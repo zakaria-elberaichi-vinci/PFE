@@ -12,7 +12,7 @@
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <!-- Header -->
+
             <VerticalStackLayout Grid.Row="0"
                                  Spacing="6"
                                  Margin="0,10,0,20">
@@ -25,11 +25,9 @@
                        TextColor="#9CA3AF" />
             </VerticalStackLayout>
 
-            <!-- Contenu principal -->
             <VerticalStackLayout Grid.Row="1"
                                  Spacing="18">
 
-                <!-- Message : accès refusé -->
                 <ContentView IsVisible="{Binding IsAccessDenied}">
                     <Frame CornerRadius="14"
                            Padding="14"
@@ -42,18 +40,16 @@
                     </Frame>
                 </ContentView>
 
-                <!-- Message d'erreur global -->
                 <Label Text="{Binding ErrorMessage}"
                        TextColor="#F97373"
                        HorizontalTextAlignment="Center"
                        FontSize="14"
                        LineBreakMode="WordWrap" />
 
-                <!-- Bloc employé -->
+
                 <ContentView IsVisible="{Binding IsEmployee}">
                     <VerticalStackLayout Spacing="18">
 
-                        <!-- Carte allocations -->
                         <Frame CornerRadius="18"
                                HasShadow="True"
                                Padding="16"
@@ -111,7 +107,6 @@
                             </VerticalStackLayout>
                         </Frame>
 
-                        <!-- Carte formulaire -->
                         <Frame CornerRadius="18"
                                HasShadow="True"
                                Padding="18"
@@ -120,7 +115,7 @@
 
                             <VerticalStackLayout Spacing="14">
 
-                                <!-- Dates -->
+ 
                                 <VerticalStackLayout Spacing="6">
                                     <Label Text="Date de début"
                                            TextColor="#E5E7EB"
@@ -139,7 +134,6 @@
                                                 BackgroundColor="#020617" />
                                 </VerticalStackLayout>
 
-                                <!-- Type de congé -->
                                 <VerticalStackLayout Spacing="6">
                                     <Label Text="Type de congé"
                                            TextColor="#E5E7EB"
@@ -152,7 +146,6 @@
                                             BackgroundColor="#020617" />
                                 </VerticalStackLayout>
 
-                                <!-- Motif -->
                                 <VerticalStackLayout Spacing="6">
                                     <Label Text="Motif (optionnel)"
                                            TextColor="#E5E7EB"
@@ -165,13 +158,12 @@
                                             Placeholder="Ex : Vacances, rendez-vous médical..." />
                                 </VerticalStackLayout>
 
-                                <!-- Loader -->
                                 <ActivityIndicator IsVisible="{Binding IsBusy}"
                                                    IsRunning="{Binding IsBusy}"
                                                    Color="#60A5FA"
                                                    HorizontalOptions="Center" />
 
-                                <!-- Bouton -->
+                        
                                 <Button Text="Envoyer la demande"
                                         BackgroundColor="#2563EB"
                                         TextColor="White"
