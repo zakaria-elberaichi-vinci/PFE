@@ -12,6 +12,7 @@ namespace PFE.ViewModels
     public class LeaveRequestViewModel : INotifyPropertyChanged
     {
         private readonly OdooClient _odooClient;
+        private readonly OfflineService _offlineService;
 
         private CalendarDateRange? _selectedRange;
 
@@ -33,9 +34,10 @@ namespace PFE.ViewModels
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
-        public LeaveRequestViewModel(OdooClient odooClient)
+        public LeaveRequestViewModel(OdooClient odooClient, OfflineService offlineService)
         {
             _odooClient = odooClient;
+            _offlineService = offlineService;
 
             SelectedRange = new CalendarDateRange(DateTime.Today, null);
 
@@ -373,6 +375,24 @@ namespace PFE.ViewModels
             {
                 IsBusy = true;
 
+                // Si hors-ligne, ne pas appeler le serveur
+                if (Connectivity.Current.NetworkAccess != NetworkAccess.Internet)
+                {
+                    var pending = new PendingLeaveRequest
+                    {
+                        Id = Guid.NewGuid(),
+                        LeaveTypeId = SelectedLeaveType.Id,
+                        StartDate = SelectedRange!.StartDate!.Value,
+                        EndDate = SelectedRange!.EndDate!.Value,
+                        Reason = Reason?.Trim() ?? string.Empty,
+                        QueuedAt = DateTime.UtcNow
+                    };
+
+                    await _offlineService.AddPendingAsync(pending);
+
+                    return (true, null, "Vous êtes hors-ligne : la demande a été enregistrée localement et sera envoyée automatiquement dès que la connexion reviendra.");
+                }
+
                 int createdId = await _odooClient.CreateLeaveRequestAsync(
                     leaveTypeId: SelectedLeaveType!.Id,
                     startDate: SelectedRange!.StartDate!.Value,
@@ -381,6 +401,29 @@ namespace PFE.ViewModels
                 );
 
                 return (true, createdId, $"Votre demande de congé a été créée dans Odoo (id = {createdId}).");
+            }
+            catch (Exception ex) when (ex is System.Net.Http.HttpRequestException || Connectivity.Current.NetworkAccess != NetworkAccess.Internet)
+            {
+                // Problème de réseau : enregistrer en local pour synchronisation ultérieure
+                var pending = new PendingLeaveRequest
+                {
+                    Id = Guid.NewGuid(),
+                    LeaveTypeId = SelectedLeaveType.Id,
+                    StartDate = SelectedRange!.StartDate!.Value,
+                    EndDate = SelectedRange!.EndDate!.Value,
+                    Reason = Reason?.Trim() ?? string.Empty,
+                    QueuedAt = DateTime.UtcNow
+                };
+
+                try
+                {
+                    await _offlineService.AddPendingAsync(pending);
+                    return (true, null, "Problème de connexion : la demande a été enregistrée localement et sera envoyée automatiquement.");
+                }
+                catch (Exception addEx)
+                {
+                    return (false, null, "Impossible d'enregistrer la demande hors-ligne.\n\nDétails : " + addEx.Message);
+                }
             }
             catch (Exception ex)
             {

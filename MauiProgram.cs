@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using Microsoft.Extensions.Logging;
+using PFE;
 using PFE.Context;
 using PFE.Services;
 using PFE.ViewModels;
@@ -7,6 +8,7 @@ using PFE.Views;
 using Plugin.LocalNotification;
 using Syncfusion.Licensing;
 using Syncfusion.Maui.Core.Hosting;
+
 
 namespace PFE
 {
@@ -32,10 +34,10 @@ namespace PFE
             builder.Services.AddSingleton(new CookieContainer());
 
             builder.Services.AddHttpClient(nameof(OdooClient), client =>
-                        {
-                            client.BaseAddress = new Uri(OdooConfigService.OdooUrl);
-                            client.DefaultRequestHeaders.UserAgent.ParseAdd("PFE-Client/1.0");
-                        })
+            {
+                client.BaseAddress = new Uri(OdooConfigService.OdooUrl);
+                client.DefaultRequestHeaders.UserAgent.ParseAdd("PFE-Client/1.0");
+            })
                             .SetHandlerLifetime(Timeout.InfiniteTimeSpan)
                             .ConfigurePrimaryHttpMessageHandler(sp => new SocketsHttpHandler
                             {
@@ -58,6 +60,8 @@ namespace PFE
             builder.Services.AddSingleton<IBackgroundNotificationService, BackgroundNotificationService>();
             builder.Services.AddSingleton<IBackgroundLeaveStatusService, BackgroundLeaveStatusService>();
             builder.Services.AddSingleton<ISyncService, SyncService>();
+
+            builder.Services.AddSingleton<OfflineService>();
 
             builder.Services.AddTransient<AuthenticationViewModel>();
             builder.Services.AddTransient<UserProfileViewModel>();
