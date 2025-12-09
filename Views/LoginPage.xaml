@@ -20,7 +20,7 @@
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <!-- Header -->
+       
             <VerticalStackLayout Grid.Row="0"
                                  Spacing="6"
                                  Margin="0,20,0,30">
@@ -34,7 +34,7 @@
                        TextColor="#9CA3AF" />
             </VerticalStackLayout>
 
-            <!-- Carte de login -->
+   
             <Frame Grid.Row="1"
                    CornerRadius="18"
                    HasShadow="True"
@@ -43,7 +43,6 @@
                    BorderColor="#1F2937">
                 <VerticalStackLayout Spacing="16">
 
-                    <!-- Champ login -->
                     <VerticalStackLayout Spacing="4">
                         <Label Text="Adresse e-mail Odoo"
                                FontSize="13"
@@ -60,7 +59,6 @@
                                ClearButtonVisibility="WhileEditing" />
                     </VerticalStackLayout>
 
-                    <!-- Champ mot de passe -->
                     <VerticalStackLayout Spacing="4">
                         <Label Text="Mot de passe"
                                FontSize="13"
@@ -76,7 +74,7 @@
                                HorizontalOptions="Fill" />
                     </VerticalStackLayout>
 
-                    <!-- Remember me -->
+         
                     <HorizontalStackLayout Spacing="10"
                                            Margin="0,4,0,0">
                         <CheckBox IsChecked="{Binding RememberMe}" />
@@ -85,7 +83,7 @@
                                VerticalOptions="Center" />
                     </HorizontalStackLayout>
 
-                    <!-- Bouton login -->
+                  
                     <Button Text="Se connecter"
                             Command="{Binding LoginCommand}"
                             HorizontalOptions="Fill"
@@ -96,13 +94,13 @@
                             FontSize="15"
                             IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}, FallbackValue=True}" />
 
-                    <!-- Loader -->
+            
                     <ActivityIndicator IsRunning="{Binding IsBusy}"
                                        IsVisible="{Binding IsBusy}"
                                        Color="#60A5FA"
                                        HorizontalOptions="Center" />
 
-                    <!-- Erreur -->
+                  
                     <Label Text="{Binding ErrorMessage}"
                            FontSize="14"
                            TextColor="#F97373"
