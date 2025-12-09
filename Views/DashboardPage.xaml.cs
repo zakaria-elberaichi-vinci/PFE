@@ -6,11 +6,14 @@ public partial class DashboardPage : ContentPage
 {
     private readonly OdooClient _client;
     private readonly IServiceProvider _services;
-    public DashboardPage(OdooClient client, IServiceProvider services)
+    private readonly IBackgroundNotificationService _backgroundNotificationService;
+
+    public DashboardPage(OdooClient client, IServiceProvider services, IBackgroundNotificationService backgroundNotificationService)
     {
         InitializeComponent();
         _services = services;
         _client = client;
+        _backgroundNotificationService = backgroundNotificationService;
 
         BtnLeaves.Clicked += async (s, e) =>
         {
@@ -32,6 +35,9 @@ public partial class DashboardPage : ContentPage
 
         BtnLogout.Clicked += (s, e) =>
         {
+            // Arrêter le service de notification en arrière-plan
+            _backgroundNotificationService.Stop();
+
             _client.Logout();
 
             LoginPage loginPage = _services.GetRequiredService<LoginPage>();
@@ -55,5 +61,4 @@ public partial class DashboardPage : ContentPage
         BtnNewLeave.IsVisible = isEmployee;
         BtnManageLeaves.IsVisible = isManager;
     }
-
 }

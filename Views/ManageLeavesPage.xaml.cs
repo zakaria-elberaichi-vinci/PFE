@@ -1,4 +1,5 @@
-﻿using PFE.ViewModels;
+﻿using PFE.Models;
+using PFE.ViewModels;
 
 namespace PFE.Views
 {
@@ -21,7 +22,36 @@ namespace PFE.Views
         protected override async void OnAppearing()
         {
             base.OnAppearing();
+
             await _vm.LoadAsync();
+
+            // Afficher une popup si nouvelles demandes détectées
+            if (_vm.HasNewLeaves)
+            {
+                await ShowNewLeavesAlertAsync();
+            }
+        }
+
+        private async Task ShowNewLeavesAlertAsync()
+        {
+            List<LeaveToApprove> newLeaves = _vm.NewLeaves;
+
+            string message;
+            if (newLeaves.Count == 1)
+            {
+                LeaveToApprove leave = newLeaves[0];
+                message = $"Nouvelle demande de {leave.EmployeeName}\n" +
+                          $"Du {leave.StartDate:dd/MM/yyyy} au {leave.EndDate:dd/MM/yyyy}\n" +
+                          $"({leave.Days} jour(s))";
+            }
+            else
+            {
+                message = $"Vous avez {newLeaves.Count} nouvelles demandes de congé :\n\n" +
+                          string.Join("\n\n", newLeaves.Select(l =>
+                              $"• {l.EmployeeName}\n  Du {l.StartDate:dd/MM/yyyy} au {l.EndDate:dd/MM/yyyy}"));
+            }
+
+            await DisplayAlert("📋 Nouvelles demandes de congé", message, "OK");
         }
     }
 }

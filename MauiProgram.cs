@@ -4,6 +4,7 @@ using PFE.Context;
 using PFE.Services;
 using PFE.ViewModels;
 using PFE.Views;
+using Plugin.LocalNotification;
 
 namespace PFE
 {
@@ -14,11 +15,13 @@ namespace PFE
             MauiAppBuilder builder = MauiApp.CreateBuilder();
             builder
                 .UseMauiApp<App>()
+                .UseLocalNotification()
                 .ConfigureFonts(fonts =>
                 {
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                     fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
                 });
+            
             builder.Services.AddSingleton(new CookieContainer());
 
             builder.Services.AddHttpClient(nameof(OdooClient), client =>
@@ -43,6 +46,9 @@ namespace PFE
                 CookieContainer cookies = sp.GetRequiredService<CookieContainer>();
                 return new OdooClient(http, session, cookies);
             });
+
+            builder.Services.AddSingleton<ILeaveNotificationService, LeaveNotificationService>();
+            builder.Services.AddSingleton<IBackgroundNotificationService, BackgroundNotificationService>();
 
             builder.Services.AddTransient<AuthenticationViewModel>();
             builder.Services.AddTransient<UserProfileViewModel>();

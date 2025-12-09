@@ -8,6 +8,7 @@ namespace PFE.ViewModels
     public class AuthenticationViewModel : INotifyPropertyChanged
     {
         private readonly OdooClient _odooClient;
+        private readonly IBackgroundNotificationService _backgroundNotificationService;
 
         private string _login = string.Empty;
         private string _password = string.Empty;
@@ -17,9 +18,10 @@ namespace PFE.ViewModels
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
-        public AuthenticationViewModel(OdooClient odooClient)
+        public AuthenticationViewModel(OdooClient odooClient, IBackgroundNotificationService backgroundNotificationService)
         {
             _odooClient = odooClient;
+            _backgroundNotificationService = backgroundNotificationService;
             LoadRememberedCredentials();
             LoginCommand = new RelayCommand(async _ => await LoginAsync(), _ => !IsBusy);
         }
@@ -86,6 +88,13 @@ namespace PFE.ViewModels
                 if (success)
                 {
                     await PersistCredentialsAsync();
+
+                    // Démarrer le service de notification en arrière-plan si manager
+                    if (_odooClient.session.Current.IsManager)
+                    {
+                        _backgroundNotificationService.Start();
+                    }
+
                     OnLoginSucceeded?.Invoke();
                 }
                 else

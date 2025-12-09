@@ -856,6 +856,56 @@ namespace PFE.Services
 
             return resEl.GetInt32();
         }
+
+        public async Task<string> GetCurrentEmployeeNameAsync()
+        {
+            EnsureAuthenticated();
+
+            var payload = new
+            {
+                jsonrpc = "2.0",
+                method = "call",
+                @params = new
+                {
+                    model = "hr.employee.public",
+                    method = "search_read",
+                    args = new object[]
+                    {
+                        new object[]
+                        {
+                            new object[] { "user_id", "=", session.Current.UserId!.Value }
+                        },
+                        new string[] { "name" }
+                    },
+                    kwargs = new
+                    {
+                        limit = 1,
+                    }
+                },
+                id = 2
+            };
+
+            HttpResponseMessage res = await _httpClient.PostAsync(_baseUrl, BuildJsonContent(payload));
+            string text = await res.Content.ReadAsStringAsync();
+            res.EnsureSuccessStatusCode();
+
+            using JsonDocument doc = JsonDocument.Parse(text);
+
+            if (!doc.RootElement.TryGetProperty("result", out JsonElement resEl) ||
+                resEl.ValueKind != JsonValueKind.Array ||
+                resEl.GetArrayLength() == 0)
+            {
+                return "Employé inconnu";
+            }
+
+            JsonElement first = resEl[0];
+            if (first.TryGetProperty("name", out JsonElement nameEl) && nameEl.ValueKind == JsonValueKind.String)
+            {
+                return nameEl.GetString() ?? "Employé inconnu";
+            }
+
+            return "Employé inconnu";
+        }
     }
 }
 
