@@ -1,17 +1,62 @@
-﻿using System.Collections.ObjectModel;
+﻿
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using PFE.Models;
 using PFE.Services;
+using static PFE.Helpers.LeaveStatusHelper;
 
 namespace PFE.ViewModels
 {
+    public class StatusItem
+    {
+        public string LabelFr { get; init; } = default!;
+        public string? ValueEn { get; init; }
+        public override string ToString() => LabelFr;
+    }
+
+    public class YearItem
+    {
+        public string Label { get; init; } = default!;
+        public int? Value { get; init; }
+        public override string ToString() => Label;
+    }
+
     public class LeaveViewModel : INotifyPropertyChanged
     {
         private readonly OdooClient _odooClient;
         private bool _isBusy;
         private string _errorMessage = string.Empty;
+        public ObservableCollection<YearItem> Years { get; } = new();
+        public ObservableCollection<StatusItem> Statuses { get; } = new();
+        private YearItem? _selectedYearItem;
+        public YearItem? SelectedYearItem
+        {
+            get => _selectedYearItem;
+            set
+            {
+                if (_selectedYearItem == value) return;
+                _selectedYearItem = value;
+                OnPropertyChanged();
+                if (!IsBusy) _ = LoadAsync();
+            }
+        }
+
+        private StatusItem? _selectedStatusItem;
+        public StatusItem? SelectedStatusItem
+        {
+            get => _selectedStatusItem;
+            set
+            {
+                if (_selectedStatusItem == value) return;
+                _selectedStatusItem = value;
+                OnPropertyChanged();
+                if (!IsBusy) _ = LoadAsync();
+            }
+        }
+        public int? SelectedYear => SelectedYearItem?.Value;
+        public string? SelectedStateEn => SelectedStatusItem?.ValueEn;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -20,10 +65,12 @@ namespace PFE.ViewModels
             _odooClient = odooClient;
             Leaves = new ObservableCollection<Leave>();
             RefreshCommand = new RelayCommand(async _ => await LoadAsync(), _ => !IsBusy);
+
+            InitializeYears();
+            InitializeStatuses();
         }
 
         public bool IsEmployee => _odooClient.session.Current.IsAuthenticated && !_odooClient.session.Current.IsManager;
-
         public ObservableCollection<Leave> Leaves { get; }
 
         public bool IsBusy
@@ -47,6 +94,8 @@ namespace PFE.ViewModels
 
         public async Task LoadAsync()
         {
+            if (IsBusy) return;
+
             IsBusy = true;
             ErrorMessage = string.Empty;
 
@@ -59,10 +108,8 @@ namespace PFE.ViewModels
                     return;
                 }
 
-                List<Leave> list = await _odooClient.GetLeavesAsync();
-
+                List<Leave> list = await _odooClient.GetLeavesAsync(SelectedYear, SelectedStateEn);
                 Leaves.Clear();
-
                 foreach (Leave item in list)
                     Leaves.Add(item);
 
@@ -78,6 +125,32 @@ namespace PFE.ViewModels
                 IsBusy = false;
                 OnPropertyChanged(nameof(IsEmployee));
             }
+        }
+
+        private void InitializeYears()
+        {
+            Years.Clear();
+
+            int y = DateTime.Now.Year;
+
+            Years.Add(new YearItem { Label = "(Aucune)", Value = null });
+            Years.Add(new YearItem { Label = (y - 1).ToString(), Value = y - 1 });
+            Years.Add(new YearItem { Label = y.ToString(), Value = y });
+            Years.Add(new YearItem { Label = (y + 1).ToString(), Value = y + 1 });
+
+            SelectedYearItem = Years.FirstOrDefault(it => it.Value == y);
+        }
+
+        private void InitializeStatuses()
+        {
+            Statuses.Clear();
+
+            Statuses.Add(new StatusItem { LabelFr = "(Tous)", ValueEn = null });
+
+            foreach (KeyValuePair<string, string> kv in FrenchToEnglishStatus)
+                Statuses.Add(new StatusItem { LabelFr = kv.Key, ValueEn = kv.Value });
+
+            SelectedStatusItem = Statuses[0];
         }
 
         private void OnPropertyChanged([CallerMemberName] string? propertyName = null)

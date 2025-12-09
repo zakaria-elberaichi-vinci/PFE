@@ -1,5 +1,4 @@
-﻿
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
@@ -15,18 +14,19 @@ namespace PFE.ViewModels
 
         private DateTime _startDate = DateTime.Today;
         private DateTime _endDate = DateTime.Today;
+
         private ObservableCollection<LeaveTypeItem> _leaveTypes = new();
         private LeaveTypeItem? _selectedLeaveType;
-        private string _reason = string.Empty;
 
+        private string _reason = string.Empty;
+        private CancellationTokenSource? _datesCts;
         private int _totalAllocated;
         private int _totalTaken;
         private int _totalRemaining;
-
         private bool _isBusy;
         private string _errorMessage = string.Empty;
-        private bool _isLeaveTypeEnabled;
         private bool _isAccessDenied;
+        private bool _hasOverlap;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -35,13 +35,13 @@ namespace PFE.ViewModels
             _odooClient = odooClient;
 
             RefreshCommand = new RelayCommand(
-                async _ => await RefreshLeaveTypesAsync(),
+                async _ => await RefreshTotalsAsync(),
                 _ => !IsBusy && AreDatesValid && IsEmployee
             );
 
             SubmitCommand = new RelayCommand(
                 async _ => await SubmitAsync(),
-                _ => !IsBusy && AreDatesValid && SelectedLeaveType != null && IsEmployee
+                _ => CanSubmit
             );
         }
 
@@ -52,6 +52,10 @@ namespace PFE.ViewModels
             {
                 if (Set(ref _startDate, value))
                 {
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(AreDatesValid)));
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CanSubmit)));
+                    (RefreshCommand as RelayCommand)?.RaiseCanExecuteChanged();
+                    (SubmitCommand as RelayCommand)?.RaiseCanExecuteChanged();
                     _ = OnDatesChangedAsync();
                 }
             }
@@ -64,6 +68,10 @@ namespace PFE.ViewModels
             {
                 if (Set(ref _endDate, value))
                 {
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(AreDatesValid)));
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CanSubmit)));
+                    (RefreshCommand as RelayCommand)?.RaiseCanExecuteChanged();
+                    (SubmitCommand as RelayCommand)?.RaiseCanExecuteChanged();
                     _ = OnDatesChangedAsync();
                 }
             }
@@ -82,6 +90,7 @@ namespace PFE.ViewModels
             {
                 if (Set(ref _selectedLeaveType, value))
                 {
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CanSubmit)));
                     (SubmitCommand as RelayCommand)?.RaiseCanExecuteChanged();
                 }
             }
@@ -108,7 +117,14 @@ namespace PFE.ViewModels
         public int TotalRemaining
         {
             get => _totalRemaining;
-            private set => Set(ref _totalRemaining, value);
+            private set
+            {
+                if (Set(ref _totalRemaining, value))
+                {
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CanSubmit)));
+                    (SubmitCommand as RelayCommand)?.RaiseCanExecuteChanged();
+                }
+            }
         }
 
         public bool IsBusy
@@ -120,6 +136,7 @@ namespace PFE.ViewModels
                 {
                     (RefreshCommand as RelayCommand)?.RaiseCanExecuteChanged();
                     (SubmitCommand as RelayCommand)?.RaiseCanExecuteChanged();
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CanSubmit)));
                 }
             }
         }
@@ -128,12 +145,6 @@ namespace PFE.ViewModels
         {
             get => _errorMessage;
             private set => Set(ref _errorMessage, value);
-        }
-
-        public bool IsLeaveTypeEnabled
-        {
-            get => _isLeaveTypeEnabled;
-            private set => Set(ref _isLeaveTypeEnabled, value);
         }
 
         public bool IsAuthenticated => _odooClient.session.Current.IsAuthenticated;
@@ -147,8 +158,17 @@ namespace PFE.ViewModels
 
         public bool AreDatesValid => StartDate != default && EndDate != default && EndDate >= StartDate;
 
+        public bool HasOverlap
+        {
+            get => _hasOverlap;
+            private set => Set(ref _hasOverlap, value);
+        }
+
+        public bool CanSubmit => !IsBusy && AreDatesValid && SelectedLeaveType != null && IsEmployee;
+
         public ICommand RefreshCommand { get; }
         public ICommand SubmitCommand { get; }
+
 
         public async Task LoadAsync()
         {
@@ -164,64 +184,47 @@ namespace PFE.ViewModels
             if (StartDate == default) StartDate = DateTime.Today;
             if (EndDate == default) EndDate = DateTime.Today;
 
-            await RefreshLeaveTypesAsync();
+            await LoadLeaveTypesAsync();
+            await RefreshTotalsAsync();
         }
 
         private async Task OnDatesChangedAsync()
         {
-            IsLeaveTypeEnabled = AreDatesValid && IsEmployee;
-
             (RefreshCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (SubmitCommand as RelayCommand)?.RaiseCanExecuteChanged();
 
-            if (!AreDatesValid)
+            await RefreshTotalsAsync();
+
+            try
             {
-                LeaveTypes = new ObservableCollection<LeaveTypeItem>();
-                SelectedLeaveType = null;
-                return;
+                bool overlap = await _odooClient.HasOverlappingLeaveAsync(StartDate, EndDate);
+                HasOverlap = overlap;
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = "Impossible de vérifier le chevauchement.\n\nDétails : " + ex.Message;
+                HasOverlap = false;
             }
 
-            await RefreshLeaveTypesAsync();
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(CanSubmit)));
+            (SubmitCommand as RelayCommand)?.RaiseCanExecuteChanged();
         }
 
-        public async Task RefreshLeaveTypesAsync()
+        private async Task LoadLeaveTypesAsync()
         {
-            if (!IsEmployee)
-            {
-                IsAccessDenied = true;
-                ErrorMessage = "Accès refusé : cette page est réservée aux employés connectés.";
-                return;
-            }
-
-            if (!AreDatesValid)
-            {
-                IsLeaveTypeEnabled = false;
-                LeaveTypes = new ObservableCollection<LeaveTypeItem>();
-                SelectedLeaveType = null;
-                return;
-            }
-
             try
             {
                 IsBusy = true;
                 ErrorMessage = string.Empty;
 
-                HashSet<int> allowedIds = await _odooClient.GetAllowedLeaveTypeIdsAsync(StartDate, EndDate);
+                HashSet<int> allowedIds = await _odooClient.GetAllowedLeaveTypeIdsAsync();
                 List<LeaveTypeItem> filtered = FilterLeaveTypeItems(allowedIds);
-
                 LeaveTypes = new ObservableCollection<LeaveTypeItem>(filtered);
                 SelectedLeaveType = LeaveTypes.FirstOrDefault();
-                IsLeaveTypeEnabled = LeaveTypes.Count > 0;
-
-                (int totalAlloue, int totalPris) = await _odooClient.GetNumberTimeOffAsync();
-                TotalAllocated = totalAlloue;
-                TotalTaken = totalPris;
-                TotalRemaining = Math.Max(0, TotalAllocated - TotalTaken);
 
                 if (LeaveTypes.Count == 0)
                 {
-                    ErrorMessage = "Aucun type de congé disponible pour la période choisie. Veuillez demander une allocation.";
-                    IsLeaveTypeEnabled = false;
+                    ErrorMessage = "Aucun type de congé disponible. Veuillez demander une allocation.";
                 }
             }
             catch (Exception ex)
@@ -229,8 +232,6 @@ namespace PFE.ViewModels
                 ErrorMessage = "Impossible de charger les types de congés disponibles.\n\nDétails : " + ex.Message;
                 LeaveTypes = new ObservableCollection<LeaveTypeItem>();
                 SelectedLeaveType = null;
-                IsLeaveTypeEnabled = false;
-
                 TotalAllocated = 0;
                 TotalTaken = 0;
                 TotalRemaining = 0;
@@ -240,7 +241,6 @@ namespace PFE.ViewModels
                 IsBusy = false;
             }
         }
-
 
         public async Task RefreshTotalsAsync()
         {
@@ -249,16 +249,14 @@ namespace PFE.ViewModels
                 IsBusy = true;
                 ErrorMessage = string.Empty;
 
-                (int allocated, int taken) = await _odooClient.GetNumberTimeOffAsync();
-
+                (int allocated, int taken) = await _odooClient.GetNumberTimeOffAsync(StartDate.Year);
                 TotalAllocated = allocated;
                 TotalTaken = taken;
-                TotalRemaining = allocated - taken;
+                TotalRemaining = Math.Max(0, TotalAllocated - TotalTaken);
             }
             catch (Exception ex)
             {
                 ErrorMessage = "Impossible de rafraîchir les totaux de congés.\n\nDétails : " + ex.Message;
-
                 TotalAllocated = 0;
                 TotalTaken = 0;
                 TotalRemaining = 0;
@@ -269,20 +267,35 @@ namespace PFE.ViewModels
             }
         }
 
-
         public async Task<(bool Success, int? CreatedId, string Message)> SubmitAsync()
         {
             if (!IsEmployee)
             {
-                return (false, null, "Accès refusé.");
+                return (false, null, "Accès refusé. Veuillez vous connecter en tant qu'employé");
             }
+
             if (!AreDatesValid)
             {
                 return (false, null, "La date de fin ne peut pas être avant la date de début.");
             }
-            if (SelectedLeaveType is null)
+
+            if (TotalRemaining == 0)
             {
-                return (false, null, "Veuillez choisir un type de congé.");
+                return (false, null, "Pas assez d'allocation: votre solde est à 0.");
+            }
+
+            try
+            {
+                bool overlap = await _odooClient.HasOverlappingLeaveAsync(StartDate, EndDate);
+                HasOverlap = overlap;
+                if (HasOverlap)
+                {
+                    return (false, null, "Les dates sélectionnées se chevauchent avec un congé existant.");
+                }
+            }
+            catch (Exception ex)
+            {
+                return (false, null, "Impossible de vérifier le chevauchement.\n\nDétails : " + ex.Message);
             }
 
             try
@@ -290,7 +303,7 @@ namespace PFE.ViewModels
                 IsBusy = true;
 
                 int createdId = await _odooClient.CreateLeaveRequestAsync(
-                    leaveTypeId: SelectedLeaveType.Id,
+                    leaveTypeId: SelectedLeaveType!.Id,
                     startDate: StartDate,
                     endDate: EndDate,
                     reason: Reason?.Trim() ?? string.Empty

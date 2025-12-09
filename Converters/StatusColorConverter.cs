@@ -13,7 +13,8 @@ public class StatusColorConverter : IValueConverter
         {
             "Brouillon" => Color.FromArgb("#FFA500"),         // Orange
             "En attente d'approbation" => Color.FromArgb("#4169E1"), // Royal Blue
-            "Validé" => Color.FromArgb("#28A745"),            // Green
+            "Validé par le RH" => Color.FromArgb("#28A745"),            // Green
+            "Validé par le manager" => Color.FromArgb("#28A745"),
             "Refusé" => Color.FromArgb("#DC3545"),            // Red
             "Annulé" => Color.FromArgb("#6C757D"),            // Gray
             _ => Color.FromArgb("#808080")                     // Default Gray

@@ -18,9 +18,27 @@
             <VerticalStackLayout Padding="20"
                                  Spacing="10">
 
+                <HorizontalStackLayout>
+                    <Picker ItemsSource="{Binding Years}"
+                            ItemDisplayBinding="{Binding Label}"
+                            Title="Année"
+                            SelectedItem="{Binding SelectedYearItem}" />
+                    
+                    <Picker ItemsSource="{Binding Statuses}"
+                            ItemDisplayBinding="{Binding LabelFr}"
+                            Title="Statut"
+                            SelectedItem="{Binding SelectedStatusItem}" />
+                </HorizontalStackLayout>
+
                 <CollectionView ItemsSource="{Binding Leaves}"
                                 IsVisible="{Binding IsEmployee}"
                                 Margin="0,0,0,30">
+
+                    <CollectionView.ItemsLayout>
+                        <LinearItemsLayout Orientation="Vertical"
+                                           ItemSpacing="10" />
+                    </CollectionView.ItemsLayout>
+
                     <CollectionView.ItemTemplate>
                         <DataTemplate>
                             <Frame Margin="0,5"
@@ -33,14 +51,19 @@
                                            FontAttributes="Bold"
                                            FontSize="14" />
                                     <Label Text="Periode"
-                                           FontSize="10"
+                                           FontSize="14"
                                            TextColor="#999999" />
-                                    <Label Text="{Binding StartDate, StringFormat='Début : {0:dd/MM/yyyy}'}"
-                                           FontSize="12"
-                                           TextColor="#666666" />
-                                    <Label Text="{Binding EndDate, StringFormat='Fin : {0:dd/MM/yyyy}'}"
-                                           FontSize="12"
-                                           TextColor="#666666" />
+                                    <HorizontalStackLayout Spacing="10">
+                                        <Label Text="{Binding StartDate, StringFormat='Début : {0:dd/MM/yyyy}'}"
+                                               FontSize="14"
+                                               TextColor="#666666" />
+                                        <Label Text="{Binding EndDate, StringFormat='Fin : {0:dd/MM/yyyy}'}"
+                                               FontSize="14"
+                                               TextColor="#666666" />
+                                    </HorizontalStackLayout>
+                                    <Label Text="{Binding Days, StringFormat='Durée : {0} jours'}"
+                                           TextColor="#666666"
+                                           FontSize="14" />
                                     <Label Text="Statut"
                                            FontSize="10"
                                            TextColor="#999999"
