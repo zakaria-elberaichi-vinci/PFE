@@ -20,7 +20,7 @@
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <!-- Header -->
+     
             <VerticalStackLayout Grid.Row="0"
                                  Spacing="6"
                                  Margin="0,20,0,20">
@@ -32,20 +32,17 @@
                        FontSize="14"
                        TextColor="#9CA3AF" />
             </VerticalStackLayout>
-
-            <!-- Contenu principal -->
-            <VerticalStackLayout Grid.Row="1"
+            
+        <VerticalStackLayout Grid.Row="1"
                                  Spacing="16">
-
-                <!-- Message d'erreur -->
-                <Label Text="{Binding ErrorMessage}"
+           <Label Text="{Binding ErrorMessage}"
                        TextColor="#F97373"
                        HorizontalTextAlignment="Center"
                        FontSize="14"
                        LineBreakMode="WordWrap"
                        IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}" />
 
-                <!-- Carte profil -->
+
                 <ContentView IsVisible="{Binding IsAuthenticated}">
                     <Frame CornerRadius="18"
                            HasShadow="True"
@@ -55,7 +52,7 @@
                         <ScrollView>
                             <VerticalStackLayout Spacing="16">
 
-                                <!-- Bloc Nom -->
+
                                 <Grid ColumnDefinitions="Auto,*"
                                       ColumnSpacing="12">
                                     <Label Grid.Column="0"
@@ -69,7 +66,6 @@
                                            VerticalOptions="Center" />
                                 </Grid>
 
-                                <!-- Bloc Email -->
                                 <Grid ColumnDefinitions="Auto,*"
                                       ColumnSpacing="12">
                                     <Label Grid.Column="0"
@@ -83,7 +79,6 @@
                                            VerticalOptions="Center" />
                                 </Grid>
 
-                                <!-- Bloc Poste -->
                                 <Grid ColumnDefinitions="Auto,*"
                                       ColumnSpacing="12">
                                     <Label Grid.Column="0"
@@ -97,7 +92,6 @@
                                            VerticalOptions="Center" />
                                 </Grid>
 
-                                <!-- Bloc Département -->
                                 <Grid ColumnDefinitions="Auto,*"
                                       ColumnSpacing="12">
                                     <Label Grid.Column="0"
@@ -111,7 +105,6 @@
                                            VerticalOptions="Center" />
                                 </Grid>
 
-                                <!-- Bloc Manager -->
                                 <Grid ColumnDefinitions="Auto,*"
                                       ColumnSpacing="12">
                                     <Label Grid.Column="0"
@@ -125,7 +118,6 @@
                                            VerticalOptions="Center" />
                                 </Grid>
 
-                                <!-- Loader -->
                                 <ActivityIndicator IsRunning="{Binding IsBusy}"
                                                    IsVisible="{Binding IsBusy}"
                                                    Color="#60A5FA"
