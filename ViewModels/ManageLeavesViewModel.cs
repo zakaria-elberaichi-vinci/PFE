@@ -21,6 +21,7 @@ namespace PFE.ViewModels
         private List<LeaveToApprove> _newLeaves = new();
         private int _pendingDecisionsCount;
         private bool _isOfflineMode = false;
+        public ICommand RefreshOdooCommand { get; }
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -63,6 +64,11 @@ namespace PFE.ViewModels
             {
                 await LoadAsync();
             };
+            
+            RefreshOdooCommand = new RelayCommand(
+                    async _ => await RefreshLeavesFromOdooAsync(),
+                    _ => !IsBusy
+            );
         }
 
         public bool IsManager => _odoo.session.Current.IsManager;
@@ -433,5 +439,41 @@ namespace PFE.ViewModels
 
         private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+
+        public async Task RefreshLeavesFromOdooAsync()
+        {
+            if (IsBusy) return;
+
+            IsBusy = true;
+            ErrorMessage = string.Empty;
+
+            try
+            {
+                if (!IsManager)
+                {
+                    ErrorMessage = "Veuillez vous connecter en tant que manager.";
+                    return;
+                }
+
+                // Appel direct à l'API Odoo
+                List<LeaveToApprove> leaves = await _odoo.GetLeavesToApproveAsync();
+
+                // Mettre à jour la collection affichée
+                Leaves.Clear();
+                foreach (var leave in leaves)
+                    Leaves.Add(leave);
+
+                if (Leaves.Count == 0)
+                    ErrorMessage = "Aucune demande de congé en attente.";
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = $"Erreur lors de l'actualisation : {ex.Message}";
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
     }
 }
