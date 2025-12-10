@@ -4,6 +4,7 @@ using PFE.Context;
 using PFE.Services;
 using PFE.ViewModels;
 using PFE.Views;
+using Plugin.LocalNotification;
 using Syncfusion.Licensing;
 using Syncfusion.Maui.Core.Hosting;
 
@@ -18,11 +19,16 @@ namespace PFE
             builder
                 .ConfigureSyncfusionCore()
                 .UseMauiApp<App>()
+                .UseLocalNotification()
                 .ConfigureFonts(fonts =>
                 {
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                     fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
                 });
+
+            // Database Service (SQLite)
+            builder.Services.AddSingleton<IDatabaseService, DatabaseService>();
+
             builder.Services.AddSingleton(new CookieContainer());
 
             builder.Services.AddHttpClient(nameof(OdooClient), client =>
@@ -47,6 +53,10 @@ namespace PFE
                 CookieContainer cookies = sp.GetRequiredService<CookieContainer>();
                 return new OdooClient(http, session, cookies);
             });
+
+            builder.Services.AddSingleton<ILeaveNotificationService, LeaveNotificationService>();
+            builder.Services.AddSingleton<IBackgroundNotificationService, BackgroundNotificationService>();
+            builder.Services.AddSingleton<IBackgroundLeaveStatusService, BackgroundLeaveStatusService>();
 
             builder.Services.AddTransient<AuthenticationViewModel>();
             builder.Services.AddTransient<UserProfileViewModel>();

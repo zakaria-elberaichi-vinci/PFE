@@ -254,6 +254,7 @@ namespace PFE.Services
 
             string[] fields =
             {
+                "id",
                 "holiday_status_id",
                 "state",
                 "request_date_to",
@@ -312,6 +313,11 @@ namespace PFE.Services
 
             foreach (JsonElement item in result.EnumerateArray())
             {
+                // Récupérer l'ID Odoo
+                int id = item.TryGetProperty("id", out JsonElement idEl) && idEl.ValueKind == JsonValueKind.Number
+                    ? idEl.GetInt32()
+                    : 0;
+
                 string type = "";
                 if (item.TryGetProperty("holiday_status_id", out JsonElement holidayStatusEl) &&
                     holidayStatusEl.ValueKind == JsonValueKind.Array &&
@@ -346,6 +352,7 @@ namespace PFE.Services
                 int days = (int)Math.Round(daysEl.GetDouble());
 
                 list.Add(new Leave(
+                    id,
                     LeaveTypeHelper.Translate(type),
                     startDate,
                     endDate,
@@ -481,7 +488,7 @@ namespace PFE.Services
             using JsonDocument doc = JsonDocument.Parse(text);
             JsonElement root = doc.RootElement;
 
-            if (root.TryGetProperty("error", out var _))
+            if (root.TryGetProperty("error", out JsonElement _))
                 throw new Exception($"Erreur: {text}");
 
             if (!root.TryGetProperty("result", out JsonElement resEl) && resEl.ValueKind != JsonValueKind.Array)
@@ -679,7 +686,7 @@ namespace PFE.Services
             string dateFrom = new DateTime(year, 1, 1).ToString("yyyy-MM-dd");
             string dateTo = new DateTime(year, 12, 31).ToString("yyyy-MM-dd");
 
-            var domain = new object[]
+            object[] domain = new object[]
             {
         new object[] { "employee_id", "=", session.Current.EmployeeId!.Value },
         new object[] { "state", "=", "validate" },
@@ -696,8 +703,8 @@ namespace PFE.Services
                             .Concat(new object[] { new object[] { "holiday_status_id", "=", typeId } })
                             .ToArray();
             }
-            
-            var fields = new object[]
+
+            object[] fields = new object[]
                 {
         "holiday_status_id",
         "number_of_days",
@@ -776,13 +783,13 @@ namespace PFE.Services
                 return await GetAllocationsAsync(yearRequested, idRequest);
             }
 
-            var domain = new object[]
+            object[] domain = new object[]
                     {
             new object[] { "active", "=", true },
             new object[] { "requires_allocation", "=", false }
                     };
 
-            var fields = new string[] { "id", "name", "requires_allocation" };
+            string[] fields = new string[] { "id", "name", "requires_allocation" };
 
             var payload = new
             {
@@ -839,7 +846,7 @@ namespace PFE.Services
             string dateTo = new DateTime(year, 12, 31).ToString("yyyy-MM-dd");
 
 
-            var domain = new object[]
+            object[] domain = new object[]
                 {
         new object[] { "employee_id", "=", session.Current.EmployeeId!.Value },
         new object[] { "state", "=", "validate" },
@@ -849,7 +856,7 @@ namespace PFE.Services
         new object[] { "date_to", ">=", dateFrom }
                 };
 
-            var fields = new object[]
+            object[] fields = new object[]
             {
 
   "id", "name", "employee_id", "holiday_status_id",
@@ -899,7 +906,8 @@ namespace PFE.Services
             if (idRequest.HasValue)
             {
                 domain.Add(new object[] { "holiday_status_id", "=", idRequest });
-            } else
+            }
+            else
             {
                 if (typeIds.Length == 0)
                     return (0, 0, 0);
@@ -1003,6 +1011,56 @@ namespace PFE.Services
             return resEl.GetInt32();
         }
 
+        public async Task<string> GetCurrentEmployeeNameAsync()
+        {
+            EnsureAuthenticated();
+
+            var payload = new
+            {
+                jsonrpc = "2.0",
+                method = "call",
+                @params = new
+                {
+                    model = "hr.employee.public",
+                    method = "search_read",
+                    args = new object[]
+                    {
+                        new object[]
+                        {
+                            new object[] { "user_id", "=", session.Current.UserId!.Value }
+                        },
+                        new string[] { "name" }
+                    },
+                    kwargs = new
+                    {
+                        limit = 1,
+                    }
+                },
+                id = 2
+            };
+
+            HttpResponseMessage res = await _httpClient.PostAsync(_baseUrl, BuildJsonContent(payload));
+            string text = await res.Content.ReadAsStringAsync();
+            res.EnsureSuccessStatusCode();
+
+            using JsonDocument doc = JsonDocument.Parse(text);
+
+            if (!doc.RootElement.TryGetProperty("result", out JsonElement resEl) ||
+                resEl.ValueKind != JsonValueKind.Array ||
+                resEl.GetArrayLength() == 0)
+            {
+                return "Employé inconnu";
+            }
+
+            JsonElement first = resEl[0];
+            if (first.TryGetProperty("name", out JsonElement nameEl) && nameEl.ValueKind == JsonValueKind.String)
+            {
+                return nameEl.GetString() ?? "Employé inconnu";
+            }
+
+            return "Employé inconnu";
+        }
+
         private async Task<bool> HasValidAllocationAsync(int leaveTypeId, DateTime startDate, DateTime endDate)
         {
             EnsureAuthenticated();
@@ -1010,7 +1068,7 @@ namespace PFE.Services
             string start = startDate.ToString("yyyy-MM-dd");
             string end = endDate.ToString("yyyy-MM-dd");
 
-            var domain = new object[]
+            object[] domain = new object[]
             {
                 new object[] { "employee_id", "=", session.Current.EmployeeId!.Value },
                 new object[] { "holiday_status_id", "=", leaveTypeId },

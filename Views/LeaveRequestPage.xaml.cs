@@ -56,7 +56,7 @@ namespace PFE.Views
         {
             if (BindingContext is LeaveRequestViewModel vm)
             {
-                var range = e.NewValue as CalendarDateRange;
+                CalendarDateRange? range = e.NewValue as CalendarDateRange;
                 System.Diagnostics.Debug.WriteLine($"SelectionChanged: {range?.StartDate} - {range?.EndDate}");
 
                 vm.SelectedRange = range;

@@ -6,11 +6,20 @@ public partial class DashboardPage : ContentPage
 {
     private readonly OdooClient _client;
     private readonly IServiceProvider _services;
-    public DashboardPage(OdooClient client, IServiceProvider services)
+    private readonly IBackgroundNotificationService _backgroundNotificationService;
+    private readonly IBackgroundLeaveStatusService _backgroundLeaveStatusService;
+
+    public DashboardPage(
+        OdooClient client,
+        IServiceProvider services,
+        IBackgroundNotificationService backgroundNotificationService,
+        IBackgroundLeaveStatusService backgroundLeaveStatusService)
     {
         InitializeComponent();
         _services = services;
         _client = client;
+        _backgroundNotificationService = backgroundNotificationService;
+        _backgroundLeaveStatusService = backgroundLeaveStatusService;
 
         BtnLeaves.Clicked += async (s, e) =>
         {
@@ -32,6 +41,10 @@ public partial class DashboardPage : ContentPage
 
         BtnLogout.Clicked += (s, e) =>
         {
+            // Arrêter les services de notification en arrière-plan
+            _backgroundNotificationService.Stop();
+            _backgroundLeaveStatusService.Stop();
+
             _client.Logout();
 
             LoginPage loginPage = _services.GetRequiredService<LoginPage>();
@@ -54,8 +67,17 @@ public partial class DashboardPage : ContentPage
         BtnLeaves.IsVisible = isEmployee;
         BtnNewLeave.IsVisible = isEmployee;
         BtnManageLeaves.IsVisible = isManager;
-        //TODO retirer
-        await _client.TestAllocs(2026);
-    }
 
+        // Démarrer les services de notification en arrière-plan selon le rôle
+        if (isManager)
+        {
+            // Service de notification pour les nouvelles demandes de congé (managers)
+            _backgroundNotificationService.Start();
+        }
+        else if (isEmployee)
+        {
+            // Service de notification pour les changements de statut (employés)
+            _backgroundLeaveStatusService.Start();
+        }
+    }
 }

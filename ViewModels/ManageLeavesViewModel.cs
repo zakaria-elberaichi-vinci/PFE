@@ -1,5 +1,4 @@
-﻿
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
@@ -11,14 +10,17 @@ namespace PFE.ViewModels
     public class ManageLeavesViewModel : INotifyPropertyChanged
     {
         private readonly OdooClient _odoo;
+        private readonly ILeaveNotificationService _notificationService;
         private bool _isBusy;
         private string _errorMessage = string.Empty;
+        private List<LeaveToApprove> _newLeaves = new();
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
-        public ManageLeavesViewModel(OdooClient odoo)
+        public ManageLeavesViewModel(OdooClient odoo, ILeaveNotificationService notificationService)
         {
             _odoo = odoo;
+            _notificationService = notificationService;
 
             Leaves = new ObservableCollection<LeaveToApprove>();
 
@@ -40,7 +42,19 @@ namespace PFE.ViewModels
 
         public bool IsManager => _odoo.session.Current.IsManager;
 
+        private int ManagerUserId => _odoo.session.Current.UserId ?? 0;
+
         public ObservableCollection<LeaveToApprove> Leaves { get; }
+
+        /// <summary>
+        /// Liste des nouvelles demandes détectées (non encore vues)
+        /// </summary>
+        public List<LeaveToApprove> NewLeaves => _newLeaves;
+
+        /// <summary>
+        /// Indique s'il y a de nouvelles demandes
+        /// </summary>
+        public bool HasNewLeaves => _newLeaves.Count > 0;
 
         public bool IsBusy
         {
@@ -77,6 +91,7 @@ namespace PFE.ViewModels
 
             IsBusy = true;
             ErrorMessage = string.Empty;
+            _newLeaves.Clear();
 
             try
             {
@@ -86,7 +101,15 @@ namespace PFE.ViewModels
                     Leaves.Clear();
                     return;
                 }
+
                 List<LeaveToApprove> list = await _odoo.GetLeavesToApproveAsync();
+
+                // Détecter les nouvelles demandes
+                HashSet<int> seenIds = await _notificationService.GetSeenLeaveIdsAsync(ManagerUserId);
+                _newLeaves = list.Where(l => !seenIds.Contains(l.Id)).ToList();
+
+                // Marquer toutes les demandes actuelles comme vues
+                await _notificationService.MarkLeavesAsSeenAsync(ManagerUserId, list.Select(l => l.Id));
 
                 Leaves.Clear();
                 foreach (LeaveToApprove item in list)
@@ -94,6 +117,9 @@ namespace PFE.ViewModels
 
                 if (Leaves.Count == 0)
                     ErrorMessage = "Aucune demande de congé en attente.";
+
+                OnPropertyChanged(nameof(NewLeaves));
+                OnPropertyChanged(nameof(HasNewLeaves));
             }
             catch (Exception ex)
             {
@@ -157,6 +183,10 @@ namespace PFE.ViewModels
         private async Task ReloadAfterChangeAsync()
         {
             List<LeaveToApprove> list = await _odoo.GetLeavesToApproveAsync();
+
+            // Marquer comme vues
+            await _notificationService.MarkLeavesAsSeenAsync(ManagerUserId, list.Select(l => l.Id));
+
             Leaves.Clear();
             foreach (LeaveToApprove item in list)
                 Leaves.Add(item);

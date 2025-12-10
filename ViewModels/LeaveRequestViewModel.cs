@@ -2,9 +2,9 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using PFE.Models;
 using PFE.Services;
 using Syncfusion.Maui.Calendar;
-using PFE.Models;
 using static PFE.Helpers.DateHelper;
 
 namespace PFE.ViewModels
@@ -269,12 +269,12 @@ namespace PFE.ViewModels
 
                 _blockedDatesSet.Clear();
 
-                foreach (var leave in leaves)
+                foreach (Leave leave in leaves)
                 {
-                    var start = leave.StartDate.Date;
-                    var end = leave.EndDate.Date;
+                    DateTime start = leave.StartDate.Date;
+                    DateTime end = leave.EndDate.Date;
 
-                    foreach (var day in ExpandRangeToDays(start, end))
+                    foreach (DateTime day in ExpandRangeToDays(start, end))
                         _blockedDatesSet.Add(day);
                 }
 
