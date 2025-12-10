@@ -50,6 +50,30 @@ namespace PFE.Services
 
         #endregion
 
+        #region CachedLeaveToApprove (Managers - Cache offline)
+
+        /// <summary>
+        /// Met à jour le cache des demandes de congé pour un manager
+        /// </summary>
+        Task UpdateLeavesToApproveCacheAsync(int managerUserId, IEnumerable<CachedLeaveToApprove> leaves);
+
+        /// <summary>
+        /// Récupère les demandes de congé depuis le cache
+        /// </summary>
+        Task<List<CachedLeaveToApprove>> GetCachedLeavesToApproveAsync(int managerUserId);
+
+        /// <summary>
+        /// Supprime une demande du cache (après décision)
+        /// </summary>
+        Task RemoveFromCacheAsync(int leaveId);
+
+        /// <summary>
+        /// Vide le cache d'un manager
+        /// </summary>
+        Task ClearLeavesToApproveCacheAsync(int managerUserId);
+
+        #endregion
+
         #region PendingLeaveDecision (Managers - Offline)
 
         /// <summary>
@@ -58,12 +82,22 @@ namespace PFE.Services
         Task<PendingLeaveDecision> AddPendingLeaveDecisionAsync(PendingLeaveDecision decision);
 
         /// <summary>
-        /// Récupère toutes les décisions en attente pour un manager
+        /// Récupère toutes les décisions pour un manager (tous statuts)
+        /// </summary>
+        Task<List<PendingLeaveDecision>> GetAllLeaveDecisionsAsync(int managerUserId);
+
+        /// <summary>
+        /// Récupère les décisions en attente (non synchronisées) pour un manager
         /// </summary>
         Task<List<PendingLeaveDecision>> GetPendingLeaveDecisionsAsync(int managerUserId);
 
         /// <summary>
-        /// Récupère toutes les décisions non synchronisées
+        /// Récupère les décisions déjà synchronisées pour un manager
+        /// </summary>
+        Task<List<PendingLeaveDecision>> GetSyncedLeaveDecisionsAsync(int managerUserId);
+
+        /// <summary>
+        /// Récupère toutes les décisions non synchronisées (tous managers)
         /// </summary>
         Task<List<PendingLeaveDecision>> GetUnsyncedLeaveDecisionsAsync();
 
@@ -73,14 +107,19 @@ namespace PFE.Services
         Task UpdateDecisionSyncStatusAsync(int decisionId, SyncStatus status, string? errorMessage = null);
 
         /// <summary>
-        /// Supprime une décision (après sync réussie)
+        /// Supprime une décision
         /// </summary>
         Task DeletePendingLeaveDecisionAsync(int decisionId);
 
         /// <summary>
-        /// Vérifie si une décision existe déjà pour un congé
+        /// Vérifie si une décision existe déjà pour un congé (pending ou synced)
         /// </summary>
-        Task<bool> HasPendingDecisionForLeaveAsync(int leaveId);
+        Task<bool> HasDecisionForLeaveAsync(int leaveId);
+
+        /// <summary>
+        /// Supprime les décisions synchronisées datant de plus de X jours
+        /// </summary>
+        Task CleanupOldSyncedDecisionsAsync(int daysOld = 30);
 
         #endregion
 

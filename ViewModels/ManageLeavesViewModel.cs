@@ -17,13 +17,15 @@ namespace PFE.ViewModels
         private bool _isBusy;
         private string _errorMessage = string.Empty;
         private string _successMessage = string.Empty;
+        private string _infoMessage = string.Empty;
         private List<LeaveToApprove> _newLeaves = new();
         private int _pendingDecisionsCount;
+        private bool _isOfflineMode = false;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
         public ManageLeavesViewModel(
-            OdooClient odoo,
+            OdooClient odoo, 
             ILeaveNotificationService notificationService,
             IDatabaseService databaseService,
             ISyncService syncService)
@@ -55,13 +57,28 @@ namespace PFE.ViewModels
             {
                 PendingDecisionsCount = count;
             };
+
+            // Recharger la liste après une synchronisation réussie
+            _syncService.SyncCompleted += async (s, e) =>
+            {
+                await LoadAsync();
+            };
         }
 
         public bool IsManager => _odoo.session.Current.IsManager;
 
         private int ManagerUserId => _odoo.session.Current.UserId ?? 0;
 
-        public bool IsOnline => _syncService.IsOnline;
+        public bool IsOfflineMode
+        {
+            get => _isOfflineMode;
+            private set
+            {
+                if (_isOfflineMode == value) return;
+                _isOfflineMode = value;
+                OnPropertyChanged();
+            }
+        }
 
         public ObservableCollection<LeaveToApprove> Leaves { get; }
 
@@ -129,6 +146,17 @@ namespace PFE.ViewModels
             }
         }
 
+        public string InfoMessage
+        {
+            get => _infoMessage;
+            private set
+            {
+                if (_infoMessage == value) return;
+                _infoMessage = value;
+                OnPropertyChanged();
+            }
+        }
+
         public ICommand RefreshCommand { get; }
         public ICommand ApproveCommand { get; }
         public ICommand RefuseCommand { get; }
@@ -142,6 +170,7 @@ namespace PFE.ViewModels
             IsBusy = true;
             ErrorMessage = string.Empty;
             SuccessMessage = string.Empty;
+            InfoMessage = string.Empty;
             _newLeaves.Clear();
 
             try
@@ -153,29 +182,44 @@ namespace PFE.ViewModels
                     return;
                 }
 
-                // Mettre à jour le compteur de décisions en attente
-                List<PendingLeaveDecision> pendingDecisions = await _databaseService.GetPendingLeaveDecisionsAsync(ManagerUserId);
-                PendingDecisionsCount = pendingDecisions.Count;
+                // Récupérer toutes les décisions déjà prises
+                List<PendingLeaveDecision> allDecisions = await _databaseService.GetAllLeaveDecisionsAsync(ManagerUserId);
+                HashSet<int> processedLeaveIds = allDecisions.Select(d => d.LeaveId).ToHashSet();
 
-                if (!IsOnline)
+                // Mettre à jour le compteur de décisions en attente
+                int pendingCount = allDecisions.Count(d => d.SyncStatus == SyncStatus.Pending || d.SyncStatus == SyncStatus.Failed);
+                PendingDecisionsCount = pendingCount;
+
+                // Essayer de charger les demandes depuis Odoo
+                List<LeaveToApprove> list;
+                try
                 {
-                    ErrorMessage = "Mode hors ligne. Les décisions seront synchronisées dès que la connexion sera rétablie.";
-                    // En mode offline, on ne peut pas charger les nouvelles demandes
-                    return;
+                    list = await _odoo.GetLeavesToApproveAsync();
+                    IsOfflineMode = false;
+
+                    // Mettre à jour le cache avec les données fraîches
+                    await UpdateCacheAsync(list);
+                }
+                catch (Exception ex) when (IsNetworkError(ex))
+                {
+                    // Mode hors ligne : charger depuis le cache
+                    IsOfflineMode = true;
+                    InfoMessage = "Mode hors ligne. Affichage des données en cache.";
+                    System.Diagnostics.Debug.WriteLine($"ManageLeavesViewModel: Mode offline - {ex.Message}");
+
+                    list = await LoadFromCacheAsync();
                 }
 
-                List<LeaveToApprove> list = await _odoo.GetLeavesToApproveAsync();
+                // Exclure les congés déjà traités
+                list = list.Where(l => !processedLeaveIds.Contains(l.Id)).ToList();
 
-                // Exclure les congés pour lesquels une décision est déjà en attente
-                HashSet<int> pendingLeaveIds = pendingDecisions.Select(d => d.LeaveId).ToHashSet();
-                list = list.Where(l => !pendingLeaveIds.Contains(l.Id)).ToList();
-
-                // Détecter les nouvelles demandes
-                HashSet<int> seenIds = await _notificationService.GetSeenLeaveIdsAsync(ManagerUserId);
-                _newLeaves = list.Where(l => !seenIds.Contains(l.Id)).ToList();
-
-                // Marquer toutes les demandes actuelles comme vues
-                await _notificationService.MarkLeavesAsSeenAsync(ManagerUserId, list.Select(l => l.Id));
+                // Détecter les nouvelles demandes (seulement en mode online)
+                if (!IsOfflineMode)
+                {
+                    HashSet<int> seenIds = await _notificationService.GetSeenLeaveIdsAsync(ManagerUserId);
+                    _newLeaves = list.Where(l => !seenIds.Contains(l.Id)).ToList();
+                    await _notificationService.MarkLeavesAsSeenAsync(ManagerUserId, list.Select(l => l.Id));
+                }
 
                 Leaves.Clear();
                 foreach (LeaveToApprove item in list)
@@ -184,9 +228,15 @@ namespace PFE.ViewModels
                 if (Leaves.Count == 0 && PendingDecisionsCount == 0)
                     ErrorMessage = "Aucune demande de congé en attente.";
 
+                if (HasPendingDecisions && IsOfflineMode)
+                    InfoMessage = $"Mode hors ligne. {PendingDecisionsCount} décision(s) en attente de synchronisation.";
+
                 OnPropertyChanged(nameof(NewLeaves));
                 OnPropertyChanged(nameof(HasNewLeaves));
-                OnPropertyChanged(nameof(IsOnline));
+                OnPropertyChanged(nameof(IsOfflineMode));
+
+                // Nettoyer les anciennes décisions
+                await _databaseService.CleanupOldSyncedDecisionsAsync(30);
             }
             catch (Exception ex)
             {
@@ -199,9 +249,54 @@ namespace PFE.ViewModels
             }
         }
 
+        private async Task UpdateCacheAsync(List<LeaveToApprove> leaves)
+        {
+            List<CachedLeaveToApprove> cached = leaves.Select(l => new CachedLeaveToApprove
+            {
+                LeaveId = l.Id,
+                ManagerUserId = ManagerUserId,
+                EmployeeName = l.EmployeeName,
+                LeaveType = l.Type,
+                StartDate = l.StartDate,
+                EndDate = l.EndDate,
+                Days = l.Days,
+                Status = l.Status,
+                Reason = l.Reason,
+                CanValidate = l.CanValidate,
+                CanRefuse = l.CanRefuse
+            }).ToList();
+
+            await _databaseService.UpdateLeavesToApproveCacheAsync(ManagerUserId, cached);
+        }
+
+        private async Task<List<LeaveToApprove>> LoadFromCacheAsync()
+        {
+            List<CachedLeaveToApprove> cached = await _databaseService.GetCachedLeavesToApproveAsync(ManagerUserId);
+
+            return cached.Select(c => new LeaveToApprove(
+                c.LeaveId,
+                c.EmployeeName,
+                c.LeaveType,
+                c.StartDate,
+                c.EndDate,
+                c.Days,
+                c.Status,
+                c.Reason,
+                c.CanValidate,
+                c.CanRefuse
+            )).ToList();
+        }
+
         private async Task ApproveAsync(LeaveToApprove? leave)
         {
             if (leave == null || IsBusy) return;
+
+            bool alreadyProcessed = await _databaseService.HasDecisionForLeaveAsync(leave.Id);
+            if (alreadyProcessed)
+            {
+                ErrorMessage = "Une décision a déjà été prise pour cette demande.";
+                return;
+            }
 
             IsBusy = true;
             ErrorMessage = string.Empty;
@@ -209,34 +304,28 @@ namespace PFE.ViewModels
 
             try
             {
-                if (IsOnline)
-                {
-                    // Mode en ligne : envoyer directement à Odoo
-                    await _odoo.ApproveLeaveAsync(leave.Id);
-                    SuccessMessage = "La demande de congé a été validée avec succès !";
-                    NotificationRequested?.Invoke(this, SuccessMessage);
-                    await ReloadAfterChangeAsync();
-                }
-                else
-                {
-                    // Mode hors ligne : sauvegarder localement
-                    await SaveDecisionOfflineAsync(leave, "approve");
-                    SuccessMessage = "Décision enregistrée. Elle sera synchronisée dès que la connexion sera rétablie.";
-                    NotificationRequested?.Invoke(this, SuccessMessage);
-
-                    // Retirer de la liste locale
-                    Leaves.Remove(leave);
-                    PendingDecisionsCount++;
-                }
+                // Essayer d'envoyer à Odoo
+                await _odoo.ApproveLeaveAsync(leave.Id);
+                
+                // Succès - sauvegarder comme synchronisé
+                await SaveDecisionAsync(leave, "approve", SyncStatus.Synced);
+                await _databaseService.RemoveFromCacheAsync(leave.Id);
+                SuccessMessage = "La demande de congé a été validée avec succès !";
+                NotificationRequested?.Invoke(this, SuccessMessage);
+                IsOfflineMode = false;
+                
+                Leaves.Remove(leave);
             }
             catch (Exception ex)
             {
-                // En cas d'erreur réseau, sauvegarder localement
                 if (IsNetworkError(ex))
                 {
-                    await SaveDecisionOfflineAsync(leave, "approve");
-                    SuccessMessage = "Connexion perdue. Décision enregistrée localement.";
+                    // Sauvegarder localement
+                    await SaveDecisionAsync(leave, "approve", SyncStatus.Pending);
+                    await _databaseService.RemoveFromCacheAsync(leave.Id);
+                    SuccessMessage = "Décision enregistrée. Elle sera synchronisée dès que la connexion sera rétablie.";
                     NotificationRequested?.Invoke(this, SuccessMessage);
+                    IsOfflineMode = true;
                     Leaves.Remove(leave);
                     PendingDecisionsCount++;
                 }
@@ -248,7 +337,6 @@ namespace PFE.ViewModels
             finally
             {
                 IsBusy = false;
-                OnPropertyChanged(nameof(IsManager));
             }
         }
 
@@ -256,40 +344,41 @@ namespace PFE.ViewModels
         {
             if (leave == null || IsBusy) return;
 
+            bool alreadyProcessed = await _databaseService.HasDecisionForLeaveAsync(leave.Id);
+            if (alreadyProcessed)
+            {
+                ErrorMessage = "Une décision a déjà été prise pour cette demande.";
+                return;
+            }
+
             IsBusy = true;
             ErrorMessage = string.Empty;
             SuccessMessage = string.Empty;
 
             try
             {
-                if (IsOnline)
-                {
-                    // Mode en ligne : envoyer directement à Odoo
-                    await _odoo.RefuseLeaveAsync(leave.Id);
-                    SuccessMessage = "La demande de congé a été refusée avec succès !";
-                    NotificationRequested?.Invoke(this, SuccessMessage);
-                    await ReloadAfterChangeAsync();
-                }
-                else
-                {
-                    // Mode hors ligne : sauvegarder localement
-                    await SaveDecisionOfflineAsync(leave, "refuse");
-                    SuccessMessage = "Décision enregistrée. Elle sera synchronisée dès que la connexion sera rétablie.";
-                    NotificationRequested?.Invoke(this, SuccessMessage);
-
-                    // Retirer de la liste locale
-                    Leaves.Remove(leave);
-                    PendingDecisionsCount++;
-                }
+                // Essayer d'envoyer à Odoo
+                await _odoo.RefuseLeaveAsync(leave.Id);
+                
+                // Succès - sauvegarder comme synchronisé
+                await SaveDecisionAsync(leave, "refuse", SyncStatus.Synced);
+                await _databaseService.RemoveFromCacheAsync(leave.Id);
+                SuccessMessage = "La demande de congé a été refusée avec succès !";
+                NotificationRequested?.Invoke(this, SuccessMessage);
+                IsOfflineMode = false;
+                
+                Leaves.Remove(leave);
             }
             catch (Exception ex)
             {
-                // En cas d'erreur réseau, sauvegarder localement
                 if (IsNetworkError(ex))
                 {
-                    await SaveDecisionOfflineAsync(leave, "refuse");
-                    SuccessMessage = "Connexion perdue. Décision enregistrée localement.";
+                    // Sauvegarder localement
+                    await SaveDecisionAsync(leave, "refuse", SyncStatus.Pending);
+                    await _databaseService.RemoveFromCacheAsync(leave.Id);
+                    SuccessMessage = "Décision enregistrée. Elle sera synchronisée dès que la connexion sera rétablie.";
                     NotificationRequested?.Invoke(this, SuccessMessage);
+                    IsOfflineMode = true;
                     Leaves.Remove(leave);
                     PendingDecisionsCount++;
                 }
@@ -301,11 +390,10 @@ namespace PFE.ViewModels
             finally
             {
                 IsBusy = false;
-                OnPropertyChanged(nameof(IsManager));
             }
         }
 
-        private async Task SaveDecisionOfflineAsync(LeaveToApprove leave, string decisionType)
+        private async Task SaveDecisionAsync(LeaveToApprove leave, string decisionType, SyncStatus status)
         {
             PendingLeaveDecision decision = new()
             {
@@ -315,11 +403,15 @@ namespace PFE.ViewModels
                 EmployeeName = leave.EmployeeName,
                 LeaveStartDate = leave.StartDate,
                 LeaveEndDate = leave.EndDate,
-                SyncStatus = SyncStatus.Pending
+                SyncStatus = status
             };
 
             await _databaseService.AddPendingLeaveDecisionAsync(decision);
-            System.Diagnostics.Debug.WriteLine($"Décision {decisionType} sauvegardée offline pour congé {leave.Id}");
+            
+            if (status == SyncStatus.Synced)
+            {
+                await _databaseService.UpdateDecisionSyncStatusAsync(decision.Id, SyncStatus.Synced);
+            }
         }
 
         private static bool IsNetworkError(Exception ex)
@@ -327,27 +419,9 @@ namespace PFE.ViewModels
             return ex is HttpRequestException ||
                    ex.InnerException is HttpRequestException ||
                    ex.Message.Contains("network", StringComparison.OrdinalIgnoreCase) ||
-                   ex.Message.Contains("connection", StringComparison.OrdinalIgnoreCase);
-        }
-
-        private async Task ReloadAfterChangeAsync()
-        {
-            List<LeaveToApprove> list = await _odoo.GetLeavesToApproveAsync();
-
-            // Exclure les congés avec décision en attente
-            List<PendingLeaveDecision> pendingDecisions = await _databaseService.GetPendingLeaveDecisionsAsync(ManagerUserId);
-            HashSet<int> pendingLeaveIds = pendingDecisions.Select(d => d.LeaveId).ToHashSet();
-            list = list.Where(l => !pendingLeaveIds.Contains(l.Id)).ToList();
-
-            // Marquer comme vues
-            await _notificationService.MarkLeavesAsSeenAsync(ManagerUserId, list.Select(l => l.Id));
-
-            Leaves.Clear();
-            foreach (LeaveToApprove item in list)
-                Leaves.Add(item);
-
-            if (Leaves.Count == 0 && PendingDecisionsCount == 0)
-                ErrorMessage = "Aucune demande de congé en attente.";
+                   ex.Message.Contains("connection", StringComparison.OrdinalIgnoreCase) ||
+                   ex.Message.Contains("timeout", StringComparison.OrdinalIgnoreCase) ||
+                   ex.Message.Contains("host", StringComparison.OrdinalIgnoreCase);
         }
 
         private void RaiseAllCanExecuteChanged()

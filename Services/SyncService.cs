@@ -42,6 +42,11 @@ namespace PFE.Services
         /// Événement déclenché quand le nombre de décisions en attente change
         /// </summary>
         event EventHandler<int>? PendingCountChanged;
+
+        /// <summary>
+        /// Événement déclenché quand une synchronisation est terminée
+        /// </summary>
+        event EventHandler? SyncCompleted;
     }
 
     /// <summary>
@@ -62,6 +67,7 @@ namespace PFE.Services
         public int PendingDecisionsCount => _pendingDecisionsCount;
 
         public event EventHandler<int>? PendingCountChanged;
+        public event EventHandler? SyncCompleted;
 
         public SyncService(
             OdooClient odooClient,
@@ -166,6 +172,8 @@ namespace PFE.Services
 
             System.Diagnostics.Debug.WriteLine($"SyncService: {decisions.Count} décision(s) à synchroniser");
 
+            bool anySynced = false;
+
             foreach (PendingLeaveDecision decision in decisions)
             {
                 try
@@ -183,9 +191,10 @@ namespace PFE.Services
                         await _odooClient.RefuseLeaveAsync(decision.LeaveId);
                     }
 
-                    // Succès - supprimer la décision
-                    await _databaseService.DeletePendingLeaveDecisionAsync(decision.Id);
+                    // Succès - marquer comme synchronisé (garder en DB pour le mode offline)
+                    await _databaseService.UpdateDecisionSyncStatusAsync(decision.Id, SyncStatus.Synced);
                     System.Diagnostics.Debug.WriteLine($"SyncService: Décision {decision.Id} synchronisée avec succès ({decision.DecisionType} pour congé {decision.LeaveId})");
+                    anySynced = true;
                 }
                 catch (Exception ex)
                 {
@@ -197,6 +206,12 @@ namespace PFE.Services
 
             // Mettre à jour le compteur
             await UpdatePendingCountAsync();
+
+            // Notifier que la sync est terminée
+            if (anySynced)
+            {
+                SyncCompleted?.Invoke(this, EventArgs.Empty);
+            }
         }
 
         private async Task UpdatePendingCountAsync()

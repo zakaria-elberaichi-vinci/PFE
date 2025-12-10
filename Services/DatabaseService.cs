@@ -37,6 +37,7 @@ namespace PFE.Services
                 await _database.CreateTableAsync<NotifiedLeaveStatusChange>();
                 await _database.CreateTableAsync<PendingLeaveRequest>();
                 await _database.CreateTableAsync<PendingLeaveDecision>();
+                await _database.CreateTableAsync<CachedLeaveToApprove>();
                 await _database.CreateTableAsync<UserSession>();
 
                 _isInitialized = true;
@@ -141,6 +142,51 @@ namespace PFE.Services
 
         #endregion
 
+        #region CachedLeaveToApprove (Managers - Cache offline)
+
+        public async Task UpdateLeavesToApproveCacheAsync(int managerUserId, IEnumerable<CachedLeaveToApprove> leaves)
+        {
+            SQLiteAsyncConnection db = await GetDatabaseAsync();
+            
+            // Supprimer l'ancien cache pour ce manager
+            await db.ExecuteAsync("DELETE FROM cached_leaves_to_approve WHERE ManagerUserId = ?", managerUserId);
+
+            // Insérer les nouvelles demandes
+            DateTime now = DateTime.UtcNow;
+            foreach (CachedLeaveToApprove leave in leaves)
+            {
+                leave.ManagerUserId = managerUserId;
+                leave.CachedAt = now;
+                await db.InsertOrReplaceAsync(leave);
+            }
+
+            System.Diagnostics.Debug.WriteLine($"DatabaseService: Cache mis à jour avec {leaves.Count()} demandes pour manager {managerUserId}");
+        }
+
+        public async Task<List<CachedLeaveToApprove>> GetCachedLeavesToApproveAsync(int managerUserId)
+        {
+            SQLiteAsyncConnection db = await GetDatabaseAsync();
+            return await db.Table<CachedLeaveToApprove>()
+                .Where(x => x.ManagerUserId == managerUserId)
+                .OrderBy(x => x.StartDate)
+                .ToListAsync();
+        }
+
+        public async Task RemoveFromCacheAsync(int leaveId)
+        {
+            SQLiteAsyncConnection db = await GetDatabaseAsync();
+            await db.ExecuteAsync("DELETE FROM cached_leaves_to_approve WHERE LeaveId = ?", leaveId);
+            System.Diagnostics.Debug.WriteLine($"DatabaseService: Demande {leaveId} supprimée du cache");
+        }
+
+        public async Task ClearLeavesToApproveCacheAsync(int managerUserId)
+        {
+            SQLiteAsyncConnection db = await GetDatabaseAsync();
+            await db.ExecuteAsync("DELETE FROM cached_leaves_to_approve WHERE ManagerUserId = ?", managerUserId);
+        }
+
+        #endregion
+
         #region PendingLeaveDecision (Managers - Offline)
 
         public async Task<PendingLeaveDecision> AddPendingLeaveDecisionAsync(PendingLeaveDecision decision)
@@ -153,11 +199,30 @@ namespace PFE.Services
             return decision;
         }
 
-        public async Task<List<PendingLeaveDecision>> GetPendingLeaveDecisionsAsync(int managerUserId)
+        public async Task<List<PendingLeaveDecision>> GetAllLeaveDecisionsAsync(int managerUserId)
         {
             SQLiteAsyncConnection db = await GetDatabaseAsync();
             return await db.Table<PendingLeaveDecision>()
                 .Where(x => x.ManagerUserId == managerUserId)
+                .OrderByDescending(x => x.DecisionDate)
+                .ToListAsync();
+        }
+
+        public async Task<List<PendingLeaveDecision>> GetPendingLeaveDecisionsAsync(int managerUserId)
+        {
+            SQLiteAsyncConnection db = await GetDatabaseAsync();
+            return await db.Table<PendingLeaveDecision>()
+                .Where(x => x.ManagerUserId == managerUserId && 
+                       (x.SyncStatus == SyncStatus.Pending || x.SyncStatus == SyncStatus.Failed))
+                .OrderByDescending(x => x.DecisionDate)
+                .ToListAsync();
+        }
+
+        public async Task<List<PendingLeaveDecision>> GetSyncedLeaveDecisionsAsync(int managerUserId)
+        {
+            SQLiteAsyncConnection db = await GetDatabaseAsync();
+            return await db.Table<PendingLeaveDecision>()
+                .Where(x => x.ManagerUserId == managerUserId && x.SyncStatus == SyncStatus.Synced)
                 .OrderByDescending(x => x.DecisionDate)
                 .ToListAsync();
         }
@@ -197,13 +262,23 @@ namespace PFE.Services
             System.Diagnostics.Debug.WriteLine($"DatabaseService: Décision {decisionId} supprimée");
         }
 
-        public async Task<bool> HasPendingDecisionForLeaveAsync(int leaveId)
+        public async Task<bool> HasDecisionForLeaveAsync(int leaveId)
         {
             SQLiteAsyncConnection db = await GetDatabaseAsync();
             int count = await db.Table<PendingLeaveDecision>()
-                .Where(x => x.LeaveId == leaveId && (x.SyncStatus == SyncStatus.Pending || x.SyncStatus == SyncStatus.Failed))
+                .Where(x => x.LeaveId == leaveId)
                 .CountAsync();
             return count > 0;
+        }
+
+        public async Task CleanupOldSyncedDecisionsAsync(int daysOld = 30)
+        {
+            SQLiteAsyncConnection db = await GetDatabaseAsync();
+            DateTime threshold = DateTime.UtcNow.AddDays(-daysOld);
+            await db.ExecuteAsync(
+                "DELETE FROM pending_leave_decisions WHERE SyncStatus = ? AND DecisionDate < ?",
+                (int)SyncStatus.Synced, threshold);
+            System.Diagnostics.Debug.WriteLine($"DatabaseService: Anciennes décisions synchronisées supprimées (> {daysOld} jours)");
         }
 
         #endregion
