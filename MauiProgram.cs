@@ -57,6 +57,7 @@ namespace PFE
             builder.Services.AddSingleton<ILeaveNotificationService, LeaveNotificationService>();
             builder.Services.AddSingleton<IBackgroundNotificationService, BackgroundNotificationService>();
             builder.Services.AddSingleton<IBackgroundLeaveStatusService, BackgroundLeaveStatusService>();
+            builder.Services.AddSingleton<ISyncService, SyncService>();
 
             builder.Services.AddTransient<AuthenticationViewModel>();
             builder.Services.AddTransient<UserProfileViewModel>();
@@ -71,7 +72,8 @@ namespace PFE
             builder.Services.AddTransient<ManageLeavesPage>();
             builder.Services.AddTransient<LeaveRequestPage>();
 
-            builder.Services.AddSingleton<App>();
+            // App reçoit IServiceProvider pour gérer l'auto-login
+            builder.Services.AddSingleton<App>(sp => new App(sp));
             builder.Services.AddTransient<Func<LoginPage>>(sp => () => sp.GetRequiredService<LoginPage>());
 
             builder.Services.AddSingleton<SessionContext>();

@@ -10,6 +10,7 @@
     <ContentPage.Resources>
         <ResourceDictionary>
             <conv:StringNotEmptyConverter x:Key="StringNotEmptyConverter" />
+            <conv:StateIsSecondApprovalConverter x:Key="SecondApprovalConverter" />
         </ResourceDictionary>
     </ContentPage.Resources>
 
@@ -65,6 +66,12 @@
                                     <VerticalStackLayout Grid.Column="0"
                                                          Spacing="6"
                                                          VerticalOptions="Center">
+                                        
+                                        <Label Text="Deuxième Validation"
+                                               FontAttributes="Italic"
+                                               TextColor="#F59E0B"
+                                               FontSize="14"
+                                               IsVisible="{Binding Status, Converter={StaticResource SecondApprovalConverter}}" />
 
                                         <Label Text="{Binding EmployeeName}"
                                                FontAttributes="Bold"
