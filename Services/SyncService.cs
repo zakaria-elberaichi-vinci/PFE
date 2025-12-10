@@ -61,6 +61,7 @@ namespace PFE.Services
         private Task? _syncTask;
         private readonly TimeSpan _syncInterval = TimeSpan.FromSeconds(10);
         private int _pendingDecisionsCount;
+        private bool _isReauthenticating = false;
 
         public bool IsRunning => _syncTask != null && !_syncTask.IsCompleted;
         public bool IsOnline => Connectivity.Current.NetworkAccess == NetworkAccess.Internet;
@@ -107,6 +108,10 @@ namespace PFE.Services
             if (e.NetworkAccess == NetworkAccess.Internet)
             {
                 System.Diagnostics.Debug.WriteLine("SyncService: Connexion rétablie, synchronisation...");
+                
+                // Attendre un peu pour laisser la connexion s'établir
+                await Task.Delay(1000);
+                
                 await SyncNowAsync();
             }
         }
@@ -153,6 +158,20 @@ namespace PFE.Services
 
             try
             {
+                System.Diagnostics.Debug.WriteLine("SyncService: Début de SyncNowAsync");
+                
+                // S'assurer que la session est valide avant de synchroniser
+                if (!_session.Current.IsAuthenticated)
+                {
+                    System.Diagnostics.Debug.WriteLine("SyncService: Session non authentifiée, tentative de ré-authentification...");
+                    bool reauthSuccess = await TryReauthenticateAsync();
+                    if (!reauthSuccess)
+                    {
+                        System.Diagnostics.Debug.WriteLine("SyncService: Ré-authentification échouée, synchronisation annulée");
+                        return;
+                    }
+                }
+                
                 await SyncPendingDecisionsAsync();
             }
             catch (Exception ex)
@@ -163,14 +182,30 @@ namespace PFE.Services
 
         private async Task SyncPendingDecisionsAsync()
         {
+            await _databaseService.InitializeAsync();
+            
             List<PendingLeaveDecision> decisions = await _databaseService.GetUnsyncedLeaveDecisionsAsync();
 
             if (decisions.Count == 0)
             {
+                System.Diagnostics.Debug.WriteLine("SyncService: Aucune décision à synchroniser");
                 return;
             }
 
             System.Diagnostics.Debug.WriteLine($"SyncService: {decisions.Count} décision(s) à synchroniser");
+            System.Diagnostics.Debug.WriteLine($"SyncService: Session - IsAuthenticated={_session.Current.IsAuthenticated}, IsManager={_session.Current.IsManager}, UserId={_session.Current.UserId}");
+
+            // Vérifier que la session est valide et que l'utilisateur est manager
+            if (!_session.Current.IsAuthenticated || !_session.Current.IsManager)
+            {
+                System.Diagnostics.Debug.WriteLine("SyncService: Session invalide ou non-manager, tentative de ré-authentification...");
+                bool reauthSuccess = await TryReauthenticateAsync();
+                if (!reauthSuccess || !_session.Current.IsManager)
+                {
+                    System.Diagnostics.Debug.WriteLine("SyncService: Ré-authentification échouée ou non-manager, synchronisation annulée");
+                    return;
+                }
+            }
 
             bool anySynced = false;
 
@@ -178,23 +213,69 @@ namespace PFE.Services
             {
                 try
                 {
+                    System.Diagnostics.Debug.WriteLine($"SyncService: Traitement décision {decision.Id} - {decision.DecisionType} pour congé {decision.LeaveId}");
+                    
                     // Marquer comme en cours de sync
                     await _databaseService.UpdateDecisionSyncStatusAsync(decision.Id, SyncStatus.Syncing);
 
                     // Envoyer à Odoo
                     if (decision.DecisionType == "approve")
                     {
+                        System.Diagnostics.Debug.WriteLine($"SyncService: Appel ApproveLeaveAsync({decision.LeaveId})");
                         await _odooClient.ApproveLeaveAsync(decision.LeaveId);
                     }
                     else if (decision.DecisionType == "refuse")
                     {
+                        System.Diagnostics.Debug.WriteLine($"SyncService: Appel RefuseLeaveAsync({decision.LeaveId})");
                         await _odooClient.RefuseLeaveAsync(decision.LeaveId);
                     }
 
-                    // Succès - marquer comme synchronisé (garder en DB pour le mode offline)
+                    // Succès - marquer comme synchronisé
                     await _databaseService.UpdateDecisionSyncStatusAsync(decision.Id, SyncStatus.Synced);
-                    System.Diagnostics.Debug.WriteLine($"SyncService: Décision {decision.Id} synchronisée avec succès ({decision.DecisionType} pour congé {decision.LeaveId})");
+                    System.Diagnostics.Debug.WriteLine($"SyncService: Décision {decision.Id} synchronisée avec succès");
                     anySynced = true;
+                }
+                catch (Exception ex) when (IsSessionExpiredError(ex))
+                {
+                    System.Diagnostics.Debug.WriteLine($"SyncService: Session expirée détectée - {ex.Message}");
+                    
+                    // Remettre en pending
+                    await _databaseService.UpdateDecisionSyncStatusAsync(decision.Id, SyncStatus.Pending);
+                    
+                    // Tenter de se ré-authentifier
+                    bool reauthSuccess = await TryReauthenticateAsync();
+                    
+                    if (reauthSuccess && _session.Current.IsManager)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"SyncService: Ré-authentification réussie, retry...");
+                        try
+                        {
+                            await _databaseService.UpdateDecisionSyncStatusAsync(decision.Id, SyncStatus.Syncing);
+                            
+                            if (decision.DecisionType == "approve")
+                            {
+                                await _odooClient.ApproveLeaveAsync(decision.LeaveId);
+                            }
+                            else if (decision.DecisionType == "refuse")
+                            {
+                                await _odooClient.RefuseLeaveAsync(decision.LeaveId);
+                            }
+                            
+                            await _databaseService.UpdateDecisionSyncStatusAsync(decision.Id, SyncStatus.Synced);
+                            System.Diagnostics.Debug.WriteLine($"SyncService: Décision {decision.Id} synchronisée après réauth");
+                            anySynced = true;
+                        }
+                        catch (Exception retryEx)
+                        {
+                            await _databaseService.UpdateDecisionSyncStatusAsync(decision.Id, SyncStatus.Failed, retryEx.Message);
+                            System.Diagnostics.Debug.WriteLine($"SyncService: Échec après réauth - {retryEx.Message}");
+                        }
+                    }
+                    else
+                    {
+                        await _databaseService.UpdateDecisionSyncStatusAsync(decision.Id, SyncStatus.Failed, "Session expirée et ré-authentification échouée");
+                        System.Diagnostics.Debug.WriteLine($"SyncService: Échec de la ré-authentification");
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -210,7 +291,83 @@ namespace PFE.Services
             // Notifier que la sync est terminée
             if (anySynced)
             {
+                System.Diagnostics.Debug.WriteLine("SyncService: Synchronisation terminée avec succès, notification...");
                 SyncCompleted?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        /// <summary>
+        /// Vérifie si l'erreur est une erreur de session expirée
+        /// </summary>
+        private static bool IsSessionExpiredError(Exception ex)
+        {
+            string message = ex.Message.ToLowerInvariant();
+            return message.Contains("session expired") ||
+                   message.Contains("sessionexpired") ||
+                   message.Contains("session_expired") ||
+                   message.Contains("odoo session expired") ||
+                   message.Contains("non authentifié") ||
+                   message.Contains("n'est pas un manager");
+        }
+
+        /// <summary>
+        /// Tente de se ré-authentifier avec les credentials sauvegardés
+        /// </summary>
+        private async Task<bool> TryReauthenticateAsync()
+        {
+            if (_isReauthenticating)
+            {
+                System.Diagnostics.Debug.WriteLine("SyncService: Ré-authentification déjà en cours");
+                return false;
+            }
+
+            _isReauthenticating = true;
+
+            try
+            {
+                // Récupérer les credentials sauvegardés
+                string login = Preferences.Get("auth.login", string.Empty);
+                string? password = null;
+
+                try
+                {
+                    password = await SecureStorage.GetAsync("auth.password");
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"SyncService: Erreur lecture SecureStorage - {ex.Message}");
+                }
+
+                if (string.IsNullOrEmpty(login) || string.IsNullOrEmpty(password))
+                {
+                    System.Diagnostics.Debug.WriteLine("SyncService: Credentials non disponibles pour la ré-authentification");
+                    return false;
+                }
+
+                System.Diagnostics.Debug.WriteLine($"SyncService: Tentative de connexion pour {login}");
+                
+                // Tenter la connexion
+                bool success = await _odooClient.LoginAsync(login, password);
+                
+                if (success)
+                {
+                    System.Diagnostics.Debug.WriteLine($"SyncService: Ré-authentification réussie - IsManager={_session.Current.IsManager}");
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"SyncService: Ré-authentification échouée pour {login}");
+                }
+
+                return success;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"SyncService: Exception lors de la ré-authentification - {ex.Message}");
+                return false;
+            }
+            finally
+            {
+                _isReauthenticating = false;
             }
         }
 
