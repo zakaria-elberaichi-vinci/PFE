@@ -15,7 +15,6 @@ namespace PFE.ViewModels
         private string _password = string.Empty;
         private bool _isBusy;
         private string _errorMessage = string.Empty;
-        private bool _rememberMe;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -61,19 +60,6 @@ namespace PFE.ViewModels
             private set { _errorMessage = value; OnPropertyChanged(); }
         }
 
-        public bool RememberMe
-        {
-            get => _rememberMe;
-            set
-            {
-                if (_rememberMe == value) return;
-                _rememberMe = value;
-                OnPropertyChanged();
-
-                SaveRememberPreferenceOnly();
-            }
-        }
-
         public ICommand LoginCommand { get; }
 
         public Action? OnLoginSucceeded { get; set; }
@@ -92,25 +78,25 @@ namespace PFE.ViewModels
 
                 if (success)
                 {
+                    // Toujours sauvegarder les credentials (RememberMe activé par défaut)
                     await PersistCredentialsAsync();
 
                     // Démarrer le service approprié selon le rôle
                     if (_odooClient.session.Current.IsManager)
                     {
-                        // Manager : notifications pour nouvelles demandes de congé
                         _backgroundNotificationService.Start();
                     }
                     else
                     {
-                        // Employé : notifications pour acceptation/refus de congé
                         _backgroundLeaveStatusService.Start();
                     }
 
                     OnLoginSucceeded?.Invoke();
                 }
                 else
-                { ErrorMessage = "Échec de connexion. Vérifiez vos identifiants."; }
-
+                {
+                    ErrorMessage = "Échec de connexion. Vérifiez vos identifiants.";
+                }
             }
             catch (Exception ex)
             {
@@ -128,55 +114,36 @@ namespace PFE.ViewModels
 
         private async void LoadRememberedCredentials()
         {
-            RememberMe = Preferences.Get(RememberMeKey, false);
-            if (RememberMe)
-            {
-                Login = Preferences.Get(LoginKey, string.Empty);
+            // Charger les credentials si disponibles
+            Login = Preferences.Get(LoginKey, string.Empty);
 
-                try
-                {
-                    string? pwd = await SecureStorage.GetAsync(PasswordKey);
-                    if (!string.IsNullOrEmpty(pwd))
-                        Password = pwd;
-                }
-                catch
-                {
-                }
+            try
+            {
+                string? pwd = await SecureStorage.GetAsync(PasswordKey);
+                if (!string.IsNullOrEmpty(pwd))
+                    Password = pwd;
             }
-        }
-
-        private void SaveRememberPreferenceOnly()
-        {
-            Preferences.Set(RememberMeKey, RememberMe);
-            if (!RememberMe)
+            catch
             {
-                Preferences.Remove(LoginKey);
-                SecureStorage.Remove(PasswordKey);
+                // Ignorer les erreurs de SecureStorage
             }
         }
 
         private async Task PersistCredentialsAsync()
         {
-            Preferences.Set(RememberMeKey, RememberMe);
-
-            if (RememberMe)
+            // Toujours sauvegarder (RememberMe toujours activé)
+            Preferences.Set(RememberMeKey, true);
+            Preferences.Set(LoginKey, Login);
+            
+            try
             {
-                Preferences.Set(LoginKey, Login);
-                try
-                {
-                    await SecureStorage.SetAsync(PasswordKey, Password ?? string.Empty);
-                }
-                catch
-                {
-                }
+                await SecureStorage.SetAsync(PasswordKey, Password ?? string.Empty);
             }
-            else
+            catch
             {
-                Preferences.Remove(LoginKey);
-                SecureStorage.Remove(PasswordKey);
+                // Ignorer les erreurs de SecureStorage
             }
         }
-
 
         private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));

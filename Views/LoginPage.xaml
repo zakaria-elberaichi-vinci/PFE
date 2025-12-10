@@ -74,15 +74,6 @@
                                HorizontalOptions="Fill" />
                     </VerticalStackLayout>
 
-         
-                    <HorizontalStackLayout Spacing="10"
-                                           Margin="0,4,0,0">
-                        <CheckBox IsChecked="{Binding RememberMe}" />
-                        <Label Text="Se souvenir de moi"
-                               TextColor="#E5E7EB"
-                               VerticalOptions="Center" />
-                    </HorizontalStackLayout>
-
                   
                     <Button Text="Se connecter"
                             Command="{Binding LoginCommand}"
