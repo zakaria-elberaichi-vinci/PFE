@@ -69,7 +69,7 @@
                                         
                                         <Label Text="Deuxième Validation"
                                                FontAttributes="Italic"
-                                               TextColor="White"
+                                               TextColor="#F59E0B"
                                                FontSize="14"
                                                IsVisible="{Binding Status, Converter={StaticResource SecondApprovalConverter}}" />
 
