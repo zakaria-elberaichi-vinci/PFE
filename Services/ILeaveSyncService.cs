@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using PFE.Models;
+using PFE.Models.Database;
 
 namespace PFE.Services
 {
@@ -13,7 +13,7 @@ namespace PFE.Services
         Task<int> SavePendingAsync(int leaveTypeId, DateTime startDate, DateTime endDate, string? reason);
 
         /// <summary>
-        /// (On l’implémentera plus tard) : synchroniser toutes les demandes en attente avec Odoo.
+        /// (On l'implémentera plus tard) : synchroniser toutes les demandes en attente avec Odoo.
         /// </summary>
         Task<int> SyncAllAsync();
 

@@ -5,6 +5,7 @@ using System.Windows.Input;
 using Microsoft.Maui.Networking;
 using PFE.Helpers;
 using PFE.Models;
+using PFE.Models.Database;
 using PFE.Services;
 using Syncfusion.Maui.Calendar;
 using static PFE.Helpers.DateHelper;
@@ -640,12 +641,12 @@ namespace PFE.ViewModels
                 {
                     var pending = new PendingLeaveRequest
                     {
-                        Id = Guid.NewGuid(),
                         LeaveTypeId = SelectedLeaveType!.Id,
                         StartDate = SelectedRange!.StartDate!.Value,
                         EndDate = SelectedRange!.EndDate!.Value,
                         Reason = Reason?.Trim() ?? string.Empty,
-                        QueuedAt = DateTime.UtcNow
+                        CreatedAt = DateTime.UtcNow,
+                        SyncStatus = SyncStatus.Pending
                     };
 
                     await _offlineService.AddPendingAsync(pending);
@@ -670,12 +671,12 @@ namespace PFE.ViewModels
             {
                 var pending = new PendingLeaveRequest
                 {
-                    Id = Guid.NewGuid(),
                     LeaveTypeId = SelectedLeaveType!.Id,
                     StartDate = SelectedRange!.StartDate!.Value,
                     EndDate = SelectedRange!.EndDate!.Value,
                     Reason = Reason?.Trim() ?? string.Empty,
-                    QueuedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.UtcNow,
+                    SyncStatus = SyncStatus.Pending
                 };
 
                 try

@@ -1,6 +1,6 @@
 ﻿using System.Text.Json;
 using Microsoft.Extensions.Logging;
-using PFE.Models;
+using PFE.Models.Database;
 using PFE.Services;
 
 
@@ -17,6 +17,9 @@ namespace PFE.Services
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             WriteIndented = false
         };
+
+        // Compteur local pour générer des IDs temporaires uniques
+        private int _localIdCounter = 0;
 
         public event EventHandler<SyncStatusEventArgs>? SyncStatusChanged;
 
@@ -48,6 +51,14 @@ namespace PFE.Services
             try
             {
                 List<PendingLeaveRequest> list = await ReadAllAsync().ConfigureAwait(false);
+                
+                // Assigner un ID temporaire si nécessaire
+                if (item.Id == 0)
+                {
+                    _localIdCounter = list.Count > 0 ? list.Max(x => x.Id) + 1 : 1;
+                    item.Id = _localIdCounter;
+                }
+                
                 list.Add(item);
                 await WriteAllAsync(list).ConfigureAwait(false);
                 _logger.LogInformation("Demande hors-ligne enregistrée (Id={Id}).", item.Id);

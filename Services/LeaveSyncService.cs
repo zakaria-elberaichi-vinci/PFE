@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using SQLite;
-using PFE.Models;
+using PFE.Models.Database;
 
 namespace PFE.Services
 {
@@ -25,15 +25,14 @@ namespace PFE.Services
                 LeaveTypeId = leaveTypeId,
                 StartDate = startDate,
                 EndDate = endDate,
-                Reason = reason,
+                Reason = reason ?? string.Empty,
                 CreatedAt = DateTime.UtcNow,
-                IsSynced = false,
-                OdooId = null
+                SyncStatus = SyncStatus.Pending
             };
 
             await _db.InsertAsync(pending);
 
-            // après InsertAsync, l’Id auto-incrémenté est rempli
+            // après InsertAsync, l'Id auto-incrémenté est rempli
             return pending.Id;
         }
 
@@ -53,7 +52,7 @@ namespace PFE.Services
         public Task<List<PendingLeaveRequest>> GetPendingAsync()
         {
             return _db.Table<PendingLeaveRequest>()
-                      .Where(x => !x.IsSynced)
+                      .Where(x => x.SyncStatus == SyncStatus.Pending || x.SyncStatus == SyncStatus.Failed)
                       .ToListAsync();
         }
     }
