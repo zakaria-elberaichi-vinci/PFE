@@ -247,6 +247,7 @@ namespace PFE.Services
 
             string[] fields = new string[]
             {
+                "id",
                 "holiday_status_id",
                 "state",
                 "request_date_to",
@@ -307,6 +308,11 @@ namespace PFE.Services
 
             foreach (JsonElement item in result.EnumerateArray())
             {
+                // Récupérer l'ID Odoo
+                int id = item.TryGetProperty("id", out JsonElement idEl) && idEl.ValueKind == JsonValueKind.Number
+                    ? idEl.GetInt32()
+                    : 0;
+
                 string type = "";
                 if (item.TryGetProperty("holiday_status_id", out JsonElement holidayStatusEl) &&
                     holidayStatusEl.ValueKind == JsonValueKind.Array &&
@@ -341,6 +347,7 @@ namespace PFE.Services
                 int days = (int)Math.Round(daysEl.GetDouble());
 
                 list.Add(new Leave(
+                    id,
                     LeaveTypeHelper.Translate(type),
                     startDate,
                     endDate,

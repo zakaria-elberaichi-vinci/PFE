@@ -33,8 +33,8 @@ namespace PFE.Services
                 _database = new SQLiteAsyncConnection(_dbPath, SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create | SQLiteOpenFlags.SharedCache);
 
                 // Créer les tables
-                await _database.CreateTableAsync<LeaveStatusCache>();
                 await _database.CreateTableAsync<SeenLeaveNotification>();
+                await _database.CreateTableAsync<NotifiedLeaveStatusChange>();
                 await _database.CreateTableAsync<PendingLeaveRequest>();
                 await _database.CreateTableAsync<UserSession>();
 
@@ -56,58 +56,45 @@ namespace PFE.Services
             return _database!;
         }
 
-        #region LeaveStatusCache (Employés)
+        #region NotifiedLeaveStatusChange (Employés)
 
-        public async Task<List<LeaveStatusCache>> GetLeaveStatusCacheAsync(int employeeId)
+        public async Task<HashSet<int>> GetNotifiedLeaveIdsAsync(int employeeId, string status)
         {
             SQLiteAsyncConnection db = await GetDatabaseAsync();
-            return await db.Table<LeaveStatusCache>()
-                .Where(x => x.EmployeeId == employeeId)
+            List<NotifiedLeaveStatusChange> notified = await db.Table<NotifiedLeaveStatusChange>()
+                .Where(x => x.EmployeeId == employeeId && x.NotifiedStatus == status)
                 .ToListAsync();
+
+            return notified.Select(x => x.LeaveId).ToHashSet();
         }
 
-        public async Task<LeaveStatusCache> UpsertLeaveStatusAsync(LeaveStatusCache status)
+        public async Task MarkLeaveAsNotifiedAsync(int employeeId, int leaveId, string status)
         {
             SQLiteAsyncConnection db = await GetDatabaseAsync();
-
-            // Chercher si une entrée existe déjà pour ce congé
-            LeaveStatusCache? existing = await db.Table<LeaveStatusCache>()
-                .Where(x => x.EmployeeId == status.EmployeeId && x.LeaveId == status.LeaveId)
+            
+            // Vérifier si déjà notifié
+            NotifiedLeaveStatusChange? existing = await db.Table<NotifiedLeaveStatusChange>()
+                .Where(x => x.EmployeeId == employeeId && x.LeaveId == leaveId && x.NotifiedStatus == status)
                 .FirstOrDefaultAsync();
 
-            status.LastUpdated = DateTime.UtcNow;
-
-            if (existing != null)
+            if (existing == null)
             {
-                status.Id = existing.Id;
-                await db.UpdateAsync(status);
+                await db.InsertAsync(new NotifiedLeaveStatusChange
+                {
+                    EmployeeId = employeeId,
+                    LeaveId = leaveId,
+                    NotifiedStatus = status,
+                    NotifiedAt = DateTime.UtcNow
+                });
+                System.Diagnostics.Debug.WriteLine($"DatabaseService: Congé {leaveId} marqué comme notifié ({status}) pour employé {employeeId}");
             }
-            else
-            {
-                await db.InsertAsync(status);
-            }
-
-            return status;
         }
 
-        public async Task ClearLeaveStatusCacheAsync(int employeeId)
+        public async Task ClearNotifiedLeavesAsync(int employeeId)
         {
             SQLiteAsyncConnection db = await GetDatabaseAsync();
-            await db.ExecuteAsync("DELETE FROM leave_status_cache WHERE EmployeeId = ?", employeeId);
-            System.Diagnostics.Debug.WriteLine($"DatabaseService: Cache des statuts supprimé pour employé {employeeId}");
-        }
-
-        public async Task CleanupOldLeaveStatusEntriesAsync(int employeeId, List<int> currentLeaveIds)
-        {
-            if (currentLeaveIds.Count == 0)
-            {
-                await ClearLeaveStatusCacheAsync(employeeId);
-                return;
-            }
-
-            SQLiteAsyncConnection db = await GetDatabaseAsync();
-            string idsString = string.Join(",", currentLeaveIds);
-            await db.ExecuteAsync($"DELETE FROM leave_status_cache WHERE EmployeeId = ? AND LeaveId NOT IN ({idsString})", employeeId);
+            await db.ExecuteAsync("DELETE FROM notified_leave_status_changes WHERE EmployeeId = ?", employeeId);
+            System.Diagnostics.Debug.WriteLine($"DatabaseService: Notifications supprimées pour employé {employeeId}");
         }
 
         #endregion

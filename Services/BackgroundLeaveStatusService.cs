@@ -1,6 +1,5 @@
 using PFE.Context;
 using PFE.Models;
-using PFE.Models.Database;
 using Plugin.LocalNotification;
 #if WINDOWS
 using Microsoft.Toolkit.Uwp.Notifications;
@@ -15,6 +14,11 @@ namespace PFE.Services
         bool IsRunning { get; }
     }
 
+    /// <summary>
+    /// Service de notification pour les employés : notifie quand un congé est validé ou refusé.
+    /// Logique simple : si un congé a le statut "Validé" ou "Refusé" et qu'on n'a pas encore
+    /// envoyé de notification pour ce congé+statut, on envoie la notification.
+    /// </summary>
     public class BackgroundLeaveStatusService : IBackgroundLeaveStatusService
     {
         private readonly OdooClient _odooClient;
@@ -25,10 +29,13 @@ namespace PFE.Services
         private readonly TimeSpan _pollingInterval = TimeSpan.FromSeconds(5);
         private int _notificationId = 500;
 
+        // Flag pour savoir si c'est la première synchronisation de cette session
+        private bool _isFirstSync = true;
+
         public bool IsRunning => _pollingTask != null && !_pollingTask.IsCompleted;
 
         public BackgroundLeaveStatusService(
-            OdooClient odooClient, 
+            OdooClient odooClient,
             IDatabaseService databaseService,
             SessionContext session)
         {
@@ -43,6 +50,9 @@ namespace PFE.Services
 
             // Seulement pour les employés (non-managers)
             if (!_session.Current.IsAuthenticated || _session.Current.IsManager) return;
+
+            // Réinitialiser le flag
+            _isFirstSync = true;
 
             _cts = new CancellationTokenSource();
             _pollingTask = PollForStatusChangesAsync(_cts.Token);
@@ -103,93 +113,84 @@ namespace PFE.Services
                 // Récupérer tous les congés de l'employé depuis Odoo
                 List<Leave> leaves = await _odooClient.GetLeavesAsync();
 
-                // Récupérer le cache des statuts depuis la base de données
-                List<LeaveStatusCache> cachedStatuses = await _databaseService.GetLeaveStatusCacheAsync(employeeId);
-                Dictionary<int, LeaveStatusCache> cacheDict = cachedStatuses.ToDictionary(x => x.LeaveId);
+                // Récupérer les congés déjà notifiés comme "validé"
+                HashSet<int> notifiedAsApproved = await _databaseService.GetNotifiedLeaveIdsAsync(employeeId, "approved");
+                
+                // Récupérer les congés déjà notifiés comme "refusé"
+                HashSet<int> notifiedAsRefused = await _databaseService.GetNotifiedLeaveIdsAsync(employeeId, "refused");
 
-                // Déterminer si c'est la première synchronisation
-                bool isFirstSync = cachedStatuses.Count == 0;
-
-                List<int> currentLeaveIds = new();
-
-                foreach (Leave leave in leaves)
+                // Première synchronisation : marquer tous les congés existants comme déjà notifiés
+                // pour ne pas spammer l'utilisateur avec des anciennes notifications
+                if (_isFirstSync)
                 {
-                    // Utiliser un hash basé sur les dates et le type comme ID temporaire
-                    // (car Leave n'a pas d'ID Odoo dans le modèle actuel)
-                    int leaveId = GenerateLeaveId(leave);
-                    currentLeaveIds.Add(leaveId);
-
-                    string currentStatus = leave.Status;
-
-                    // Vérifier si le congé existe dans le cache
-                    if (cacheDict.TryGetValue(leaveId, out LeaveStatusCache? cached))
+                    System.Diagnostics.Debug.WriteLine("BackgroundLeaveStatusService: Première sync - initialisation des congés existants");
+                    
+                    foreach (Leave leave in leaves)
                     {
-                        // Le statut a-t-il changé ?
-                        if (cached.LastKnownStatus != currentStatus && !isFirstSync)
-                        {
-                            System.Diagnostics.Debug.WriteLine($"Changement de statut détecté: {cached.LastKnownStatus} -> {currentStatus}");
+                        if (leave.Id == 0) continue;
 
-                            // Notification si accepté
-                            if (currentStatus == "Validé par le RH" || currentStatus == "Validé par le manager")
-                            {
-                                await SendNotificationAsync(
-                                    "? Congé accepté !",
-                                    $"Votre demande du {leave.StartDate:dd/MM/yyyy} au {leave.EndDate:dd/MM/yyyy} a été acceptée."
-                                );
-                            }
-                            // Notification si refusé
-                            else if (currentStatus == "Refusé")
-                            {
-                                await SendNotificationAsync(
-                                    "? Congé refusé",
-                                    $"Votre demande du {leave.StartDate:dd/MM/yyyy} au {leave.EndDate:dd/MM/yyyy} a été refusée."
-                                );
-                            }
+                        string status = leave.Status;
+
+                        // Marquer les congés validés comme déjà notifiés
+                        if ((status == "Validé par le RH" || status == "Validé par le manager") 
+                            && !notifiedAsApproved.Contains(leave.Id))
+                        {
+                            await _databaseService.MarkLeaveAsNotifiedAsync(employeeId, leave.Id, "approved");
+                            System.Diagnostics.Debug.WriteLine($"Init: Congé {leave.Id} marqué comme notifié (approved)");
                         }
-
-                        // Mettre à jour le cache
-                        cached.LastKnownStatus = currentStatus;
-                        cached.LastUpdated = DateTime.UtcNow;
-                        await _databaseService.UpsertLeaveStatusAsync(cached);
-                    }
-                    else
-                    {
-                        // Nouveau congé - l'ajouter au cache sans notifier
-                        await _databaseService.UpsertLeaveStatusAsync(new LeaveStatusCache
+                        // Marquer les congés refusés comme déjà notifiés
+                        else if (status == "Refusé" && !notifiedAsRefused.Contains(leave.Id))
                         {
-                            EmployeeId = employeeId,
-                            LeaveId = leaveId,
-                            LeaveType = leave.Type,
-                            StartDate = leave.StartDate,
-                            EndDate = leave.EndDate,
-                            LastKnownStatus = currentStatus,
-                            LastUpdated = DateTime.UtcNow
-                        });
+                            await _databaseService.MarkLeaveAsNotifiedAsync(employeeId, leave.Id, "refused");
+                            System.Diagnostics.Debug.WriteLine($"Init: Congé {leave.Id} marqué comme notifié (refused)");
+                        }
                     }
+
+                    _isFirstSync = false;
+                    System.Diagnostics.Debug.WriteLine("BackgroundLeaveStatusService: Première sync terminée, prêt pour les notifications");
+                    return; // Ne pas envoyer de notifications lors de la première sync
                 }
 
-                // Nettoyer les entrées obsolètes
-                await _databaseService.CleanupOldLeaveStatusEntriesAsync(employeeId, currentLeaveIds);
-
-                if (isFirstSync)
+                // Synchronisations suivantes : envoyer les notifications pour les nouveaux changements
+                foreach (Leave leave in leaves)
                 {
-                    System.Diagnostics.Debug.WriteLine($"BackgroundLeaveStatusService: Première synchronisation terminée, {leaves.Count} congés en cache");
+                    if (leave.Id == 0) continue;
+
+                    string status = leave.Status;
+
+                    // Congé VALIDÉ et pas encore notifié
+                    if ((status == "Validé par le RH" || status == "Validé par le manager") 
+                        && !notifiedAsApproved.Contains(leave.Id))
+                    {
+                        System.Diagnostics.Debug.WriteLine($"NOTIFICATION: Congé {leave.Id} validé");
+                        
+                        await SendNotificationAsync(
+                            "? Congé accepté !",
+                            $"Votre demande du {leave.StartDate:dd/MM/yyyy} au {leave.EndDate:dd/MM/yyyy} a été acceptée."
+                        );
+
+                        // Marquer comme notifié
+                        await _databaseService.MarkLeaveAsNotifiedAsync(employeeId, leave.Id, "approved");
+                    }
+                    // Congé REFUSÉ et pas encore notifié
+                    else if (status == "Refusé" && !notifiedAsRefused.Contains(leave.Id))
+                    {
+                        System.Diagnostics.Debug.WriteLine($"NOTIFICATION: Congé {leave.Id} refusé");
+                        
+                        await SendNotificationAsync(
+                            "? Congé refusé",
+                            $"Votre demande du {leave.StartDate:dd/MM/yyyy} au {leave.EndDate:dd/MM/yyyy} a été refusée."
+                        );
+
+                        // Marquer comme notifié
+                        await _databaseService.MarkLeaveAsNotifiedAsync(employeeId, leave.Id, "refused");
+                    }
                 }
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"CheckForStatusChangesAsync: {ex.Message}");
             }
-        }
-
-        /// <summary>
-        /// Génère un ID unique pour un congé basé sur ses propriétés
-        /// </summary>
-        private static int GenerateLeaveId(Leave leave)
-        {
-            // Créer un hash basé sur les dates et le type
-            string key = $"{leave.StartDate:yyyyMMddHHmm}_{leave.EndDate:yyyyMMddHHmm}_{leave.Type}";
-            return key.GetHashCode();
         }
 
         private async Task SendNotificationAsync(string title, string body)

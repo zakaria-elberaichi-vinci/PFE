@@ -12,27 +12,22 @@ namespace PFE.Services
         /// </summary>
         Task InitializeAsync();
 
-        #region LeaveStatusCache (Employés)
+        #region NotifiedLeaveStatusChange (Employés - Notifications envoyées)
 
         /// <summary>
-        /// Récupère le cache des statuts de congés pour un employé
+        /// Récupère les IDs des congés pour lesquels une notification a déjà été envoyée
         /// </summary>
-        Task<List<LeaveStatusCache>> GetLeaveStatusCacheAsync(int employeeId);
+        Task<HashSet<int>> GetNotifiedLeaveIdsAsync(int employeeId, string status);
 
         /// <summary>
-        /// Met à jour ou insère un statut de congé dans le cache
+        /// Marque un congé comme notifié pour un statut donné
         /// </summary>
-        Task<LeaveStatusCache> UpsertLeaveStatusAsync(LeaveStatusCache status);
+        Task MarkLeaveAsNotifiedAsync(int employeeId, int leaveId, string status);
 
         /// <summary>
-        /// Supprime le cache d'un employé (lors de la déconnexion ou changement d'utilisateur)
+        /// Supprime les notifications d'un employé
         /// </summary>
-        Task ClearLeaveStatusCacheAsync(int employeeId);
-
-        /// <summary>
-        /// Supprime les entrées de cache qui ne sont plus dans la liste des IDs fournis
-        /// </summary>
-        Task CleanupOldLeaveStatusEntriesAsync(int employeeId, List<int> currentLeaveIds);
+        Task ClearNotifiedLeavesAsync(int employeeId);
 
         #endregion
 
