@@ -13,14 +13,20 @@ namespace PFE.ViewModels
     {
         public string LabelFr { get; init; } = default!;
         public string? ValueEn { get; init; }
-        public override string ToString() => LabelFr;
+        public override string ToString()
+        {
+            return LabelFr;
+        }
     }
 
     public class YearItem
     {
         public string Label { get; init; } = default!;
         public int? Value { get; init; }
-        public override string ToString() => Label;
+        public override string ToString()
+        {
+            return Label;
+        }
     }
 
     public class LeaveViewModel : INotifyPropertyChanged
@@ -28,18 +34,25 @@ namespace PFE.ViewModels
         private readonly OdooClient _odooClient;
         private bool _isBusy;
         private string _errorMessage = string.Empty;
-        public ObservableCollection<YearItem> Years { get; } = new();
-        public ObservableCollection<StatusItem> Statuses { get; } = new();
+        public ObservableCollection<YearItem> Years { get; } = [];
+        public ObservableCollection<StatusItem> Statuses { get; } = [];
         private YearItem? _selectedYearItem;
         public YearItem? SelectedYearItem
         {
             get => _selectedYearItem;
             set
             {
-                if (_selectedYearItem == value) return;
+                if (_selectedYearItem == value)
+                {
+                    return;
+                }
+
                 _selectedYearItem = value;
                 OnPropertyChanged();
-                if (!IsBusy) _ = LoadAsync();
+                if (!IsBusy)
+                {
+                    _ = LoadAsync();
+                }
             }
         }
 
@@ -49,10 +62,17 @@ namespace PFE.ViewModels
             get => _selectedStatusItem;
             set
             {
-                if (_selectedStatusItem == value) return;
+                if (_selectedStatusItem == value)
+                {
+                    return;
+                }
+
                 _selectedStatusItem = value;
                 OnPropertyChanged();
-                if (!IsBusy) _ = LoadAsync();
+                if (!IsBusy)
+                {
+                    _ = LoadAsync();
+                }
             }
         }
         public int? SelectedYear => SelectedYearItem?.Value;
@@ -63,7 +83,7 @@ namespace PFE.ViewModels
         public LeaveViewModel(OdooClient odooClient)
         {
             _odooClient = odooClient;
-            Leaves = new ObservableCollection<Leave>();
+            Leaves = [];
             RefreshCommand = new RelayCommand(async _ => await LoadAsync(), _ => !IsBusy);
 
             InitializeYears();
@@ -94,7 +114,10 @@ namespace PFE.ViewModels
 
         public async Task LoadAsync()
         {
-            if (IsBusy) return;
+            if (IsBusy)
+            {
+                return;
+            }
 
             IsBusy = true;
             ErrorMessage = string.Empty;
@@ -111,10 +134,14 @@ namespace PFE.ViewModels
                 List<Leave> list = await _odooClient.GetLeavesAsync(SelectedYear, SelectedStateEn);
                 Leaves.Clear();
                 foreach (Leave item in list)
+                {
                     Leaves.Add(item);
+                }
 
                 if (Leaves.Count == 0)
+                {
                     ErrorMessage = "Aucun congé trouvé.";
+                }
             }
             catch (Exception ex)
             {
@@ -148,12 +175,16 @@ namespace PFE.ViewModels
             Statuses.Add(new StatusItem { LabelFr = "(Tous)", ValueEn = null });
 
             foreach (KeyValuePair<string, string> kv in FrenchToEnglishStatus)
+            {
                 Statuses.Add(new StatusItem { LabelFr = kv.Key, ValueEn = kv.Value });
+            }
 
             SelectedStatusItem = Statuses[0];
         }
 
         private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
-            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
     }
 }

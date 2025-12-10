@@ -75,8 +75,12 @@ public partial class DashboardPage : ContentPage
         BtnManageLeaves.IsVisible = isManager;
 
         if (isManager)
+        {
             _backgroundNotificationService.Start();
+        }
         else if (isEmployee)
+        {
             _backgroundLeaveStatusService.Start();
+        }
     }
 }

@@ -8,6 +8,7 @@ public partial class App : Application
 {
     private readonly IServiceProvider _services;
 
+    [Obsolete]
     public App(IServiceProvider services)
     {
         InitializeComponent();
@@ -27,6 +28,7 @@ public partial class App : Application
         };
     }
 
+    [Obsolete]
     protected override async void OnStart()
     {
         base.OnStart();
@@ -102,7 +104,7 @@ public partial class App : Application
                 System.Diagnostics.Debug.WriteLine("AutoLogin: Échec de connexion (credentials invalides ou expirés)");
                 // Nettoyer les credentials invalides
                 Preferences.Remove("auth.login");
-                SecureStorage.Remove("auth.password");
+                _ = SecureStorage.Remove("auth.password");
                 return false;
             }
         }

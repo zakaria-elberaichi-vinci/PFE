@@ -1,7 +1,8 @@
-namespace PFE.Views;
 
 using PFE.ViewModels;
 using Syncfusion.Maui.Scheduler;
+
+namespace PFE.Views;
 
 public partial class CalendarPage : ContentPage
 {

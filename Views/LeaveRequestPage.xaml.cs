@@ -26,7 +26,7 @@ namespace PFE.Views
             {
                 await DisplayAlert("Accès refusé", _vm.ErrorMessage, "OK");
 
-                await Navigation.PopAsync();
+                _ = await Navigation.PopAsync();
                 return;
             }
 
@@ -38,7 +38,7 @@ namespace PFE.Views
 
         private async void SubmitButton_Clicked(object sender, EventArgs e)
         {
-            (bool success, int? createdId, string? message) = await _vm.SubmitAsync();
+            (bool success, _, string? message) = await _vm.SubmitAsync();
 
             if (success)
             {

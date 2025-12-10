@@ -27,7 +27,7 @@ namespace PFE.ViewModels
         {
             _odooClient = odooClient;
             _selectedYear = DateTime.Today.Year;
-            Appointments = new ObservableCollection<SchedulerAppointment>();
+            Appointments = [];
 
             RefreshCommand = new RelayCommand(async _ => await LoadAsync(), _ => !IsBusy);
         }
@@ -102,7 +102,10 @@ namespace PFE.ViewModels
 
         public async Task LoadAsync()
         {
-            if (IsBusy) return;
+            if (IsBusy)
+            {
+                return;
+            }
 
             IsBusy = true;
             ErrorMessage = string.Empty;
@@ -161,6 +164,8 @@ namespace PFE.ViewModels
         }
 
         private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
-            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
     }
 }

@@ -4,6 +4,7 @@ namespace PFE.Views;
 
 public partial class LoginPage : ContentPage
 {
+    [Obsolete]
     public LoginPage(AuthenticationViewModel vm, IServiceProvider services)
     {
         InitializeComponent();

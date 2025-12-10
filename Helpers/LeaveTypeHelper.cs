@@ -55,14 +55,20 @@ public static class LeaveTypeHelper
 
     private static string Normalize(string s)
     {
-        if (string.IsNullOrEmpty(s)) return string.Empty;
+        if (string.IsNullOrEmpty(s))
+        {
+            return string.Empty;
+        }
+
         string formD = s.Trim().Normalize(NormalizationForm.FormD);
-        StringBuilder sb = new StringBuilder(formD.Length);
+        StringBuilder sb = new(formD.Length);
         foreach (char ch in formD)
         {
             UnicodeCategory uc = CharUnicodeInfo.GetUnicodeCategory(ch);
             if (uc != UnicodeCategory.NonSpacingMark)
-                sb.Append(ch);
+            {
+                _ = sb.Append(ch);
+            }
         }
         return sb.ToString().Normalize(NormalizationForm.FormC).ToLowerInvariant();
     }
@@ -70,16 +76,22 @@ public static class LeaveTypeHelper
     public static string Translate(string englishName)
     {
         if (string.IsNullOrWhiteSpace(englishName))
+        {
             return "Type non spécifié";
+        }
 
         if (_translations.TryGetValue(englishName.Trim(), out string? frenchName))
+        {
             return frenchName;
+        }
 
         string normInput = Normalize(englishName);
         foreach (KeyValuePair<string, string> kvp in _translations)
         {
             if (Normalize(kvp.Key).Contains(normInput))
+            {
                 return kvp.Value;
+            }
         }
 
         return englishName;
@@ -88,16 +100,22 @@ public static class LeaveTypeHelper
     public static string GetColorHex(string frenchName)
     {
         if (string.IsNullOrWhiteSpace(frenchName))
+        {
             return _defaultColor;
+        }
 
         if (_colors.TryGetValue(frenchName.Trim(), out string? colorHex))
+        {
             return colorHex;
+        }
 
         string normInput = Normalize(frenchName);
         foreach (KeyValuePair<string, string> kvp in _colors)
         {
             if (Normalize(kvp.Key).Contains(normInput) || normInput.Contains(Normalize(kvp.Key)))
+            {
                 return kvp.Value;
+            }
         }
 
         return _defaultColor;

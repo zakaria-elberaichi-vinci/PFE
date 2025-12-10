@@ -13,7 +13,6 @@ namespace PFE.ViewModels
         private readonly ILeaveNotificationService _notificationService;
         private bool _isBusy;
         private string _errorMessage = string.Empty;
-        private List<LeaveToApprove> _newLeaves = new();
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -22,7 +21,7 @@ namespace PFE.ViewModels
             _odoo = odoo;
             _notificationService = notificationService;
 
-            Leaves = new ObservableCollection<LeaveToApprove>();
+            Leaves = [];
 
             RefreshCommand = new RelayCommand(
                 async _ => await LoadAsync(),
@@ -49,19 +48,23 @@ namespace PFE.ViewModels
         /// <summary>
         /// Liste des nouvelles demandes détectées (non encore vues)
         /// </summary>
-        public List<LeaveToApprove> NewLeaves => _newLeaves;
+        public List<LeaveToApprove> NewLeaves { get; private set; } = [];
 
         /// <summary>
         /// Indique s'il y a de nouvelles demandes
         /// </summary>
-        public bool HasNewLeaves => _newLeaves.Count > 0;
+        public bool HasNewLeaves => NewLeaves.Count > 0;
 
         public bool IsBusy
         {
             get => _isBusy;
             private set
             {
-                if (_isBusy == value) return;
+                if (_isBusy == value)
+                {
+                    return;
+                }
+
                 _isBusy = value;
                 OnPropertyChanged();
                 RaiseAllCanExecuteChanged();
@@ -73,7 +76,11 @@ namespace PFE.ViewModels
             get => _errorMessage;
             private set
             {
-                if (_errorMessage == value) return;
+                if (_errorMessage == value)
+                {
+                    return;
+                }
+
                 _errorMessage = value;
                 OnPropertyChanged();
             }
@@ -87,11 +94,14 @@ namespace PFE.ViewModels
 
         public async Task LoadAsync()
         {
-            if (IsBusy) return;
+            if (IsBusy)
+            {
+                return;
+            }
 
             IsBusy = true;
             ErrorMessage = string.Empty;
-            _newLeaves.Clear();
+            NewLeaves.Clear();
 
             try
             {
@@ -106,17 +116,21 @@ namespace PFE.ViewModels
 
                 // Détecter les nouvelles demandes
                 HashSet<int> seenIds = await _notificationService.GetSeenLeaveIdsAsync(ManagerUserId);
-                _newLeaves = list.Where(l => !seenIds.Contains(l.Id)).ToList();
+                NewLeaves = list.Where(l => !seenIds.Contains(l.Id)).ToList();
 
                 // Marquer toutes les demandes actuelles comme vues
                 await _notificationService.MarkLeavesAsSeenAsync(ManagerUserId, list.Select(l => l.Id));
 
                 Leaves.Clear();
                 foreach (LeaveToApprove item in list)
+                {
                     Leaves.Add(item);
+                }
 
                 if (Leaves.Count == 0)
+                {
                     ErrorMessage = "Aucune demande de congé en attente.";
+                }
 
                 OnPropertyChanged(nameof(NewLeaves));
                 OnPropertyChanged(nameof(HasNewLeaves));
@@ -134,7 +148,10 @@ namespace PFE.ViewModels
 
         private async Task ApproveAsync(LeaveToApprove? leave)
         {
-            if (leave == null || IsBusy) return;
+            if (leave == null || IsBusy)
+            {
+                return;
+            }
 
             IsBusy = true;
             ErrorMessage = string.Empty;
@@ -158,7 +175,10 @@ namespace PFE.ViewModels
 
         private async Task RefuseAsync(LeaveToApprove? leave)
         {
-            if (leave == null || IsBusy) return;
+            if (leave == null || IsBusy)
+            {
+                return;
+            }
 
             IsBusy = true;
             ErrorMessage = string.Empty;
@@ -189,10 +209,14 @@ namespace PFE.ViewModels
 
             Leaves.Clear();
             foreach (LeaveToApprove item in list)
+            {
                 Leaves.Add(item);
+            }
 
             if (Leaves.Count == 0)
+            {
                 ErrorMessage = "Aucune demande de congé en attente.";
+            }
         }
 
         private void RaiseAllCanExecuteChanged()
@@ -202,7 +226,9 @@ namespace PFE.ViewModels
             (RefuseCommand as RelayCommand)?.RaiseCanExecuteChanged();
         }
 
-        private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
+        private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+        {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
     }
 }

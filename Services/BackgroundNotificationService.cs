@@ -38,9 +38,15 @@ namespace PFE.Services
 
         public void Start()
         {
-            if (IsRunning) return;
+            if (IsRunning)
+            {
+                return;
+            }
             // Seulement pour les managers
-            if (!_session.Current.IsManager) return;
+            if (!_session.Current.IsManager)
+            {
+                return;
+            }
 
             _cts = new CancellationTokenSource();
             _pollingTask = PollForNewLeavesAsync(_cts.Token);
@@ -94,7 +100,10 @@ namespace PFE.Services
             }
 
             int managerUserId = _session.Current.UserId ?? 0;
-            if (managerUserId == 0) return;
+            if (managerUserId == 0)
+            {
+                return;
+            }
 
             try
             {
@@ -144,7 +153,7 @@ namespace PFE.Services
 #elif ANDROID || IOS || MACCATALYST
             try
             {
-                NotificationRequest request = new NotificationRequest
+                NotificationRequest request = new()
                 {
                     NotificationId = _notificationId++,
                     Title = title,

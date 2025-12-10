@@ -16,13 +16,18 @@ namespace PFE.ViewModels
 
         public event EventHandler? CanExecuteChanged
         {
-            add { _canExecuteChanged += value; }
-            remove { _canExecuteChanged -= value; }
+            add => _canExecuteChanged += value; remove => _canExecuteChanged -= value;
         }
 
-        public bool CanExecute(object? parameter) => _canExecutePredicate == null || _canExecutePredicate(parameter);
+        public bool CanExecute(object? parameter)
+        {
+            return _canExecutePredicate == null || _canExecutePredicate(parameter);
+        }
 
-        public async void Execute(object? parameter) => await _executeAsyncDelegate(parameter);
+        public async void Execute(object? parameter)
+        {
+            await _executeAsyncDelegate(parameter);
+        }
 
         public void RaiseCanExecuteChanged()
         {

@@ -46,10 +46,16 @@ namespace PFE.Services
 
         public void Start()
         {
-            if (IsRunning) return;
+            if (IsRunning)
+            {
+                return;
+            }
 
             // Seulement pour les employés (non-managers)
-            if (!_session.Current.IsAuthenticated || _session.Current.IsManager) return;
+            if (!_session.Current.IsAuthenticated || _session.Current.IsManager)
+            {
+                return;
+            }
 
             // Réinitialiser le flag
             _isFirstSync = true;
@@ -106,7 +112,10 @@ namespace PFE.Services
             }
 
             int employeeId = _session.Current.EmployeeId ?? 0;
-            if (employeeId == 0) return;
+            if (employeeId == 0)
+            {
+                return;
+            }
 
             try
             {
@@ -127,7 +136,10 @@ namespace PFE.Services
 
                     foreach (Leave leave in leaves)
                     {
-                        if (leave.Id == 0) continue;
+                        if (leave.Id == 0)
+                        {
+                            continue;
+                        }
 
                         string status = leave.Status;
 
@@ -154,7 +166,10 @@ namespace PFE.Services
                 // Synchronisations suivantes : envoyer les notifications pour les nouveaux changements
                 foreach (Leave leave in leaves)
                 {
-                    if (leave.Id == 0) continue;
+                    if (leave.Id == 0)
+                    {
+                        continue;
+                    }
 
                     string status = leave.Status;
 
@@ -213,7 +228,7 @@ namespace PFE.Services
 #elif ANDROID || IOS || MACCATALYST
             try
             {
-                NotificationRequest request = new NotificationRequest
+                NotificationRequest request = new()
                 {
                     NotificationId = _notificationId++,
                     Title = title,

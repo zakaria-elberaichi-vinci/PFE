@@ -15,9 +15,9 @@ namespace PFE.ViewModels
 
         private CalendarDateRange? _selectedRange;
 
-        private ObservableCollection<LeaveTypeItem> _leaveTypes = new();
+        private ObservableCollection<LeaveTypeItem> _leaveTypes = [];
 
-        private HashSet<DateTime> _blockedDatesSet = new();
+        private readonly HashSet<DateTime> _blockedDatesSet = [];
 
         private LeaveTypeItem? _selectedLeaveType;
 
@@ -66,7 +66,9 @@ namespace PFE.ViewModels
             private set
             {
                 if (Set(ref _leaveTypes, value))
+                {
                     OnPropertyChanged(nameof(LeaveTypes));
+                }
             }
         }
 
@@ -93,7 +95,9 @@ namespace PFE.ViewModels
             set
             {
                 if (Set(ref _reason, value))
+                {
                     OnPropertyChanged(nameof(Reason));
+                }
             }
         }
 
@@ -117,7 +121,9 @@ namespace PFE.ViewModels
             private set
             {
                 if (Set(ref _errorMessage, value))
+                {
                     OnPropertyChanged(nameof(ErrorMessage));
+                }
             }
         }
 
@@ -127,7 +133,9 @@ namespace PFE.ViewModels
             private set
             {
                 if (Set(ref _validationMessage, value))
+                {
                     OnPropertyChanged(nameof(ValidationMessage));
+                }
             }
         }
 
@@ -154,7 +162,9 @@ namespace PFE.ViewModels
             private set
             {
                 if (Set(ref _isAccessDenied, value))
+                {
                     OnPropertyChanged(nameof(IsAccessDenied));
+                }
             }
         }
 
@@ -216,12 +226,9 @@ namespace PFE.ViewModels
 
         private void UpdateValidationMessage()
         {
-            if (SelectedLeaveType?.RequiresAllocation == true && (SelectedLeaveType.Days ?? 0) <= 0)
-                ValidationMessage = "Ce type de congé nécessite une allocation, mais vous n'avez plus de jours disponibles.";
-            else if (HasOverlap)
-                ValidationMessage = "Les dates sélectionnées chevauchent un congé existant.";
-            else
-                ValidationMessage = string.Empty;
+            ValidationMessage = SelectedLeaveType?.RequiresAllocation == true && (SelectedLeaveType.Days ?? 0) <= 0
+                ? "Ce type de congé nécessite une allocation, mais vous n'avez plus de jours disponibles."
+                : HasOverlap ? "Les dates sélectionnées chevauchent un congé existant." : string.Empty;
         }
 
         private async Task LoadBlockedDatesAsync()
@@ -241,7 +248,9 @@ namespace PFE.ViewModels
                     DateTime end = leave.EndDate.Date;
 
                     foreach (DateTime day in ExpandRangeToDays(start, end))
-                        _blockedDatesSet.Add(day);
+                    {
+                        _ = _blockedDatesSet.Add(day);
+                    }
                 }
 
                 string format = "dd/MM/yyyy";
@@ -301,7 +310,7 @@ namespace PFE.ViewModels
             {
                 ErrorMessage = "Impossible de charger les types de congés disponibles.";
                 System.Diagnostics.Debug.WriteLine($"Error LoadLeaveTypesAsync: {ex.Message}");
-                LeaveTypes = new ObservableCollection<LeaveTypeItem>();
+                LeaveTypes = [];
                 SelectedLeaveType = null;
             }
             finally
@@ -338,13 +347,19 @@ namespace PFE.ViewModels
 
         private bool Set<T>(ref T field, T value, [CallerMemberName] string? name = null)
         {
-            if (EqualityComparer<T>.Default.Equals(field, value)) return false;
+            if (EqualityComparer<T>.Default.Equals(field, value))
+            {
+                return false;
+            }
+
             field = value;
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
             return true;
         }
 
         private void OnPropertyChanged(string propertyName)
-            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
     }
 }

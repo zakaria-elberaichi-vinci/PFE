@@ -23,27 +23,33 @@ namespace PFE.Services
         /// </summary>
         public async Task InitializeAsync()
         {
-            if (_isInitialized) return;
+            if (_isInitialized)
+            {
+                return;
+            }
 
             await _initLock.WaitAsync();
             try
             {
-                if (_isInitialized) return;
+                if (_isInitialized)
+                {
+                    return;
+                }
 
                 _database = new SQLiteAsyncConnection(_dbPath, SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create | SQLiteOpenFlags.SharedCache);
 
                 // Créer les tables
-                await _database.CreateTableAsync<SeenLeaveNotification>();
-                await _database.CreateTableAsync<NotifiedLeaveStatusChange>();
-                await _database.CreateTableAsync<PendingLeaveRequest>();
-                await _database.CreateTableAsync<UserSession>();
+                _ = await _database.CreateTableAsync<SeenLeaveNotification>();
+                _ = await _database.CreateTableAsync<NotifiedLeaveStatusChange>();
+                _ = await _database.CreateTableAsync<PendingLeaveRequest>();
+                _ = await _database.CreateTableAsync<UserSession>();
 
                 _isInitialized = true;
                 System.Diagnostics.Debug.WriteLine($"DatabaseService: Base de données initialisée à {_dbPath}");
             }
             finally
             {
-                _initLock.Release();
+                _ = _initLock.Release();
             }
         }
 
@@ -79,7 +85,7 @@ namespace PFE.Services
 
             if (existing == null)
             {
-                await db.InsertAsync(new NotifiedLeaveStatusChange
+                _ = await db.InsertAsync(new NotifiedLeaveStatusChange
                 {
                     EmployeeId = employeeId,
                     LeaveId = leaveId,
@@ -93,7 +99,7 @@ namespace PFE.Services
         public async Task ClearNotifiedLeavesAsync(int employeeId)
         {
             SQLiteAsyncConnection db = await GetDatabaseAsync();
-            await db.ExecuteAsync("DELETE FROM notified_leave_status_changes WHERE EmployeeId = ?", employeeId);
+            _ = await db.ExecuteAsync("DELETE FROM notified_leave_status_changes WHERE EmployeeId = ?", employeeId);
             System.Diagnostics.Debug.WriteLine($"DatabaseService: Notifications supprimées pour employé {employeeId}");
         }
 
@@ -121,7 +127,7 @@ namespace PFE.Services
             {
                 if (!existingIds.Contains(leaveId))
                 {
-                    await db.InsertAsync(new SeenLeaveNotification
+                    _ = await db.InsertAsync(new SeenLeaveNotification
                     {
                         ManagerUserId = managerUserId,
                         LeaveId = leaveId,
@@ -134,7 +140,7 @@ namespace PFE.Services
         public async Task ClearSeenNotificationsAsync(int managerUserId)
         {
             SQLiteAsyncConnection db = await GetDatabaseAsync();
-            await db.ExecuteAsync("DELETE FROM seen_leave_notifications WHERE ManagerUserId = ?", managerUserId);
+            _ = await db.ExecuteAsync("DELETE FROM seen_leave_notifications WHERE ManagerUserId = ?", managerUserId);
             System.Diagnostics.Debug.WriteLine($"DatabaseService: Notifications vues supprimées pour manager {managerUserId}");
         }
 
@@ -147,7 +153,7 @@ namespace PFE.Services
             SQLiteAsyncConnection db = await GetDatabaseAsync();
             request.CreatedAt = DateTime.UtcNow;
             request.SyncStatus = SyncStatus.Pending;
-            await db.InsertAsync(request);
+            _ = await db.InsertAsync(request);
             System.Diagnostics.Debug.WriteLine($"DatabaseService: Demande de congé ajoutée en attente (ID local: {request.Id})");
             return request;
         }
@@ -189,7 +195,7 @@ namespace PFE.Services
                     request.OdooLeaveId = odooLeaveId;
                 }
 
-                await db.UpdateAsync(request);
+                _ = await db.UpdateAsync(request);
                 System.Diagnostics.Debug.WriteLine($"DatabaseService: Statut sync mis à jour pour demande {requestId}: {status}");
             }
         }
@@ -199,7 +205,7 @@ namespace PFE.Services
             SQLiteAsyncConnection db = await GetDatabaseAsync();
             // Supprimer les demandes synchronisées avec succès depuis plus de 7 jours
             DateTime threshold = DateTime.UtcNow.AddDays(-7);
-            await db.ExecuteAsync(
+            _ = await db.ExecuteAsync(
                 "DELETE FROM pending_leave_requests WHERE SyncStatus = ? AND LastSyncAttempt < ?",
                 (int)SyncStatus.Synced, threshold);
         }
@@ -217,14 +223,7 @@ namespace PFE.Services
                 .Where(x => x.UserId == session.UserId)
                 .FirstOrDefaultAsync();
 
-            if (existing != null)
-            {
-                await db.UpdateAsync(session);
-            }
-            else
-            {
-                await db.InsertAsync(session);
-            }
+            _ = existing != null ? await db.UpdateAsync(session) : await db.InsertAsync(session);
         }
 
         public async Task<UserSession?> GetUserSessionAsync(int userId)
