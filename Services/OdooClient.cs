@@ -556,7 +556,11 @@ namespace PFE.Services
             };
 
             HttpResponseMessage res = await _httpClient.PostAsync(_baseUrl, BuildJsonContent(payload));
+            string text = await res.Content.ReadAsStringAsync();
             res.EnsureSuccessStatusCode();
+
+            // Vérifier les erreurs JSON-RPC (comme Session expired)
+            CheckForOdooError(text);
         }
 
         public async Task RefuseLeaveAsync(int leaveId)
@@ -578,7 +582,53 @@ namespace PFE.Services
             };
 
             HttpResponseMessage res = await _httpClient.PostAsync(_baseUrl, BuildJsonContent(payload));
+            string text = await res.Content.ReadAsStringAsync();
             res.EnsureSuccessStatusCode();
+
+            // Vérifier les erreurs JSON-RPC (comme Session expired)
+            CheckForOdooError(text);
+        }
+
+        /// <summary>
+        /// Vérifie si la réponse Odoo contient une erreur JSON-RPC et lance une exception si c'est le cas
+        /// </summary>
+        private static void CheckForOdooError(string responseText)
+        {
+            try
+            {
+                using JsonDocument doc = JsonDocument.Parse(responseText);
+                JsonElement root = doc.RootElement;
+
+                if (root.TryGetProperty("error", out JsonElement errorEl))
+                {
+                    string errorMessage = "Erreur Odoo";
+                    
+                    // Essayer de récupérer le message d'erreur
+                    if (errorEl.TryGetProperty("message", out JsonElement msgEl) && 
+                        msgEl.ValueKind == JsonValueKind.String)
+                    {
+                        errorMessage = msgEl.GetString() ?? errorMessage;
+                    }
+                    
+                    // Récupérer aussi le nom de l'erreur si disponible
+                    if (errorEl.TryGetProperty("data", out JsonElement dataEl) &&
+                        dataEl.TryGetProperty("name", out JsonElement nameEl) &&
+                        nameEl.ValueKind == JsonValueKind.String)
+                    {
+                        string? errorName = nameEl.GetString();
+                        if (!string.IsNullOrEmpty(errorName))
+                        {
+                            errorMessage = $"{errorMessage} ({errorName})";
+                        }
+                    }
+
+                    throw new Exception(errorMessage);
+                }
+            }
+            catch (JsonException)
+            {
+                // Si le parsing JSON échoue, ignorer (pas une réponse JSON valide)
+            }
         }
 
         private async Task<int> GetEmployeeIdAsync()

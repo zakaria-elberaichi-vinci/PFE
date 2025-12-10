@@ -21,7 +21,7 @@ namespace PFE.ViewModels
         private List<LeaveToApprove> _newLeaves = new();
         private int _pendingDecisionsCount;
         private bool _isOfflineMode = false;
-        public ICommand RefreshOdooCommand { get; }
+        private bool _isReauthenticating = false;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -166,6 +166,7 @@ namespace PFE.ViewModels
         public ICommand RefreshCommand { get; }
         public ICommand ApproveCommand { get; }
         public ICommand RefuseCommand { get; }
+        public ICommand RefreshOdooCommand { get; }
 
         public event EventHandler<string>? NotificationRequested;
 
@@ -206,7 +207,41 @@ namespace PFE.ViewModels
                     // Mettre à jour le cache avec les données fraîches
                     await UpdateCacheAsync(list);
                 }
-                catch (Exception ex) when (IsNetworkError(ex))
+                catch (Exception ex) when (IsSessionExpiredError(ex))
+                {
+                    // Session expirée - tenter une ré-authentification
+                    System.Diagnostics.Debug.WriteLine($"ManageLeavesViewModel: Session expirée, tentative de ré-authentification...");
+                    
+                    bool reauthSuccess = await TryReauthenticateAsync();
+                    
+                    if (reauthSuccess)
+                    {
+                        // Réessayer le chargement après ré-authentification
+                        try
+                        {
+                            list = await _odoo.GetLeavesToApproveAsync();
+                            IsOfflineMode = false;
+                            await UpdateCacheAsync(list);
+                            InfoMessage = "Session restaurée automatiquement.";
+                        }
+                        catch (Exception retryEx)
+                        {
+                            // Échec après réauth - passer en mode offline
+                            System.Diagnostics.Debug.WriteLine($"ManageLeavesViewModel: Échec après réauth - {retryEx.Message}");
+                            IsOfflineMode = true;
+                            InfoMessage = "Mode hors ligne. Affichage des données en cache.";
+                            list = await LoadFromCacheAsync();
+                        }
+                    }
+                    else
+                    {
+                        // Réauthentification échouée - passer en mode offline
+                        IsOfflineMode = true;
+                        InfoMessage = "Session expirée. Affichage des données en cache.";
+                        list = await LoadFromCacheAsync();
+                    }
+                }
+                catch (Exception ex) when (IsNetworkOrOfflineError(ex))
                 {
                     // Mode hors ligne : charger depuis le cache
                     IsOfflineMode = true;
@@ -322,23 +357,43 @@ namespace PFE.ViewModels
                 
                 Leaves.Remove(leave);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (IsSessionExpiredError(ex))
             {
-                if (IsNetworkError(ex))
+                // Session expirée - tenter réauth puis réessayer
+                bool reauthSuccess = await TryReauthenticateAsync();
+                
+                if (reauthSuccess)
                 {
-                    // Sauvegarder localement
-                    await SaveDecisionAsync(leave, "approve", SyncStatus.Pending);
-                    await _databaseService.RemoveFromCacheAsync(leave.Id);
-                    SuccessMessage = "Décision enregistrée. Elle sera synchronisée dès que la connexion sera rétablie.";
-                    NotificationRequested?.Invoke(this, SuccessMessage);
-                    IsOfflineMode = true;
-                    Leaves.Remove(leave);
-                    PendingDecisionsCount++;
+                    try
+                    {
+                        await _odoo.ApproveLeaveAsync(leave.Id);
+                        await SaveDecisionAsync(leave, "approve", SyncStatus.Synced);
+                        await _databaseService.RemoveFromCacheAsync(leave.Id);
+                        SuccessMessage = "La demande de congé a été validée avec succès !";
+                        NotificationRequested?.Invoke(this, SuccessMessage);
+                        IsOfflineMode = false;
+                        Leaves.Remove(leave);
+                    }
+                    catch
+                    {
+                        // Sauvegarder localement
+                        await SaveDecisionLocally(leave, "approve");
+                    }
                 }
                 else
                 {
-                    ErrorMessage = $"Impossible de valider la demande : {ex.Message}";
+                    // Sauvegarder localement
+                    await SaveDecisionLocally(leave, "approve");
                 }
+            }
+            catch (Exception ex) when (IsNetworkOrOfflineError(ex))
+            {
+                // Sauvegarder localement
+                await SaveDecisionLocally(leave, "approve");
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = $"Impossible de valider la demande : {ex.Message}";
             }
             finally
             {
@@ -375,28 +430,59 @@ namespace PFE.ViewModels
                 
                 Leaves.Remove(leave);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (IsSessionExpiredError(ex))
             {
-                if (IsNetworkError(ex))
+                // Session expirée - tenter réauth puis réessayer
+                bool reauthSuccess = await TryReauthenticateAsync();
+                
+                if (reauthSuccess)
                 {
-                    // Sauvegarder localement
-                    await SaveDecisionAsync(leave, "refuse", SyncStatus.Pending);
-                    await _databaseService.RemoveFromCacheAsync(leave.Id);
-                    SuccessMessage = "Décision enregistrée. Elle sera synchronisée dès que la connexion sera rétablie.";
-                    NotificationRequested?.Invoke(this, SuccessMessage);
-                    IsOfflineMode = true;
-                    Leaves.Remove(leave);
-                    PendingDecisionsCount++;
+                    try
+                    {
+                        await _odoo.RefuseLeaveAsync(leave.Id);
+                        await SaveDecisionAsync(leave, "refuse", SyncStatus.Synced);
+                        await _databaseService.RemoveFromCacheAsync(leave.Id);
+                        SuccessMessage = "La demande de congé a été refusée avec succès !";
+                        NotificationRequested?.Invoke(this, SuccessMessage);
+                        IsOfflineMode = false;
+                        Leaves.Remove(leave);
+                    }
+                    catch
+                    {
+                        // Sauvegarder localement
+                        await SaveDecisionLocally(leave, "refuse");
+                    }
                 }
                 else
                 {
-                    ErrorMessage = $"Impossible de refuser la demande : {ex.Message}";
+                    // Sauvegarder localement
+                    await SaveDecisionLocally(leave, "refuse");
                 }
+            }
+            catch (Exception ex) when (IsNetworkOrOfflineError(ex))
+            {
+                // Sauvegarder localement
+                await SaveDecisionLocally(leave, "refuse");
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = $"Impossible de refuser la demande : {ex.Message}";
             }
             finally
             {
                 IsBusy = false;
             }
+        }
+
+        private async Task SaveDecisionLocally(LeaveToApprove leave, string decisionType)
+        {
+            await SaveDecisionAsync(leave, decisionType, SyncStatus.Pending);
+            await _databaseService.RemoveFromCacheAsync(leave.Id);
+            SuccessMessage = "Décision enregistrée. Elle sera synchronisée dès que la connexion sera rétablie.";
+            NotificationRequested?.Invoke(this, SuccessMessage);
+            IsOfflineMode = true;
+            Leaves.Remove(leave);
+            PendingDecisionsCount++;
         }
 
         private async Task SaveDecisionAsync(LeaveToApprove leave, string decisionType, SyncStatus status)
@@ -420,7 +506,22 @@ namespace PFE.ViewModels
             }
         }
 
-        private static bool IsNetworkError(Exception ex)
+        /// <summary>
+        /// Vérifie si l'erreur est une erreur de session expirée Odoo
+        /// </summary>
+        private static bool IsSessionExpiredError(Exception ex)
+        {
+            string message = ex.Message.ToLowerInvariant();
+            return message.Contains("session expired") ||
+                   message.Contains("sessionexpired") ||
+                   message.Contains("session_expired") ||
+                   message.Contains("odoo session expired");
+        }
+
+        /// <summary>
+        /// Vérifie si l'erreur est une erreur réseau ou de connexion
+        /// </summary>
+        private static bool IsNetworkOrOfflineError(Exception ex)
         {
             return ex is HttpRequestException ||
                    ex.InnerException is HttpRequestException ||
@@ -428,6 +529,65 @@ namespace PFE.ViewModels
                    ex.Message.Contains("connection", StringComparison.OrdinalIgnoreCase) ||
                    ex.Message.Contains("timeout", StringComparison.OrdinalIgnoreCase) ||
                    ex.Message.Contains("host", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Tente de se ré-authentifier avec les credentials sauvegardés
+        /// </summary>
+        private async Task<bool> TryReauthenticateAsync()
+        {
+            if (_isReauthenticating)
+            {
+                System.Diagnostics.Debug.WriteLine("ManageLeavesViewModel: Ré-authentification déjà en cours");
+                return false;
+            }
+
+            _isReauthenticating = true;
+
+            try
+            {
+                // Récupérer les credentials sauvegardés
+                string login = Preferences.Get("auth.login", string.Empty);
+                string? password = null;
+
+                try
+                {
+                    password = await SecureStorage.GetAsync("auth.password");
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"ManageLeavesViewModel: Erreur lecture SecureStorage - {ex.Message}");
+                }
+
+                if (string.IsNullOrEmpty(login) || string.IsNullOrEmpty(password))
+                {
+                    System.Diagnostics.Debug.WriteLine("ManageLeavesViewModel: Credentials non disponibles pour la ré-authentification");
+                    return false;
+                }
+
+                // Tenter la connexion
+                bool success = await _odoo.LoginAsync(login, password);
+                
+                if (success)
+                {
+                    System.Diagnostics.Debug.WriteLine($"ManageLeavesViewModel: Ré-authentification réussie pour {login}");
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"ManageLeavesViewModel: Ré-authentification échouée pour {login}");
+                }
+
+                return success;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"ManageLeavesViewModel: Exception lors de la ré-authentification - {ex.Message}");
+                return false;
+            }
+            finally
+            {
+                _isReauthenticating = false;
+            }
         }
 
         private void RaiseAllCanExecuteChanged()
