@@ -36,11 +36,16 @@
                        FontSize="14"
                        LineBreakMode="WordWrap"
                        IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}" />
+                
                 <ActivityIndicator IsRunning="{Binding IsBusy}"
                                    IsVisible="{Binding IsBusy}"
                                    Color="#60A5FA"
                                    HorizontalOptions="Center"
                                    VerticalOptions="Center" />
+                <Button Text="Actualiser"
+                        Command="{Binding RefreshLeavesCommand}"        
+                        HorizontalOptions="End"
+                        Margin="0,0,0,10"/>
 
                 <CollectionView ItemsSource="{Binding Leaves}"
                                 IsVisible="{Binding IsManager}"
