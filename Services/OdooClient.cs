@@ -221,10 +221,10 @@ namespace PFE.Services
 
         }
 
-        public async Task<List<Leave>> GetLeavesAsync(int? yearRequest = null, string? stateRequest = null)
+        public async Task<List<Leave>> GetLeavesAsync(int? yearRequest = null, params string[] states)
         {
 
-            List<object> domain = new List<object>();
+            List<object> domain = new();
 
             if (yearRequest.HasValue)
             {
@@ -232,27 +232,32 @@ namespace PFE.Services
                 DateTime startOfYear = new DateTime(year, 1, 1);
                 DateTime endOfYear = new DateTime(year, 12, 31);
 
-                domain.Add(new object[] { "date_to", ">=", startOfYear.ToString("yyyy-MM-dd") });
-                domain.Add(new object[] { "date_from", "<=", endOfYear.ToString("yyyy-MM-dd") });
+                domain.Add(new object[] { "request_date_to", ">=", startOfYear.ToString("yyyy-MM-dd") });
+                domain.Add(new object[] { "request_date_from", "<=", endOfYear.ToString("yyyy-MM-dd") });
             }
 
-            if (!string.IsNullOrWhiteSpace(stateRequest))
+            object[] allStates = { "draft", "confirm", "validate1", "validate", "refuse", "cancel" };
+
+            object[] providedStates = (states ?? Array.Empty<string>())
+                                .Where(s => !string.IsNullOrWhiteSpace(s))
+                                .Select(s => (object)s.Trim())
+                                .ToArray();
+
+            if (providedStates.Length > 0)
             {
-                domain.Add(new object[] { "state", "=", stateRequest });
+                domain.Add(new object[] { "state", "in", providedStates });
             }
             else
             {
-                domain.Add(new object[] { "state", "in", new object[] { "draft", "confirm", "validate1", "validate", "refuse", "cancel" } });
+                domain.Add(new object[] { "state", "in", allStates });
             }
 
-            string[] fields = new string[]
+            string[] fields =
             {
                 "holiday_status_id",
                 "state",
                 "request_date_to",
                 "request_date_from",
-                "date_from",
-                "date_to",
                 "number_of_days"
             };
 
@@ -317,13 +322,13 @@ namespace PFE.Services
                         type = nameElement.GetString() ?? "";
                 }
 
-                if (!item.TryGetProperty("date_from", out JsonElement fromEl) ||
+                if (!item.TryGetProperty("request_date_from", out JsonElement fromEl) ||
                     fromEl.ValueKind != JsonValueKind.String)
                     throw new Exception("Erreur sur la date de début.");
 
                 DateTime startDate = DateTime.Parse(fromEl.GetString());
 
-                if (!item.TryGetProperty("date_to", out JsonElement toEl) ||
+                if (!item.TryGetProperty("request_date_to", out JsonElement toEl) ||
                     toEl.ValueKind != JsonValueKind.String)
                     throw new Exception("Erreur sur la date de fin.");
 
@@ -454,14 +459,14 @@ namespace PFE.Services
                             "employee_id",
                             "holiday_status_id",
                             "number_of_days",
-                            "date_from",
-                            "date_to",
+                            "request_date_from",
+                            "request_date_to",
                             "state",
                             "name",
                             "can_validate",
                             "can_refuse"
                         },
-                        limit = 1000,
+                        limit = 0,
                         order = "request_date_from"
                     }
                 },
@@ -492,8 +497,8 @@ namespace PFE.Services
 
                 string type = LeaveTypeHelper.Translate(item.GetProperty("holiday_status_id")[1].GetString());
 
-                DateTime startDate = DateTime.Parse(item.GetProperty("date_from").GetString());
-                DateTime endDate = DateTime.Parse(item.GetProperty("date_to").GetString());
+                DateTime startDate = DateTime.Parse(item.GetProperty("request_date_from").GetString());
+                DateTime endDate = DateTime.Parse(item.GetProperty("request_date_to").GetString());
 
                 int days = (int)Math.Round(item.GetProperty("number_of_days").GetDouble());
 
@@ -624,19 +629,19 @@ namespace PFE.Services
             return employeeId;
 
         }
-        public async Task<bool> HasOverlappingLeaveAsync(DateTime startDate, DateTime endDate)
+        private async Task<bool> HasOverlappingLeaveAsync(DateTime startDate, DateTime endDate)
         {
             EnsureAuthenticated();
 
             string start = startDate.ToString("yyyy-MM-dd");
             string end = endDate.ToString("yyyy-MM-dd");
 
-            object[] domain = new object[]
+            object[] domain =
             {
         new object[] { "employee_id", "=", session.Current.EmployeeId!.Value },
         new object[] { "state", "not in", new object[] { "cancel", "refuse" } },
-        new object[] { "date_from", "<=", end },
-        new object[] { "date_to", ">=", start }
+        new object[] { "request_date_from", "<=", end },
+        new object[] { "request_date_to", ">=", start }
             };
 
             var payload = new
@@ -667,15 +672,117 @@ namespace PFE.Services
             return count > 0;
         }
 
-        public async Task<HashSet<int>> GetAllowedLeaveTypeIdsAsync()
+        private async Task<List<LeaveTypeItem>> GetAllocationsAsync(int? yearRequested, int? typeId)
         {
+            int year = yearRequested ?? DateTime.Today.Year;
 
-            object[] domain = new object[]
+            string dateFrom = new DateTime(year, 1, 1).ToString("yyyy-MM-dd");
+            string dateTo = new DateTime(year, 12, 31).ToString("yyyy-MM-dd");
+
+            var domain = new object[]
             {
-    // Filtres de base
-    new object[] { "active", "=", true },
-    new object[] { "requires_allocation", "=", false },
+        new object[] { "employee_id", "=", session.Current.EmployeeId!.Value },
+        new object[] { "state", "=", "validate" },
+        new object[] { "date_from", "<=", dateTo },
+        "|",
+        new object[] { "date_to", "=", false },
+        new object[] { "date_to", ">=", dateFrom },
             };
+
+            if (typeId.HasValue)
+            {
+
+                domain = domain
+                            .Concat(new object[] { new object[] { "holiday_status_id", "=", typeId } })
+                            .ToArray();
+            }
+            
+            var fields = new object[]
+                {
+        "holiday_status_id",
+        "number_of_days",
+                };
+
+            var payload = new
+            {
+                jsonrpc = "2.0",
+                method = "call",
+                @params = new
+                {
+                    model = "hr.leave.allocation",
+                    method = "search_read",
+                    args = new object[] { domain, fields },
+                    kwargs = new { limit = 0 }
+                },
+                id = 1
+            };
+
+            HttpResponseMessage res = await _httpClient.PostAsync(_baseUrl, BuildJsonContent(payload));
+            res.EnsureSuccessStatusCode();
+            string text = await res.Content.ReadAsStringAsync();
+
+            using JsonDocument doc = JsonDocument.Parse(text);
+            JsonElement root = doc.RootElement;
+
+            if (root.TryGetProperty("error", out JsonElement errEl))
+                throw new Exception("Erreur Odoo : " + errEl.ToString());
+
+            if (!root.TryGetProperty("result", out JsonElement resEl) || resEl.ValueKind != JsonValueKind.Array)
+                throw new Exception("Réponse Odoo inattendue : " + text);
+
+            var items = new List<LeaveTypeItem>();
+
+            foreach (JsonElement row in resEl.EnumerateArray())
+            {
+                if (!row.TryGetProperty("holiday_status_id", out JsonElement hsEl) || hsEl.ValueKind != JsonValueKind.Array)
+                    continue;
+
+                if (hsEl.GetArrayLength() <= 0)
+                    continue;
+
+                if (hsEl[0].ValueKind != JsonValueKind.Number)
+                    continue;
+                int leaveTypeId = hsEl[0].GetInt32();
+
+                if (hsEl[1].ValueKind != JsonValueKind.String)
+                    continue;
+                string name = hsEl[1].GetString()!;
+
+                if (!row.TryGetProperty("number_of_days", out JsonElement ndEl))
+                    continue;
+
+                if (ndEl.ValueKind != JsonValueKind.Number)
+                    continue;
+
+                int days;
+
+                if (ndEl.TryGetDecimal(out decimal d))
+                    days = (int)Math.Round(d, MidpointRounding.AwayFromZero);
+                else
+                    days = (int)Math.Round(ndEl.GetDouble(), MidpointRounding.AwayFromZero);
+
+                items.Add(new LeaveTypeItem(leaveTypeId, LeaveTypeHelper.Translate(name), true, days));
+            }
+
+            items = items.OrderBy(x => x.Name).ThenBy(x => x.Id).ToList();
+
+            return items;
+        }
+
+        public async Task<List<LeaveTypeItem>> GetLeaveTypesAsync(bool requiredAllocation, int? yearRequested = null, int? idRequest = null)
+        {
+            if (requiredAllocation)
+            {
+                return await GetAllocationsAsync(yearRequested, idRequest);
+            }
+
+            var domain = new object[]
+                    {
+            new object[] { "active", "=", true },
+            new object[] { "requires_allocation", "=", false }
+                    };
+
+            var fields = new string[] { "id", "name", "requires_allocation" };
 
             var payload = new
             {
@@ -686,76 +793,71 @@ namespace PFE.Services
                     model = "hr.leave.type",
                     method = "search_read",
                     args = new object[]
-                    {
+                {
                 domain,
-                new string[] { "id", "name", "requires_allocation" }
-                    },
-                    kwargs = new { limit = 1000 }
+                fields
                 },
-                id = 900
+                    kwargs = new { limit = 1000, order = "name asc, id asc" }
+                },
+                id = 2
             };
 
+
             HttpResponseMessage res = await _httpClient.PostAsync(_baseUrl, BuildJsonContent(payload));
-            string text = await res.Content.ReadAsStringAsync();
             res.EnsureSuccessStatusCode();
+            string text = await res.Content.ReadAsStringAsync();
 
             using JsonDocument doc = JsonDocument.Parse(text);
             JsonElement root = doc.RootElement;
             if (!root.TryGetProperty("result", out JsonElement resultEl) || resultEl.ValueKind != JsonValueKind.Array)
                 throw new InvalidOperationException("Réponse Odoo invalide: 'result' manquant ou non-array pour hr.leave.allocation.");
 
-            HashSet<int> allowed = new HashSet<int>();
+            List<LeaveTypeItem> allowed = new();
             foreach (JsonElement row in resultEl.EnumerateArray())
             {
-                if (row.TryGetProperty("id", out JsonElement hs) &&
-                    hs.ValueKind == JsonValueKind.Number)
-                {
-                    allowed.Add(hs.GetInt32());
-                }
+
+                if (!row.TryGetProperty("id", out JsonElement idEl) || idEl.ValueKind != JsonValueKind.Number) continue;
+                if (!row.TryGetProperty("name", out JsonElement nameEl) || nameEl.ValueKind != JsonValueKind.String) continue;
+
+
+                int id = idEl.GetInt32();
+                string name = nameEl.GetString()!;
+                bool requiresAlloc = row.TryGetProperty("requires_allocation", out JsonElement raEl) && raEl.ValueKind == JsonValueKind.True;
+
+                allowed.Add(new LeaveTypeItem(id, LeaveTypeHelper.Translate(name), requiresAlloc));
             }
 
             return allowed;
         }
 
-        public async Task<(int totalAlloc, int totalLeaves)> GetNumberTimeOffAsync(int? yearRequested = null)
+        //TODO retirer
+        public async Task TestAllocs(int? yearRequested = null)
         {
             int year = yearRequested ?? DateTime.Today.Year;
 
             string dateFrom = new DateTime(year, 1, 1).ToString("yyyy-MM-dd");
             string dateTo = new DateTime(year, 12, 31).ToString("yyyy-MM-dd");
 
-            int employeeId = session.Current.EmployeeId!.Value;
 
-            object[] argsAlloc = new object[]
-            {
-    new object[]
-    {
-        new object[] { "employee_id", "=", employeeId },
+            var domain = new object[]
+                {
+        new object[] { "employee_id", "=", session.Current.EmployeeId!.Value },
         new object[] { "state", "=", "validate" },
         new object[] { "date_from", "<=", dateTo },
-
-        // OR à plat dans la liste (pas imbriqué)
         "|",
         new object[] { "date_to", "=", false },
         new object[] { "date_to", ">=", dateFrom }
-    },
-    new object[] { "number_of_days:sum" },
-    new object[] { "holiday_status_id" }
-            };
+                };
 
-
-            object[] argsLeaves = new object[]
+            var fields = new object[]
             {
-        new object[]
-        {
-            new object[] {"employee_id", "=", employeeId},
-            new object[] {"state", "in", new object[] { "validate", "validate1" } },
-            new object[] {"date_from", ">=", dateFrom},
-            new object[] {"date_to",   "<=", dateTo},
-        },
-        new object[] { "number_of_days:sum" },
-        new object[] { "holiday_status_id" }
+
+  "id", "name", "employee_id", "holiday_status_id",
+        "number_of_days",
+        "date_from", "date_to", "state"
+
             };
+
 
             var payloadAlloc = new
             {
@@ -764,11 +866,56 @@ namespace PFE.Services
                 @params = new
                 {
                     model = "hr.leave.allocation",
-                    method = "read_group",
-                    args = argsAlloc,
-                    kwargs = new { }
+                    method = "search_read",
+                    args = new object[] { domain, fields },
+                    kwargs = new { limit = 0 }
                 },
                 id = 1
+            };
+
+            HttpResponseMessage res = await _httpClient.PostAsync(_baseUrl, BuildJsonContent(payloadAlloc));
+            res.EnsureSuccessStatusCode();
+            string text = await res.Content.ReadAsStringAsync();
+            System.Diagnostics.Debug.WriteLine($"ALLOCATIONS : {text}");
+        }
+
+        public async Task<(int totalAlloc, int totalLeaves, int totalRemaining)> GetNumberTimeOffAsync(int? yearRequested = null, int? idRequest = null)
+        {
+            int year = yearRequested ?? DateTime.Today.Year;
+
+            string dateFrom = new DateTime(year, 1, 1).ToString("yyyy-MM-dd");
+            string dateTo = new DateTime(year, 12, 31).ToString("yyyy-MM-dd");
+
+            int employeeId = session.Current.EmployeeId!.Value;
+
+            List<LeaveTypeItem> types = await GetLeaveTypesAsync(true, yearRequested, idRequest);
+            int[] typeIds = types.Select(t => t.Id).ToArray();
+
+            var domain = new List<object[]>
+            {
+                new object[] { "employee_id", "=", employeeId }
+            };
+
+            if (idRequest.HasValue)
+            {
+                domain.Add(new object[] { "holiday_status_id", "=", idRequest });
+            } else
+            {
+                if (typeIds.Length == 0)
+                    return (0, 0, 0);
+
+                domain.Add(new object[] { "holiday_status_id", "in", typeIds });
+            }
+
+            domain.Add(new object[] { "state", "in", new object[] { "validate", "validate1" } });
+            domain.Add(new object[] { "request_date_from", ">=", dateFrom });
+            domain.Add(new object[] { "request_date_to", "<=", dateTo });
+
+            object[] argsLeaves =
+                {
+                domain.ToArray(),
+                new object[] { "number_of_days:sum" },
+                new object[] { }
             };
 
             var payloadLeaves = new
@@ -780,47 +927,46 @@ namespace PFE.Services
                     model = "hr.leave",
                     method = "read_group",
                     args = argsLeaves,
-                    kwargs = new { }
+                    kwargs = new { lazy = false }
                 },
                 id = 2
             };
+            HttpResponseMessage res = await _httpClient.PostAsync(_baseUrl, BuildJsonContent(payloadLeaves));
 
-            Task<HttpResponseMessage> allocTask = _httpClient.PostAsync(_baseUrl, BuildJsonContent(payloadAlloc));
-            Task<HttpResponseMessage> leavesTask = _httpClient.PostAsync(_baseUrl, BuildJsonContent(payloadLeaves));
+            res.EnsureSuccessStatusCode();
 
-            await Task.WhenAll(allocTask, leavesTask);
+            string text = await res.Content.ReadAsStringAsync();
 
-            HttpResponseMessage allocRes = await allocTask;
-            HttpResponseMessage leavesRes = await leavesTask;
+            int totalAllocDays = types.Sum(t => t.Days ?? 0);
+            int totalLeaves = (int)Math.Round(SumReadGroupNumberOfDays(text));
+            int totalRemaining = totalAllocDays - totalLeaves;
 
-            allocRes.EnsureSuccessStatusCode();
-            leavesRes.EnsureSuccessStatusCode();
-
-            string allocJson = await allocRes.Content.ReadAsStringAsync();
-            string leavesJson = await leavesRes.Content.ReadAsStringAsync();
-
-            double totalAllocDays = SumReadGroupNumberOfDays(allocJson);
-            double totalLeavesDays = SumReadGroupNumberOfDays(leavesJson);
-
-            return ((int)Math.Round(totalAllocDays), (int)Math.Round(totalLeavesDays));
-
+            return (totalAllocDays, totalLeaves, totalRemaining);
         }
 
-        public async Task<int> CreateLeaveRequestAsync(
+
+
+        public async Task<int>
+            CreateLeaveRequestAsync(
          int leaveTypeId,
          DateTime startDate,
          DateTime endDate,
          string reason)
         {
-
             EnsureAuthenticated();
+
+            if (await HasOverlappingLeaveAsync(startDate, endDate))
+                throw new InvalidOperationException("Votre demande chevauche sur un congé qui a déjà été demandé ou pris.");
+
+            if (!await HasValidAllocationAsync(leaveTypeId, startDate, endDate))
+                throw new InvalidOperationException("Aucune allocation valide ne couvre les dates demandées pour ce type de congé.");
 
             Dictionary<string, object> values = new()
             {
                 ["employee_id"] = session.Current.EmployeeId!.Value,
                 ["holiday_status_id"] = leaveTypeId,
-                ["date_from"] = startDate.ToString("yyyy-MM-dd"),
-                ["date_to"] = endDate.ToString("yyyy-MM-dd"),
+                ["request_date_from"] = startDate.ToString("yyyy-MM-dd"),
+                ["request_date_to"] = endDate.ToString("yyyy-MM-dd"),
                 ["name"] = string.IsNullOrWhiteSpace(reason) ? "Demande de congé" : reason
             };
 
@@ -855,6 +1001,51 @@ namespace PFE.Services
                 throw new Exception("Réponse Odoo inattendue (result n'est pas un entier) : " + text);
 
             return resEl.GetInt32();
+        }
+
+        private async Task<bool> HasValidAllocationAsync(int leaveTypeId, DateTime startDate, DateTime endDate)
+        {
+            EnsureAuthenticated();
+
+            string start = startDate.ToString("yyyy-MM-dd");
+            string end = endDate.ToString("yyyy-MM-dd");
+
+            var domain = new object[]
+            {
+                new object[] { "employee_id", "=", session.Current.EmployeeId!.Value },
+                new object[] { "holiday_status_id", "=", leaveTypeId },
+                new object[] { "state", "=", "validate" },
+                new object[] { "date_from", "<=", start },
+                "|",
+                new object[] { "date_to", "=", false },
+                new object[] { "date_to", ">=", end }
+            };
+
+            var payload = new
+            {
+                jsonrpc = "2.0",
+                method = "call",
+                @params = new
+                {
+                    model = "hr.leave.allocation",
+                    method = "search_count",
+                    args = new object[] { domain },
+                    kwargs = new { }
+                },
+                id = 803
+            };
+
+            HttpResponseMessage res = await _httpClient.PostAsync(_baseUrl, BuildJsonContent(payload));
+            string text = await res.Content.ReadAsStringAsync();
+            res.EnsureSuccessStatusCode();
+
+            using JsonDocument doc = JsonDocument.Parse(text);
+            JsonElement root = doc.RootElement;
+
+            if (!root.TryGetProperty("result", out JsonElement countEl) || countEl.ValueKind != JsonValueKind.Number)
+                return false;
+
+            return countEl.GetInt32() > 0;
         }
     }
 }

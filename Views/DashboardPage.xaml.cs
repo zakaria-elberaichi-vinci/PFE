@@ -54,6 +54,8 @@ public partial class DashboardPage : ContentPage
         BtnLeaves.IsVisible = isEmployee;
         BtnNewLeave.IsVisible = isEmployee;
         BtnManageLeaves.IsVisible = isManager;
+        //TODO retirer
+        await _client.TestAllocs(2026);
     }
 
 }

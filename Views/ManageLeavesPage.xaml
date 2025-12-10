@@ -3,7 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="PFE.Views.ManageLeavesPage"
              xmlns:conv="clr-namespace:PFE.Converters"
-             x:Name="RootPage">
+             x:Name="RootPage"
+             Title="Demandes à traiter">
 
     <ContentPage.Resources>
         <ResourceDictionary>
@@ -16,11 +17,6 @@
             <VerticalStackLayout Padding="20"
                                  Spacing="10">
 
-                <Label Text="Demandes à traiter"
-                       FontSize="26"
-                       FontAttributes="Bold"
-                       HorizontalOptions="Center" />
-
                 <Label Text="{Binding ErrorMessage}"
                        TextColor="Tomato"
                        HorizontalTextAlignment="Center"
@@ -32,10 +28,14 @@
                                    HorizontalOptions="Center"
                                    VerticalOptions="Center" />
 
-                <CollectionView x:Name="LeavesList"
-                                ItemsSource="{Binding Leaves}"
+                <CollectionView ItemsSource="{Binding Leaves}"
                                 IsVisible="{Binding IsManager}"
                                 Margin="0,0,0,30">
+
+                    <CollectionView.ItemsLayout>
+                        <LinearItemsLayout Orientation="Vertical"
+                                           ItemSpacing="10" />
+                    </CollectionView.ItemsLayout>
 
                     <CollectionView.ItemTemplate>
                         <DataTemplate>
@@ -44,10 +44,9 @@
                                    CornerRadius="8"
                                    HasShadow="True"
                                    BackgroundColor="#33000000">
-                                <!-- Grille à 2 colonnes : texte à gauche, boutons à droite -->
+                                
                                 <Grid ColumnDefinitions="*,Auto">
-
-                                    <!-- Colonne 0 : Groupe de texte -->
+                                    
                                     <VerticalStackLayout Grid.Column="0"
                                                          Spacing="8"
                                                          VerticalOptions="Center">

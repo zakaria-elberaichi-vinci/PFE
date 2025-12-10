@@ -1,4 +1,5 @@
 ﻿using PFE.ViewModels;
+using Syncfusion.Maui.Calendar;
 
 namespace PFE.Views
 {
@@ -48,6 +49,17 @@ namespace PFE.Views
             else
             {
                 await DisplayAlert("Erreur", message, "OK");
+            }
+        }
+
+        private void SfCalendar_SelectionChanged(object sender, CalendarSelectionChangedEventArgs e)
+        {
+            if (BindingContext is LeaveRequestViewModel vm)
+            {
+                var range = e.NewValue as CalendarDateRange;
+                System.Diagnostics.Debug.WriteLine($"SelectionChanged: {range?.StartDate} - {range?.EndDate}");
+
+                vm.SelectedRange = range;
             }
         }
     }
