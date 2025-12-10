@@ -1,5 +1,9 @@
+<<<<<<< HEAD
 using PFE.ViewModels;
+=======
+﻿using PFE.ViewModels;
 using Syncfusion.Maui.Calendar;
+>>>>>>> 9189000f0189350582e84c831ba3b2966c7070db
 
 namespace PFE.Views
 {
