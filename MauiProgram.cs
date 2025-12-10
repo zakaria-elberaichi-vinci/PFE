@@ -65,7 +65,7 @@ namespace PFE
 
             builder.Services.AddTransient<AuthenticationViewModel>();
             builder.Services.AddTransient<UserProfileViewModel>();
-            builder.Services.AddTransient<LeaveViewModel>();
+            builder.Services.AddSingleton<LeaveViewModel>();
             builder.Services.AddTransient<ManageLeavesViewModel>();
             builder.Services.AddTransient<LeaveRequestViewModel>();
 

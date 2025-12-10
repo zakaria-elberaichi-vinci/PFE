@@ -194,6 +194,7 @@ namespace PFE.Services
 
         private void RaiseSyncStatusChanged(int pendingCount, int successCount, int failedCount, bool isComplete)
         {
+            System.Diagnostics.Debug.WriteLine($"[OfflineService] RaiseSyncStatusChanged: pending={pendingCount}, success={successCount}, failed={failedCount}, complete={isComplete}");
             SyncStatusChanged?.Invoke(this, new SyncStatusEventArgs
             {
                 PendingCount = pendingCount,

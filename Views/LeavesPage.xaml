@@ -18,6 +18,39 @@
             <VerticalStackLayout Padding="24"
                                  Spacing="18">
 
+                <!-- Indicateur mode hors-ligne -->
+                <Frame CornerRadius="10"
+                       Padding="12"
+                       BackgroundColor="#7F1D1D"
+                       BorderColor="#DC2626"
+                       HasShadow="False"
+                       IsVisible="{Binding IsOffline}">
+                    <HorizontalStackLayout Spacing="8"
+                                           HorizontalOptions="Center">
+                        <Label Text="📴"
+                               FontSize="16"
+                               VerticalOptions="Center" />
+                        <Label Text="Mode hors-ligne"
+                               FontSize="14"
+                               FontAttributes="Bold"
+                               TextColor="#FCA5A5"
+                               VerticalOptions="Center" />
+                    </HorizontalStackLayout>
+                </Frame>
+
+                <!-- Message de synchronisation -->
+                <Frame CornerRadius="10"
+                       Padding="12"
+                       BackgroundColor="#14532D"
+                       BorderColor="#22C55E"
+                       HasShadow="False"
+                       IsVisible="{Binding SyncMessage, Converter={StaticResource StringNotEmptyConverter}}">
+                    <Label Text="{Binding SyncMessage}"
+                           FontSize="14"
+                           TextColor="#86EFAC"
+                           HorizontalTextAlignment="Center" />
+                </Frame>
+
              
                 <VerticalStackLayout Spacing="4"
                                      Margin="0,0,0,8">
