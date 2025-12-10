@@ -1,6 +1,9 @@
 ﻿using PFE.Services;
 using PFE.Views;
 using Plugin.LocalNotification;
+using Syncfusion.Maui.Scheduler;
+using System.Globalization;
+using System.Resources;
 
 namespace PFE;
 
@@ -12,6 +15,10 @@ public partial class App : Application
     public App(IServiceProvider services)
     {
         InitializeComponent();
+
+        CultureInfo.CurrentUICulture = new CultureInfo("fr-FR");
+        SfSchedulerResources.ResourceManager = new ResourceManager("PFE.Resources.SfScheduler", typeof(App).Assembly);
+
         _services = services;
 
         // Page de chargement temporaire pendant la vérification auto-login
