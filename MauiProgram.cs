@@ -55,7 +55,7 @@ namespace PFE
                 CookieContainer cookies = sp.GetRequiredService<CookieContainer>();
                 return new OdooClient(http, session, cookies);
             });
-
+            builder.Services.AddSingleton<IDatabaseService, DatabaseService>();
             builder.Services.AddSingleton<ILeaveNotificationService, LeaveNotificationService>();
             builder.Services.AddSingleton<IBackgroundNotificationService, BackgroundNotificationService>();
             builder.Services.AddSingleton<IBackgroundLeaveStatusService, BackgroundLeaveStatusService>();

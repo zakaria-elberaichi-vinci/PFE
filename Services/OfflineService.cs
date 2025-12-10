@@ -3,17 +3,6 @@ using Microsoft.Extensions.Logging;
 using PFE.Models;
 using PFE.Services;
 
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
-using Microsoft.Maui.Networking;
-using Microsoft.Maui.Storage;
-using PFE.Models;
 
 namespace PFE.Services
 {
@@ -30,6 +19,16 @@ namespace PFE.Services
         };
 
         public event EventHandler<SyncStatusEventArgs>? SyncStatusChanged;
+
+        /// <summary>
+        /// Indique si une synchronisation réussie a eu lieu depuis la dernière vérification
+        /// </summary>
+        public bool HasSyncCompleted { get; private set; }
+
+        /// <summary>
+        /// Réinitialise le flag de synchronisation (à appeler après avoir rafraîchi la liste)
+        /// </summary>
+        public void ClearSyncFlag() => HasSyncCompleted = false;
 
         public OfflineService(OdooClient odooClient, ILogger<OfflineService> logger)
         {
@@ -195,6 +194,14 @@ namespace PFE.Services
         private void RaiseSyncStatusChanged(int pendingCount, int successCount, int failedCount, bool isComplete)
         {
             System.Diagnostics.Debug.WriteLine($"[OfflineService] RaiseSyncStatusChanged: pending={pendingCount}, success={successCount}, failed={failedCount}, complete={isComplete}");
+            
+            // Marquer qu'une synchronisation réussie a eu lieu
+            if (isComplete && successCount > 0)
+            {
+                HasSyncCompleted = true;
+                System.Diagnostics.Debug.WriteLine("[OfflineService] HasSyncCompleted = true");
+            }
+            
             SyncStatusChanged?.Invoke(this, new SyncStatusEventArgs
             {
                 PendingCount = pendingCount,

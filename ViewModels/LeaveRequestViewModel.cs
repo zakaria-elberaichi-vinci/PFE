@@ -765,7 +765,7 @@ namespace PFE.ViewModels
                 }
                 else if (e.PendingCount > 0)
                 {
-                    SyncMessage = $"⚠ {e.PendingCount} demande{(e.PendingCount > 1 ? "s" : "")} en attente de synchronisation";
+                    SyncMessage = $"⚠ {e.PendingCount} demande{(e.PendingCount > 1 ? "s" : "")} en attente de synchronisation";     
                     ShowSyncStatus = true;
                 }
                 else

@@ -117,7 +117,13 @@ namespace PFE.ViewModels
 
         public async Task LoadAsync()
         {
-            if (IsBusy) return;
+            System.Diagnostics.Debug.WriteLine($"[LeaveViewModel] LoadAsync appelé. IsBusy={IsBusy}");
+            
+            if (IsBusy)
+            {
+                System.Diagnostics.Debug.WriteLine("[LeaveViewModel] LoadAsync ignoré car IsBusy=true");
+                return;
+            }
 
             IsBusy = true;
             ErrorMessage = string.Empty;
@@ -138,7 +144,10 @@ namespace PFE.ViewModels
                     return;
                 }
 
+                System.Diagnostics.Debug.WriteLine($"[LeaveViewModel] Chargement des congés... Year={SelectedYear}, State={SelectedStateEn}");
                 List<Leave> list = await _odooClient.GetLeavesAsync(SelectedYear, SelectedStateEn);
+                System.Diagnostics.Debug.WriteLine($"[LeaveViewModel] {list.Count} congés récupérés");
+                
                 Leaves.Clear();
                 foreach (Leave item in list)
                     Leaves.Add(item);
@@ -148,6 +157,7 @@ namespace PFE.ViewModels
             }
             catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"[LeaveViewModel] Erreur: {ex.Message}");
                 ErrorMessage = $"Impossible de charger vos congés : {ex.Message}";
             }
             finally
