@@ -1,10 +1,12 @@
 using SQLite;
 
+using SQLite;
+
 namespace PFE.Models.Database
 {
     /// <summary>
-    /// Demande de congé en attente de synchronisation (mode offline).
-    /// Stocke les demandes créées hors connexion pour les envoyer plus tard.
+    /// Demande de congé en attente de synchronisation.
+    /// Stocke les demandes créées par un employé hors connexion.
     /// </summary>
     [Table("pending_leave_requests")]
     public class PendingLeaveRequest
@@ -13,33 +15,33 @@ namespace PFE.Models.Database
         public int Id { get; set; }
 
         /// <summary>
-        /// ID de l'employé qui fait la demande
+        /// ID de l'employé qui a fait la demande
         /// </summary>
         [Indexed]
         public int EmployeeId { get; set; }
 
         /// <summary>
-        /// ID du type de congé (holiday_status_id dans Odoo)
+        /// ID du type de congé dans Odoo
         /// </summary>
         public int LeaveTypeId { get; set; }
 
         /// <summary>
-        /// Nom du type de congé pour affichage
+        /// Nom du type de congé (pour affichage)
         /// </summary>
         public string LeaveTypeName { get; set; } = string.Empty;
 
         /// <summary>
-        /// Date de début du congé demandé
+        /// Date de début du congé
         /// </summary>
         public DateTime StartDate { get; set; }
 
         /// <summary>
-        /// Date de fin du congé demandé
+        /// Date de fin du congé
         /// </summary>
         public DateTime EndDate { get; set; }
 
         /// <summary>
-        /// Motif/raison de la demande
+        /// Raison/motif de la demande
         /// </summary>
         public string Reason { get; set; } = string.Empty;
 
@@ -69,26 +71,8 @@ namespace PFE.Models.Database
         public DateTime? LastSyncAttempt { get; set; }
 
         /// <summary>
-        /// ID du congé créé dans Odoo après synchronisation réussie
+        /// ID du congé créé dans Odoo après synchronisation
         /// </summary>
         public int? OdooLeaveId { get; set; }
-    }
-
-    /// <summary>
-    /// Statut de synchronisation d'une demande
-    /// </summary>
-    public enum SyncStatus
-    {
-        /// <summary>En attente de synchronisation</summary>
-        Pending = 0,
-
-        /// <summary>Synchronisation en cours</summary>
-        Syncing = 1,
-
-        /// <summary>Synchronisé avec succès</summary>
-        Synced = 2,
-
-        /// <summary>Échec de synchronisation</summary>
-        Failed = 3
     }
 }

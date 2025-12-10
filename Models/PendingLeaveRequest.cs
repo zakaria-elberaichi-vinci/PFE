@@ -1,24 +1,18 @@
-﻿using System;
-using SQLite;
+using System;
 
 namespace PFE.Models
 {
+    /// <summary>
+    /// Représente une demande de congé en attente (modèle simple/DTO).
+    /// Pour le stockage SQLite, utilisez PFE.Models.Database.PendingLeaveRequest.
+    /// </summary>
     public class PendingLeaveRequest
     {
-        [PrimaryKey, AutoIncrement]
-        public int Id { get; set; }
-
+        public Guid Id { get; set; } = Guid.NewGuid();
         public int LeaveTypeId { get; set; }
-
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
-
-        public string? Reason { get; set; }
-
-        public DateTime CreatedAt { get; set; }
-
-        public bool IsSynced { get; set; } = false;
-
-        public int? OdooId { get; set; }
+        public string Reason { get; set; } = string.Empty;
+        public DateTime QueuedAt { get; set; } = DateTime.UtcNow;
     }
 }
