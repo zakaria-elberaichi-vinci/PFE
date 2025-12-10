@@ -13,8 +13,64 @@
         <ContentView IsVisible="{Binding IsEmployee}">
             <VerticalStackLayout Spacing="15">
 
+                <!-- Indicateur hors-ligne -->
+                <Frame IsVisible="{Binding IsOffline}"
+                       Padding="12"
+                       BackgroundColor="#DC2626"
+                       CornerRadius="8"
+                       HasShadow="False"
+                       Margin="0,0,0,5">
+                    <HorizontalStackLayout Spacing="10"
+                                          HorizontalOptions="Center">
+                        <Label Text="📴"
+                               FontSize="16"
+                               VerticalOptions="Center" />
+                        <Label Text="Mode hors-ligne - Données en cache"
+                               TextColor="White"
+                               FontSize="14"
+                               FontAttributes="Bold"
+                               VerticalOptions="Center" />
+                    </HorizontalStackLayout>
+                </Frame>
+
+                <!-- Message de synchronisation en cours -->
+                <Frame IsVisible="{Binding IsSyncing}"
+                       Padding="12"
+                       BackgroundColor="#FFA500"
+                       CornerRadius="8"
+                       HasShadow="False"
+                       Margin="0,0,0,5">
+                    <HorizontalStackLayout Spacing="10">
+                        <ActivityIndicator IsRunning="True"
+                                          Color="White"
+                                          WidthRequest="20"
+                                          HeightRequest="20" />
+                        <Label Text="{Binding SyncMessage}"
+                               TextColor="White"
+                               FontSize="14"
+                               FontAttributes="Bold"
+                               VerticalOptions="Center" />
+                    </HorizontalStackLayout>
+                </Frame>
+
+                <!-- Message de statut de synchronisation -->
+                <Frame IsVisible="{Binding ShowSyncStatus}"
+                       Padding="12"
+                       BackgroundColor="#2E7D32"
+                       CornerRadius="8"
+                       HasShadow="False"
+                       Margin="0,0,0,5">
+                    <Label Text="{Binding SyncMessage}"
+                           TextColor="White"
+                           FontSize="14"
+                           FontAttributes="Bold"
+                           HorizontalTextAlignment="Center" />
+                </Frame>
+
                 <Label Text="{Binding SelectedRange.StartDate.Year, StringFormat='Allocations année {0}'}"
-                       FontSize="16" />
+                       FontSize="16"
+                       TextColor="White"
+                       FontAttributes="Bold" />
                 <Frame Padding="12"
                        BackgroundColor="Transparent">
                     <Grid ColumnDefinitions="*,*,*"

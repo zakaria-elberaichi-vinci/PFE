@@ -29,6 +29,8 @@ namespace PFE.Services
             WriteIndented = false
         };
 
+        public event EventHandler<SyncStatusEventArgs>? SyncStatusChanged;
+
         public OfflineService(OdooClient odooClient, ILogger<OfflineService> logger)
         {
             _odooClient = odooClient;
@@ -99,7 +101,13 @@ namespace PFE.Services
                     return;
                 }
 
+                _logger.LogInformation("Début de la synchronisation de {Count} demande(s) hors-ligne.", pending.Count);
+                RaiseSyncStatusChanged(pending.Count, 0, 0, false);
+
                 List<PendingLeaveRequest> remaining = new();
+                int successCount = 0;
+                int failedCount = 0;
+
                 foreach (PendingLeaveRequest p in pending)
                 {
                     try
@@ -113,21 +121,28 @@ namespace PFE.Services
                         ).ConfigureAwait(false);
 
                         _logger.LogInformation("Demande hors-ligne envoyée avec succès (tempId={TempId} -> odooId={OdooId}).", p.Id, createdId);
+                        successCount++;
                     }
                     catch (InvalidOperationException ex)
                     {
                         // Erreur métier : ne pas réessayer infiniment
                         _logger.LogWarning(ex, "Erreur métier lors de l'envoi de la demande hors-ligne (Id={Id}). Suppression.", p.Id);
+                        failedCount++;
                     }
                     catch (Exception ex)
                     {
                         // Erreur réseau ou temporaire : garder pour réessayer plus tard
                         _logger.LogWarning(ex, "Échec envoi demande hors-ligne (Id={Id}). Conserver pour réessai.", p.Id);
                         remaining.Add(p);
+                        failedCount++;
                     }
                 }
 
                 await WriteAllAsync(remaining).ConfigureAwait(false);
+                
+                _logger.LogInformation("Synchronisation terminée : {Success} succès, {Failed} échecs, {Remaining} en attente.", 
+                    successCount, failedCount, remaining.Count);
+                RaiseSyncStatusChanged(remaining.Count, successCount, failedCount, true);
             }
             finally
             {
@@ -176,5 +191,24 @@ namespace PFE.Services
                 _ = TryFlushPendingAsync();
             }
         }
+
+        private void RaiseSyncStatusChanged(int pendingCount, int successCount, int failedCount, bool isComplete)
+        {
+            SyncStatusChanged?.Invoke(this, new SyncStatusEventArgs
+            {
+                PendingCount = pendingCount,
+                SuccessCount = successCount,
+                FailedCount = failedCount,
+                IsComplete = isComplete
+            });
+        }
+    }
+
+    public class SyncStatusEventArgs : EventArgs
+    {
+        public int PendingCount { get; set; }
+        public int SuccessCount { get; set; }
+        public int FailedCount { get; set; }
+        public bool IsComplete { get; set; }
     }
 }
