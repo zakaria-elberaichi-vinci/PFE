@@ -34,7 +34,7 @@ public partial class App : Application
             if (!isEnabled)
             {
                 System.Diagnostics.Debug.WriteLine("Demande de permission notification...");
-                var result = await LocalNotificationCenter.Current.RequestNotificationPermission();
+                bool result = await LocalNotificationCenter.Current.RequestNotificationPermission();
                 System.Diagnostics.Debug.WriteLine($"Résultat permission: {result}");
             }
         }

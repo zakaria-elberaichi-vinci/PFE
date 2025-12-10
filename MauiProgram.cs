@@ -5,6 +5,8 @@ using PFE.Services;
 using PFE.ViewModels;
 using PFE.Views;
 using Plugin.LocalNotification;
+using Syncfusion.Licensing;
+using Syncfusion.Maui.Core.Hosting;
 
 namespace PFE
 {
@@ -12,8 +14,10 @@ namespace PFE
     {
         public static MauiApp CreateMauiApp()
         {
+            SyncfusionLicenseProvider.RegisterLicense("Ngo9BigBOggjGyl/Vkd+XU9FcVRDQmtWfFN0Q3NYflRxfV9DZ0wgOX1dQl9mSHxTf0RiW3pfdndUR2hXUkU=");
             MauiAppBuilder builder = MauiApp.CreateBuilder();
             builder
+                .ConfigureSyncfusionCore()
                 .UseMauiApp<App>()
                 .UseLocalNotification()
                 .ConfigureFonts(fonts =>
@@ -24,7 +28,7 @@ namespace PFE
 
             // Database Service (SQLite)
             builder.Services.AddSingleton<IDatabaseService, DatabaseService>();
-            
+
             builder.Services.AddSingleton(new CookieContainer());
 
             builder.Services.AddHttpClient(nameof(OdooClient), client =>

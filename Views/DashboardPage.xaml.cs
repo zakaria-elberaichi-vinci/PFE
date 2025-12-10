@@ -10,8 +10,8 @@ public partial class DashboardPage : ContentPage
     private readonly IBackgroundLeaveStatusService _backgroundLeaveStatusService;
 
     public DashboardPage(
-        OdooClient client, 
-        IServiceProvider services, 
+        OdooClient client,
+        IServiceProvider services,
         IBackgroundNotificationService backgroundNotificationService,
         IBackgroundLeaveStatusService backgroundLeaveStatusService)
     {

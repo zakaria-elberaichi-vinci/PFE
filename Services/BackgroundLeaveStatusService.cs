@@ -115,7 +115,7 @@ namespace PFE.Services
 
                 // Récupérer les congés déjà notifiés comme "validé"
                 HashSet<int> notifiedAsApproved = await _databaseService.GetNotifiedLeaveIdsAsync(employeeId, "approved");
-                
+
                 // Récupérer les congés déjà notifiés comme "refusé"
                 HashSet<int> notifiedAsRefused = await _databaseService.GetNotifiedLeaveIdsAsync(employeeId, "refused");
 
@@ -124,7 +124,7 @@ namespace PFE.Services
                 if (_isFirstSync)
                 {
                     System.Diagnostics.Debug.WriteLine("BackgroundLeaveStatusService: Première sync - initialisation des congés existants");
-                    
+
                     foreach (Leave leave in leaves)
                     {
                         if (leave.Id == 0) continue;
@@ -132,7 +132,7 @@ namespace PFE.Services
                         string status = leave.Status;
 
                         // Marquer les congés validés comme déjà notifiés
-                        if ((status == "Validé par le RH" || status == "Validé par le manager") 
+                        if ((status == "Validé par le RH" || status == "Validé par le manager")
                             && !notifiedAsApproved.Contains(leave.Id))
                         {
                             await _databaseService.MarkLeaveAsNotifiedAsync(employeeId, leave.Id, "approved");
@@ -159,11 +159,11 @@ namespace PFE.Services
                     string status = leave.Status;
 
                     // Congé VALIDÉ et pas encore notifié
-                    if ((status == "Validé par le RH" || status == "Validé par le manager") 
+                    if ((status == "Validé par le RH" || status == "Validé par le manager")
                         && !notifiedAsApproved.Contains(leave.Id))
                     {
                         System.Diagnostics.Debug.WriteLine($"NOTIFICATION: Congé {leave.Id} validé");
-                        
+
                         await SendNotificationAsync(
                             "? Congé accepté !",
                             $"Votre demande du {leave.StartDate:dd/MM/yyyy} au {leave.EndDate:dd/MM/yyyy} a été acceptée."
@@ -176,7 +176,7 @@ namespace PFE.Services
                     else if (status == "Refusé" && !notifiedAsRefused.Contains(leave.Id))
                     {
                         System.Diagnostics.Debug.WriteLine($"NOTIFICATION: Congé {leave.Id} refusé");
-                        
+
                         await SendNotificationAsync(
                             "? Congé refusé",
                             $"Votre demande du {leave.StartDate:dd/MM/yyyy} au {leave.EndDate:dd/MM/yyyy} a été refusée."
@@ -213,7 +213,7 @@ namespace PFE.Services
 #elif ANDROID || IOS || MACCATALYST
             try
             {
-                var request = new NotificationRequest
+                NotificationRequest request = new NotificationRequest
                 {
                     NotificationId = _notificationId++,
                     Title = title,

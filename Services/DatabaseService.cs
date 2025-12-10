@@ -71,7 +71,7 @@ namespace PFE.Services
         public async Task MarkLeaveAsNotifiedAsync(int employeeId, int leaveId, string status)
         {
             SQLiteAsyncConnection db = await GetDatabaseAsync();
-            
+
             // Vérifier si déjà notifié
             NotifiedLeaveStatusChange? existing = await db.Table<NotifiedLeaveStatusChange>()
                 .Where(x => x.EmployeeId == employeeId && x.LeaveId == leaveId && x.NotifiedStatus == status)

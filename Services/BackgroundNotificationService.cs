@@ -144,7 +144,7 @@ namespace PFE.Services
 #elif ANDROID || IOS || MACCATALYST
             try
             {
-                var request = new NotificationRequest
+                NotificationRequest request = new NotificationRequest
                 {
                     NotificationId = _notificationId++,
                     Title = title,

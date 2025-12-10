@@ -20,7 +20,7 @@ namespace PFE.ViewModels
         public event PropertyChangedEventHandler? PropertyChanged;
 
         public AuthenticationViewModel(
-            OdooClient odooClient, 
+            OdooClient odooClient,
             IBackgroundNotificationService backgroundNotificationService,
             IBackgroundLeaveStatusService backgroundLeaveStatusService)
         {
