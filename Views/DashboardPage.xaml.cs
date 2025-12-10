@@ -41,7 +41,6 @@ public partial class DashboardPage : ContentPage
 
         BtnLogout.Clicked += (s, e) =>
         {
-            // Arrêter les services de notification en arrière-plan
             _backgroundNotificationService.Stop();
             _backgroundLeaveStatusService.Stop();
 
@@ -56,6 +55,12 @@ public partial class DashboardPage : ContentPage
             LeaveRequestPage leaveRequestPage = _services.GetRequiredService<LeaveRequestPage>();
             await Navigation.PushAsync(leaveRequestPage);
         };
+
+        BtnCalendar.Clicked += async (s, e) =>
+        {
+            CalendarPage calendarPage = _services.GetRequiredService<CalendarPage>();
+            await Navigation.PushAsync(calendarPage);
+        };
     }
 
     protected override async void OnAppearing()
@@ -66,18 +71,12 @@ public partial class DashboardPage : ContentPage
 
         BtnLeaves.IsVisible = isEmployee;
         BtnNewLeave.IsVisible = isEmployee;
+        BtnCalendar.IsVisible = isEmployee;
         BtnManageLeaves.IsVisible = isManager;
 
-        // Démarrer les services de notification en arrière-plan selon le rôle
         if (isManager)
-        {
-            // Service de notification pour les nouvelles demandes de congé (managers)
             _backgroundNotificationService.Start();
-        }
         else if (isEmployee)
-        {
-            // Service de notification pour les changements de statut (employés)
             _backgroundLeaveStatusService.Start();
-        }
     }
 }

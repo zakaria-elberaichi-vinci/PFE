@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:scheduler="clr-namespace:Syncfusion.Maui.Scheduler;assembly=Syncfusion.Maui.Scheduler"
+             x:Class="PFE.Views.CalendarPage"
+             Title="Calendrier"
+             BackgroundColor="#0F172A">
+
+    <Grid Padding="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <VerticalStackLayout Grid.Row="0"
+                             Spacing="4"
+                             Margin="0,10,0,20">
+            <Label Text="Calendrier"
+                   FontSize="26"
+                   FontAttributes="Bold"
+                   TextColor="White" />
+            <Label Text="Visualisez vos congés"
+                   FontSize="14"
+                   TextColor="#9CA3AF" />
+        </VerticalStackLayout>
+
+        <Frame Grid.Row="1"
+               BackgroundColor="#111827"
+               CornerRadius="12"
+               HasShadow="True"
+               Padding="16"
+               Margin="0,0,0,16"
+               BorderColor="#1F2937">
+            <HorizontalStackLayout Spacing="20"
+                                   HorizontalOptions="Center">
+
+                <Frame BackgroundColor="#1E40AF"
+                       CornerRadius="8"
+                       Padding="16,12"
+                       HasShadow="False"
+                       BorderColor="Transparent">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Allocations"
+                               FontSize="12"
+                               TextColor="#93C5FD"
+                               HorizontalOptions="Center" />
+                        <Label Text="{Binding TotalAllocated}"
+                               FontSize="24"
+                               FontAttributes="Bold"
+                               TextColor="White"
+                               HorizontalOptions="Center" />
+                        <Label Text="jours"
+                               FontSize="10"
+                               TextColor="#93C5FD"
+                               HorizontalOptions="Center" />
+                    </VerticalStackLayout>
+                </Frame>
+
+                <Frame BackgroundColor="#991B1B"
+                       CornerRadius="8"
+                       Padding="16,12"
+                       HasShadow="False"
+                       BorderColor="Transparent">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Pris"
+                               FontSize="12"
+                               TextColor="#FCA5A5"
+                               HorizontalOptions="Center" />
+                        <Label Text="{Binding TotalTaken}"
+                               FontSize="24"
+                               FontAttributes="Bold"
+                               TextColor="White"
+                               HorizontalOptions="Center" />
+                        <Label Text="jours"
+                               FontSize="10"
+                               TextColor="#FCA5A5"
+                               HorizontalOptions="Center" />
+                    </VerticalStackLayout>
+                </Frame>
+
+                <Frame BackgroundColor="#166534"
+                       CornerRadius="8"
+                       Padding="16,12"
+                       HasShadow="False"
+                       BorderColor="Transparent">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Restant"
+                               FontSize="12"
+                               TextColor="#86EFAC"
+                               HorizontalOptions="Center" />
+                        <Label Text="{Binding TotalRemaining}"
+                               FontSize="24"
+                               FontAttributes="Bold"
+                               TextColor="White"
+                               HorizontalOptions="Center" />
+                        <Label Text="jours"
+                               FontSize="10"
+                               TextColor="#86EFAC"
+                               HorizontalOptions="Center" />
+                    </VerticalStackLayout>
+                </Frame>
+            </HorizontalStackLayout>
+        </Frame>
+
+        <Frame Grid.Row="2"
+               BackgroundColor="#111827"
+               CornerRadius="16"
+               HasShadow="True"
+               Padding="12"
+               BorderColor="#1F2937">
+
+            <scheduler:SfScheduler View="Month"
+                                   FirstDayOfWeek="Monday"
+                                   BackgroundColor="#111827"
+                                   AllowedViews="Week,Month"
+                                   SelectedDate="{Binding SelectedDate, Mode=TwoWay}"
+                                   AppointmentsSource="{Binding Appointments}"
+                                   ViewChanged="OnSchedulerViewChanged"
+                                   Tapped="OnSchedulerTapped"
+                                   ShowBusyIndicator="{Binding IsBusy}">
+
+                <scheduler:SfScheduler.AppointmentMapping>
+                    <scheduler:SchedulerAppointmentMapping
+                        Subject="Subject"
+                        StartTime="StartTime"
+                        EndTime="EndTime"
+                        Background="Background"
+                        IsAllDay="IsAllDay"/>
+                </scheduler:SfScheduler.AppointmentMapping>
+
+                <scheduler:SfScheduler.HeaderView>
+                    <scheduler:SchedulerHeaderView Background="#111827"
+                                                   TextStyle="{scheduler:SchedulerTextStyle TextColor=White, FontSize=18}" />
+                </scheduler:SfScheduler.HeaderView>
+
+                <scheduler:SfScheduler.MonthView>
+                    <scheduler:SchedulerMonthView AppointmentDisplayMode="Text"
+                                                  NavigationDirection="Vertical">
+                        <scheduler:SchedulerMonthView.ViewHeaderSettings>
+                            <scheduler:SchedulerViewHeaderSettings DayFormat="ddd"
+                                                                   DayTextStyle="{scheduler:SchedulerTextStyle TextColor=#9CA3AF, FontSize=12}" />
+                        </scheduler:SchedulerMonthView.ViewHeaderSettings>
+                        <scheduler:SchedulerMonthView.CellStyle>
+                            <scheduler:SchedulerMonthCellStyle TextStyle="{scheduler:SchedulerTextStyle TextColor=White, FontSize=14}"
+                                                               TrailingMonthTextStyle="{scheduler:SchedulerTextStyle TextColor=#4B5563, FontSize=12}"
+                                                               LeadingMonthTextStyle="{scheduler:SchedulerTextStyle TextColor=#4B5563, FontSize=12}"
+                                                               Background="Transparent"/>
+                        </scheduler:SchedulerMonthView.CellStyle>
+                    </scheduler:SchedulerMonthView>
+                </scheduler:SfScheduler.MonthView>
+
+                <scheduler:SfScheduler.DaysView>
+                    <scheduler:SchedulerDaysView>
+                        <scheduler:SchedulerDaysView.ViewHeaderSettings>
+                            <scheduler:SchedulerViewHeaderSettings DayFormat="ddd"
+                                                                   DateFormat="dd"
+                                                                   DayTextStyle="{scheduler:SchedulerTextStyle TextColor=#9CA3AF, FontSize=12}"
+                                                                   DateTextStyle="{scheduler:SchedulerTextStyle TextColor=White, FontSize=14}" />
+                        </scheduler:SchedulerDaysView.ViewHeaderSettings>
+                    </scheduler:SchedulerDaysView>
+                </scheduler:SfScheduler.DaysView>
+
+            </scheduler:SfScheduler>
+
+        </Frame>
+    </Grid>
+</ContentPage>

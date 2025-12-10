@@ -6,12 +6,12 @@
     xmlns:conv="clr-namespace:PFE.Converters"
     BackgroundColor="#0F172A">
 
-    <ContentPage.Resources>
+    <Application.Resources>
         <ResourceDictionary>
             <conv:InverseBoolConverter x:Key="InverseBoolConverter" />
             <conv:StringNotEmptyConverter x:Key="StringNotEmptyConverter" />
         </ResourceDictionary>
-    </ContentPage.Resources>
+    </Application.Resources>
 
     <ScrollView>
         <Grid Padding="24">

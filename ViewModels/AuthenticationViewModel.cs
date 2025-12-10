@@ -134,7 +134,7 @@ namespace PFE.ViewModels
             // Toujours sauvegarder (RememberMe toujours activé)
             Preferences.Set(RememberMeKey, true);
             Preferences.Set(LoginKey, Login);
-            
+
             try
             {
                 await SecureStorage.SetAsync(PasswordKey, Password ?? string.Empty);

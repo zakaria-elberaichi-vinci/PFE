@@ -7,11 +7,11 @@
              BackgroundColor="#0F172A"
              Title="Demandes à traiter">
 
-    <ContentPage.Resources>
+    <Application.Resources>
         <ResourceDictionary>
             <conv:StringNotEmptyConverter x:Key="StringNotEmptyConverter" />
         </ResourceDictionary>
-    </ContentPage.Resources>
+    </Application.Resources>
 
     <Grid RowDefinitions="Auto,*">
         <ScrollView Grid.Row="1">

@@ -21,15 +21,12 @@ namespace PFE.ViewModels
 
         private LeaveTypeItem? _selectedLeaveType;
 
-        private bool _useAllocation;
         private string _reason = string.Empty;
-        private int _totalAllocated;
-        private int _totalTaken;
-        private int _totalRemaining;
         private bool _isBusy;
         private string _errorMessage = string.Empty;
         private string _validationMessage = string.Empty;
         private bool _isAccessDenied;
+        private bool _hasOverlap;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -38,11 +35,6 @@ namespace PFE.ViewModels
             _odooClient = odooClient;
 
             SelectedRange = new CalendarDateRange(DateTime.Today, null);
-
-            RefreshCommand = new RelayCommand(
-                async _ => await RefreshTotalsAsync(),
-                _ => !IsBusy && AreDatesValid && IsEmployee
-            );
 
             SubmitCommand = new RelayCommand(
                 async _ => await SubmitAsync(),
@@ -77,7 +69,9 @@ namespace PFE.ViewModels
                     OnPropertyChanged(nameof(LeaveTypes));
             }
         }
+
         public Func<DateTime, bool>? SelectableDayPredicate { get; private set; }
+
         public LeaveTypeItem? SelectedLeaveType
         {
             get => _selectedLeaveType;
@@ -87,21 +81,8 @@ namespace PFE.ViewModels
                 {
                     OnPropertyChanged(nameof(SelectedLeaveType));
                     OnPropertyChanged(nameof(CanSubmit));
+                    UpdateValidationMessage();
                     (SubmitCommand as RelayCommand)?.RaiseCanExecuteChanged();
-                }
-            }
-        }
-
-        public bool UseAllocation
-        {
-            get => _useAllocation;
-            set
-            {
-                if (Set(ref _useAllocation, value))
-                {
-                    OnPropertyChanged(nameof(UseAllocation));
-                    ValidationMessage = string.Empty;
-                    _ = OnUseAllocationChangedAsync();
                 }
             }
         }
@@ -116,40 +97,6 @@ namespace PFE.ViewModels
             }
         }
 
-        public int TotalAllocated
-        {
-            get => _totalAllocated;
-            private set
-            {
-                if (Set(ref _totalAllocated, value))
-                    OnPropertyChanged(nameof(TotalAllocated));
-            }
-        }
-
-        public int TotalTaken
-        {
-            get => _totalTaken;
-            private set
-            {
-                if (Set(ref _totalTaken, value))
-                    OnPropertyChanged(nameof(TotalTaken));
-            }
-        }
-
-        public int TotalRemaining
-        {
-            get => _totalRemaining;
-            private set
-            {
-                if (Set(ref _totalRemaining, value))
-                {
-                    OnPropertyChanged(nameof(TotalRemaining));
-                    OnPropertyChanged(nameof(CanSubmit));
-                    (SubmitCommand as RelayCommand)?.RaiseCanExecuteChanged();
-                }
-            }
-        }
-
         public bool IsBusy
         {
             get => _isBusy;
@@ -158,7 +105,6 @@ namespace PFE.ViewModels
                 if (Set(ref _isBusy, value))
                 {
                     OnPropertyChanged(nameof(IsBusy));
-                    (RefreshCommand as RelayCommand)?.RaiseCanExecuteChanged();
                     (SubmitCommand as RelayCommand)?.RaiseCanExecuteChanged();
                     OnPropertyChanged(nameof(CanSubmit));
                 }
@@ -185,6 +131,20 @@ namespace PFE.ViewModels
             }
         }
 
+        public bool HasOverlap
+        {
+            get => _hasOverlap;
+            private set
+            {
+                if (Set(ref _hasOverlap, value))
+                {
+                    OnPropertyChanged(nameof(HasOverlap));
+                    OnPropertyChanged(nameof(CanSubmit));
+                    (SubmitCommand as RelayCommand)?.RaiseCanExecuteChanged();
+                }
+            }
+        }
+
         public bool IsAuthenticated => _odooClient.session.Current.IsAuthenticated;
         public bool IsEmployee => _odooClient.session.Current.IsAuthenticated && !_odooClient.session.Current.IsManager;
 
@@ -200,9 +160,13 @@ namespace PFE.ViewModels
 
         public bool AreDatesValid => SelectedRange?.StartDate != null && SelectedRange?.EndDate != null;
 
-        public bool CanSubmit => !IsBusy && AreDatesValid && SelectedLeaveType is not null && !(UseAllocation && TotalRemaining == 0);
+        public bool CanSubmit =>
+            !IsBusy &&
+            AreDatesValid &&
+            SelectedLeaveType is not null &&
+            !HasOverlap &&
+            !(SelectedLeaveType.RequiresAllocation && (SelectedLeaveType.Days ?? 0) <= 0);
 
-        public ICommand RefreshCommand { get; }
         public ICommand SubmitCommand { get; }
 
         public async Task LoadAsync()
@@ -217,45 +181,47 @@ namespace PFE.ViewModels
             }
 
             await LoadLeaveTypesAsync();
-            await RefreshTotalsAsync();
             await LoadBlockedDatesAsync();
-        }
-
-        private async Task OnUseAllocationChangedAsync()
-        {
-            await LoadLeaveTypesAsync();
-
-            if (UseAllocation && TotalRemaining == 0)
-            {
-                ValidationMessage = "Votre solde d'allocation est de 0.";
-            }
-
-            OnPropertyChanged(nameof(CanSubmit));
-            (SubmitCommand as RelayCommand)?.RaiseCanExecuteChanged();
         }
 
         private async Task OnDatesChangedAsync()
         {
-            (RefreshCommand as RelayCommand)?.RaiseCanExecuteChanged();
             (SubmitCommand as RelayCommand)?.RaiseCanExecuteChanged();
-
             ValidationMessage = string.Empty;
+            HasOverlap = false;
 
-            await RefreshTotalsAsync();
+            await LoadLeaveTypesAsync();
+            await CheckOverlapAsync();
 
-            if (UseAllocation)
-            {
-                await LoadLeaveTypesAsync();
-                if (TotalRemaining == 0)
-                {
-                    ValidationMessage = "Votre solde d'allocation est de 0.";
-                    return;
-                }
-
-            }
-
+            UpdateValidationMessage();
             OnPropertyChanged(nameof(CanSubmit));
             (SubmitCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        }
+
+        private async Task CheckOverlapAsync()
+        {
+            try
+            {
+                HasOverlap = await _odooClient.HasOverlappingLeaveAsync(
+                    SelectedRange!.StartDate!.Value,
+                    SelectedRange!.EndDate!.Value
+                );
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error CheckOverlapAsync: {ex.Message}");
+                HasOverlap = false;
+            }
+        }
+
+        private void UpdateValidationMessage()
+        {
+            if (SelectedLeaveType?.RequiresAllocation == true && (SelectedLeaveType.Days ?? 0) <= 0)
+                ValidationMessage = "Ce type de congé nécessite une allocation, mais vous n'avez plus de jours disponibles.";
+            else if (HasOverlap)
+                ValidationMessage = "Les dates sélectionnées chevauchent un congé existant.";
+            else
+                ValidationMessage = string.Empty;
         }
 
         private async Task LoadBlockedDatesAsync()
@@ -265,7 +231,7 @@ namespace PFE.ViewModels
                 IsBusy = true;
                 ErrorMessage = string.Empty;
 
-                List<Leave> leaves = await _odooClient.GetLeavesAsync(null, "confirm", "validate", "validate1", "refuse");
+                List<Leave> leaves = await _odooClient.GetLeavesAsync(null, "confirm", "validate", "validate1");
 
                 _blockedDatesSet.Clear();
 
@@ -284,7 +250,6 @@ namespace PFE.ViewModels
                 SelectableDayPredicate = date => !_blockedDatesSet.Contains(date.Date);
 
                 OnPropertyChanged(nameof(SelectableDayPredicate));
-
             }
             catch (Exception ex)
             {
@@ -305,28 +270,32 @@ namespace PFE.ViewModels
                 IsBusy = true;
                 ErrorMessage = string.Empty;
 
-                List<LeaveTypeItem> filtered = await _odooClient.GetLeaveTypesAsync(UseAllocation, SelectedRange?.StartDate!.Value.Year);
+                int? year = SelectedRange?.StartDate?.Year;
 
-                if (UseAllocation)
-                {
-                    List<LeaveTypeItem> updatedList = new();
-                    foreach (LeaveTypeItem leave in filtered)
-                    {
-                        (_, _, int remaining) = await _odooClient.GetNumberTimeOffAsync(
-                            yearRequested: SelectedRange?.StartDate!.Value.Year,
-                            idRequest: leave.Id);
+                List<LeaveTypeItem> typesWithoutAllocation = await _odooClient.GetLeaveTypesAsync(yearRequested: year);
 
-                        updatedList.Add(leave with { Name = $"{leave.Name} ({remaining} restants)" });
-                    }
-                    filtered = updatedList;
-                }
-                LeaveTypes = new ObservableCollection<LeaveTypeItem>(filtered);
-                SelectedLeaveType = LeaveTypes.FirstOrDefault();
+                List<AllocationSummary> allocations = await _odooClient.GetAllocationsSummaryAsync(year);
 
-                if (LeaveTypes.Count == 0)
-                {
-                    ErrorMessage = "Aucun type de congé disponible. Veuillez demander une allocation.";
-                }
+                List<LeaveTypeItem> typesWithAllocation = allocations
+                    .Select(a => new LeaveTypeItem(
+                        Id: a.LeaveTypeId,
+                        Name: $"{a.LeaveTypeName} ({a.TotalRemaining} restants sur {a.TotalAllocated})",
+                        RequiresAllocation: true,
+                        Days: a.TotalRemaining
+                    ))
+                    .ToList();
+
+                List<LeaveTypeItem> combinedTypes = typesWithAllocation
+                    .Concat(typesWithoutAllocation)
+                    .OrderBy(t => t.Name)
+                    .ThenBy(t => t.Id)
+                    .ToList();
+
+                LeaveTypes = new ObservableCollection<LeaveTypeItem>(combinedTypes);
+
+                SelectedLeaveType ??= LeaveTypes.FirstOrDefault();
+
+                UpdateValidationMessage();
             }
             catch (Exception ex)
             {
@@ -334,32 +303,6 @@ namespace PFE.ViewModels
                 System.Diagnostics.Debug.WriteLine($"Error LoadLeaveTypesAsync: {ex.Message}");
                 LeaveTypes = new ObservableCollection<LeaveTypeItem>();
                 SelectedLeaveType = null;
-            }
-            finally
-            {
-                IsBusy = false;
-            }
-        }
-
-        public async Task RefreshTotalsAsync()
-        {
-            try
-            {
-                IsBusy = true;
-                ErrorMessage = string.Empty;
-
-                (int allocated, int taken, int total) = await _odooClient.GetNumberTimeOffAsync(SelectedRange?.StartDate?.Year);
-                TotalAllocated = allocated;
-                TotalTaken = taken;
-                TotalRemaining = total;
-            }
-            catch (Exception ex)
-            {
-                ErrorMessage = "Impossible de rafraîchir les totaux de congés.";
-                System.Diagnostics.Debug.WriteLine($"Error RefreshTotalsAsync: {ex.Message}");
-                TotalAllocated = 0;
-                TotalTaken = 0;
-                TotalRemaining = 0;
             }
             finally
             {
@@ -384,7 +327,6 @@ namespace PFE.ViewModels
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Res SubmitAsync: {SelectedRange!.StartDate!.Value} - {SelectedRange!.EndDate!.Value}");
                 System.Diagnostics.Debug.WriteLine($"Error SubmitAsync: {ex.Message}");
                 return (false, null, "Impossible d'envoyer la demande de congé.");
             }

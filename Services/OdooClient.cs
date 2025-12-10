@@ -636,7 +636,7 @@ namespace PFE.Services
             return employeeId;
 
         }
-        private async Task<bool> HasOverlappingLeaveAsync(DateTime startDate, DateTime endDate)
+        public async Task<bool> HasOverlappingLeaveAsync(DateTime startDate, DateTime endDate)
         {
             EnsureAuthenticated();
 
@@ -646,7 +646,7 @@ namespace PFE.Services
             object[] domain =
             {
         new object[] { "employee_id", "=", session.Current.EmployeeId!.Value },
-        new object[] { "state", "not in", new object[] { "cancel", "refuse" } },
+        new object[] { "state", "not in", new object[] { "cancel", "refuse", "draft" } },
         new object[] { "request_date_from", "<=", end },
         new object[] { "request_date_to", ">=", start }
             };
@@ -737,7 +737,7 @@ namespace PFE.Services
             if (!root.TryGetProperty("result", out JsonElement resEl) || resEl.ValueKind != JsonValueKind.Array)
                 throw new Exception("Réponse Odoo inattendue : " + text);
 
-            var items = new List<LeaveTypeItem>();
+            List<LeaveTypeItem> items = new List<LeaveTypeItem>();
 
             foreach (JsonElement row in resEl.EnumerateArray())
             {
@@ -776,9 +776,9 @@ namespace PFE.Services
             return items;
         }
 
-        public async Task<List<LeaveTypeItem>> GetLeaveTypesAsync(bool requiredAllocation, int? yearRequested = null, int? idRequest = null)
+        public async Task<List<LeaveTypeItem>> GetLeaveTypesAsync(bool? requiredAllocation = null, int? yearRequested = null, int? idRequest = null)
         {
-            if (requiredAllocation)
+            if (requiredAllocation.HasValue)
             {
                 return await GetAllocationsAsync(yearRequested, idRequest);
             }
@@ -809,7 +809,6 @@ namespace PFE.Services
                 id = 2
             };
 
-
             HttpResponseMessage res = await _httpClient.PostAsync(_baseUrl, BuildJsonContent(payload));
             res.EnsureSuccessStatusCode();
             string text = await res.Content.ReadAsStringAsync();
@@ -825,7 +824,6 @@ namespace PFE.Services
 
                 if (!row.TryGetProperty("id", out JsonElement idEl) || idEl.ValueKind != JsonValueKind.Number) continue;
                 if (!row.TryGetProperty("name", out JsonElement nameEl) || nameEl.ValueKind != JsonValueKind.String) continue;
-
 
                 int id = idEl.GetInt32();
                 string name = nameEl.GetString()!;
@@ -886,7 +884,7 @@ namespace PFE.Services
             System.Diagnostics.Debug.WriteLine($"ALLOCATIONS : {text}");
         }
 
-        public async Task<(int totalAlloc, int totalLeaves, int totalRemaining)> GetNumberTimeOffAsync(int? yearRequested = null, int? idRequest = null)
+        public async Task<List<AllocationSummary>> GetAllocationsSummaryAsync(int? yearRequested = null, int? idRequest = null)
         {
             int year = yearRequested ?? DateTime.Today.Year;
 
@@ -895,22 +893,22 @@ namespace PFE.Services
 
             int employeeId = session.Current.EmployeeId!.Value;
 
-            List<LeaveTypeItem> types = await GetLeaveTypesAsync(true, yearRequested, idRequest);
+            List<LeaveTypeItem> types = await GetAllocationsAsync(yearRequested, idRequest);
             int[] typeIds = types.Select(t => t.Id).ToArray();
 
-            var domain = new List<object[]>
+            List<object[]> domain = new List<object[]>
             {
                 new object[] { "employee_id", "=", employeeId }
             };
 
             if (idRequest.HasValue)
             {
-                domain.Add(new object[] { "holiday_status_id", "=", idRequest });
+                domain.Add(new object[] { "holiday_status_id", "=", idRequest.Value });
             }
             else
             {
                 if (typeIds.Length == 0)
-                    return (0, 0, 0);
+                    return new List<AllocationSummary>();
 
                 domain.Add(new object[] { "holiday_status_id", "in", typeIds });
             }
@@ -923,7 +921,7 @@ namespace PFE.Services
                 {
                 domain.ToArray(),
                 new object[] { "number_of_days:sum" },
-                new object[] { }
+                new object[] { "holiday_status_id" }
             };
 
             var payloadLeaves = new
@@ -945,14 +943,43 @@ namespace PFE.Services
 
             string text = await res.Content.ReadAsStringAsync();
 
-            int totalAllocDays = types.Sum(t => t.Days ?? 0);
-            int totalLeaves = (int)Math.Round(SumReadGroupNumberOfDays(text));
-            int totalRemaining = totalAllocDays - totalLeaves;
+            using JsonDocument doc = JsonDocument.Parse(text);
+            JsonElement root = doc.RootElement;
 
-            return (totalAllocDays, totalLeaves, totalRemaining);
+            if (root.TryGetProperty("error", out JsonElement errEl))
+                throw new Exception("Erreur Odoo : " + errEl.ToString());
+
+            if (!root.TryGetProperty("result", out JsonElement resEl))
+                throw new Exception("Réponse Odoo inattendue : " + text);
+
+            Dictionary<int, double> takenByType = ParseLeavesByType(text);
+
+            List<AllocationSummary> summaries = new List<AllocationSummary>(types.Count);
+
+            foreach (LeaveTypeItem t in types)
+            {
+                int totalAllocated = t.Days ?? 0;
+
+                int totalTaken = takenByType.TryGetValue(t.Id, out var taken)
+                    ? (int)Math.Round(taken)
+                    : 0;
+
+                int totalRemaining = totalAllocated - totalTaken;
+
+                summaries.Add(new AllocationSummary(
+                    LeaveTypeId: t.Id,
+                    LeaveTypeName: t.Name,
+                    TotalAllocated: totalAllocated,
+                    TotalTaken: totalTaken,
+                    TotalRemaining: totalRemaining
+                ));
+            }
+
+            return summaries
+                    .OrderBy(s => s.LeaveTypeName)
+                    .ThenBy(s => s.LeaveTypeId)
+                    .ToList();
         }
-
-
 
         public async Task<int>
             CreateLeaveRequestAsync(

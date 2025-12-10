@@ -63,6 +63,7 @@ namespace PFE
             builder.Services.AddTransient<LeaveViewModel>();
             builder.Services.AddTransient<ManageLeavesViewModel>();
             builder.Services.AddTransient<LeaveRequestViewModel>();
+            builder.Services.AddTransient<CalendarViewModel>();
 
             builder.Services.AddTransient<LoginPage>();
             builder.Services.AddTransient<UserProfilePage>();
@@ -70,8 +71,8 @@ namespace PFE
             builder.Services.AddTransient<DashboardPage>();
             builder.Services.AddTransient<ManageLeavesPage>();
             builder.Services.AddTransient<LeaveRequestPage>();
+            builder.Services.AddTransient<CalendarPage>();
 
-            // App reçoit IServiceProvider pour gérer l'auto-login
             builder.Services.AddSingleton<App>(sp => new App(sp));
             builder.Services.AddTransient<Func<LoginPage>>(sp => () => sp.GetRequiredService<LoginPage>());
 

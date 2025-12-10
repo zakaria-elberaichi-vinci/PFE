@@ -6,12 +6,12 @@
              Title="Mes congés"
              BackgroundColor="#0F172A">
 
-    <ContentPage.Resources>
+    <Application.Resources>
         <ResourceDictionary>
             <conv:StatusColorConverter x:Key="StatusColorConverter" />
             <conv:StringNotEmptyConverter x:Key="StringNotEmptyConverter" />
         </ResourceDictionary>
-    </ContentPage.Resources>
+    </Application.Resources>
 
     <Grid RowDefinitions="Auto,*">
         <ScrollView Grid.Row="1">
