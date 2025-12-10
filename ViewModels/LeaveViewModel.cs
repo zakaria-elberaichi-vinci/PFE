@@ -133,7 +133,7 @@ namespace PFE.ViewModels
 
             int y = DateTime.Now.Year;
 
-            Years.Add(new YearItem { Label = "(Aucune)", Value = null });
+            Years.Add(new YearItem { Label = "(Toutes)", Value = null });
             Years.Add(new YearItem { Label = (y - 1).ToString(), Value = y - 1 });
             Years.Add(new YearItem { Label = y.ToString(), Value = y });
             Years.Add(new YearItem { Label = (y + 1).ToString(), Value = y + 1 });
