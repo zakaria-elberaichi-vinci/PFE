@@ -57,6 +57,7 @@ namespace PFE
             builder.Services.AddSingleton<ILeaveNotificationService, LeaveNotificationService>();
             builder.Services.AddSingleton<IBackgroundNotificationService, BackgroundNotificationService>();
             builder.Services.AddSingleton<IBackgroundLeaveStatusService, BackgroundLeaveStatusService>();
+            builder.Services.AddSingleton<ISyncService, SyncService>();
 
             builder.Services.AddTransient<AuthenticationViewModel>();
             builder.Services.AddTransient<UserProfileViewModel>();

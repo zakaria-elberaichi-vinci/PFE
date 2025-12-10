@@ -50,7 +50,41 @@ namespace PFE.Services
 
         #endregion
 
-        #region PendingLeaveRequest (Offline)
+        #region PendingLeaveDecision (Managers - Offline)
+
+        /// <summary>
+        /// Ajoute une décision de congé en attente de synchronisation
+        /// </summary>
+        Task<PendingLeaveDecision> AddPendingLeaveDecisionAsync(PendingLeaveDecision decision);
+
+        /// <summary>
+        /// Récupère toutes les décisions en attente pour un manager
+        /// </summary>
+        Task<List<PendingLeaveDecision>> GetPendingLeaveDecisionsAsync(int managerUserId);
+
+        /// <summary>
+        /// Récupère toutes les décisions non synchronisées
+        /// </summary>
+        Task<List<PendingLeaveDecision>> GetUnsyncedLeaveDecisionsAsync();
+
+        /// <summary>
+        /// Met à jour le statut de synchronisation d'une décision
+        /// </summary>
+        Task UpdateDecisionSyncStatusAsync(int decisionId, SyncStatus status, string? errorMessage = null);
+
+        /// <summary>
+        /// Supprime une décision (après sync réussie)
+        /// </summary>
+        Task DeletePendingLeaveDecisionAsync(int decisionId);
+
+        /// <summary>
+        /// Vérifie si une décision existe déjà pour un congé
+        /// </summary>
+        Task<bool> HasPendingDecisionForLeaveAsync(int leaveId);
+
+        #endregion
+
+        #region PendingLeaveRequest (Employés - Offline)
 
         /// <summary>
         /// Ajoute une demande de congé en attente de synchronisation

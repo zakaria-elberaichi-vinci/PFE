@@ -10,6 +10,7 @@ namespace PFE.ViewModels
         private readonly OdooClient _odooClient;
         private readonly IBackgroundNotificationService _backgroundNotificationService;
         private readonly IBackgroundLeaveStatusService _backgroundLeaveStatusService;
+        private readonly ISyncService _syncService;
 
         private string _login = string.Empty;
         private string _password = string.Empty;
@@ -21,11 +22,13 @@ namespace PFE.ViewModels
         public AuthenticationViewModel(
             OdooClient odooClient,
             IBackgroundNotificationService backgroundNotificationService,
-            IBackgroundLeaveStatusService backgroundLeaveStatusService)
+            IBackgroundLeaveStatusService backgroundLeaveStatusService,
+            ISyncService syncService)
         {
             _odooClient = odooClient;
             _backgroundNotificationService = backgroundNotificationService;
             _backgroundLeaveStatusService = backgroundLeaveStatusService;
+            _syncService = syncService;
             LoadRememberedCredentials();
             LoginCommand = new RelayCommand(async _ => await LoginAsync(), _ => !IsBusy);
         }
@@ -80,6 +83,9 @@ namespace PFE.ViewModels
                 {
                     // Toujours sauvegarder les credentials (RememberMe activé par défaut)
                     await PersistCredentialsAsync();
+
+                    // Démarrer le service de synchronisation
+                    _syncService.Start();
 
                     // Démarrer le service approprié selon le rôle
                     if (_odooClient.session.Current.IsManager)

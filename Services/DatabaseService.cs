@@ -36,6 +36,7 @@ namespace PFE.Services
                 await _database.CreateTableAsync<SeenLeaveNotification>();
                 await _database.CreateTableAsync<NotifiedLeaveStatusChange>();
                 await _database.CreateTableAsync<PendingLeaveRequest>();
+                await _database.CreateTableAsync<PendingLeaveDecision>();
                 await _database.CreateTableAsync<UserSession>();
 
                 _isInitialized = true;
@@ -140,7 +141,74 @@ namespace PFE.Services
 
         #endregion
 
-        #region PendingLeaveRequest (Offline)
+        #region PendingLeaveDecision (Managers - Offline)
+
+        public async Task<PendingLeaveDecision> AddPendingLeaveDecisionAsync(PendingLeaveDecision decision)
+        {
+            SQLiteAsyncConnection db = await GetDatabaseAsync();
+            decision.DecisionDate = DateTime.UtcNow;
+            decision.SyncStatus = SyncStatus.Pending;
+            await db.InsertAsync(decision);
+            System.Diagnostics.Debug.WriteLine($"DatabaseService: Décision {decision.DecisionType} ajoutée pour congé {decision.LeaveId} (ID local: {decision.Id})");
+            return decision;
+        }
+
+        public async Task<List<PendingLeaveDecision>> GetPendingLeaveDecisionsAsync(int managerUserId)
+        {
+            SQLiteAsyncConnection db = await GetDatabaseAsync();
+            return await db.Table<PendingLeaveDecision>()
+                .Where(x => x.ManagerUserId == managerUserId)
+                .OrderByDescending(x => x.DecisionDate)
+                .ToListAsync();
+        }
+
+        public async Task<List<PendingLeaveDecision>> GetUnsyncedLeaveDecisionsAsync()
+        {
+            SQLiteAsyncConnection db = await GetDatabaseAsync();
+            return await db.Table<PendingLeaveDecision>()
+                .Where(x => x.SyncStatus == SyncStatus.Pending || x.SyncStatus == SyncStatus.Failed)
+                .OrderBy(x => x.DecisionDate)
+                .ToListAsync();
+        }
+
+        public async Task UpdateDecisionSyncStatusAsync(int decisionId, SyncStatus status, string? errorMessage = null)
+        {
+            SQLiteAsyncConnection db = await GetDatabaseAsync();
+            PendingLeaveDecision? decision = await db.Table<PendingLeaveDecision>()
+                .Where(x => x.Id == decisionId)
+                .FirstOrDefaultAsync();
+
+            if (decision != null)
+            {
+                decision.SyncStatus = status;
+                decision.SyncErrorMessage = errorMessage;
+                decision.LastSyncAttempt = DateTime.UtcNow;
+                decision.SyncAttempts++;
+
+                await db.UpdateAsync(decision);
+                System.Diagnostics.Debug.WriteLine($"DatabaseService: Statut sync mis à jour pour décision {decisionId}: {status}");
+            }
+        }
+
+        public async Task DeletePendingLeaveDecisionAsync(int decisionId)
+        {
+            SQLiteAsyncConnection db = await GetDatabaseAsync();
+            await db.DeleteAsync<PendingLeaveDecision>(decisionId);
+            System.Diagnostics.Debug.WriteLine($"DatabaseService: Décision {decisionId} supprimée");
+        }
+
+        public async Task<bool> HasPendingDecisionForLeaveAsync(int leaveId)
+        {
+            SQLiteAsyncConnection db = await GetDatabaseAsync();
+            int count = await db.Table<PendingLeaveDecision>()
+                .Where(x => x.LeaveId == leaveId && (x.SyncStatus == SyncStatus.Pending || x.SyncStatus == SyncStatus.Failed))
+                .CountAsync();
+            return count > 0;
+        }
+
+        #endregion
+
+        #region PendingLeaveRequest (Employés - Offline)
 
         public async Task<PendingLeaveRequest> AddPendingLeaveRequestAsync(PendingLeaveRequest request)
         {

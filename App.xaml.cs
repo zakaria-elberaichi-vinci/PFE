@@ -83,7 +83,11 @@ public partial class App : Application
             {
                 System.Diagnostics.Debug.WriteLine("AutoLogin: Connexion réussie !");
 
-                // Démarrer les services de notification appropriés
+                // Démarrer le service de synchronisation (pour tous les utilisateurs)
+                ISyncService syncService = _services.GetRequiredService<ISyncService>();
+                syncService.Start();
+
+                // Démarrer les services de notification appropriés selon le rôle
                 if (odooClient.session.Current.IsManager)
                 {
                     IBackgroundNotificationService notifService = _services.GetRequiredService<IBackgroundNotificationService>();
