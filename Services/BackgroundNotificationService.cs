@@ -22,6 +22,7 @@ namespace PFE.Services
         private CancellationTokenSource? _cts;
         private Task? _pollingTask;
         private readonly TimeSpan _pollingInterval = TimeSpan.FromSeconds(5);
+        private int _notificationId = 1000;
 
         public bool IsRunning => _pollingTask != null && !_pollingTask.IsCompleted;
 

@@ -1,5 +1,4 @@
-﻿
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
@@ -158,9 +157,21 @@ namespace PFE.ViewModels
                     return;
                 }
 
+                // Toujours initialiser l'employeeId depuis la session (fonctionne aussi en mode offline restauré)
                 if (_odooClient.session.Current.EmployeeId.HasValue)
                 {
                     _employeeId = _odooClient.session.Current.EmployeeId.Value;
+                }
+                
+                // Si toujours pas d'employeeId, essayer de le récupérer depuis la dernière session sauvegardée
+                if (_employeeId <= 0)
+                {
+                    var savedSession = await _databaseService.GetLastActiveSessionAsync();
+                    if (savedSession?.EmployeeId != null)
+                    {
+                        _employeeId = savedSession.EmployeeId.Value;
+                        System.Diagnostics.Debug.WriteLine($"[LeaveViewModel] EmployeeId récupéré depuis la session DB: {_employeeId}");
+                    }
                 }
 
                 if (IsOffline)
