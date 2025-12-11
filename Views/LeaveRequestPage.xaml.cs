@@ -14,6 +14,21 @@ namespace PFE.Views
             _vm = vm;
             BindingContext = _vm;
             _sp = sp;
+
+            // S'abonner à l'événement de synchronisation réussie
+            _vm.SyncCompleted += OnSyncCompleted;
+        }
+
+        private async void OnSyncCompleted(object? sender, int syncedCount)
+        {
+            await MainThread.InvokeOnMainThreadAsync(async () =>
+            {
+                string message = syncedCount == 1
+                    ? "Votre demande de congé hors-ligne a été synchronisée avec succès !"
+                    : $"{syncedCount} demandes de congé hors-ligne ont été synchronisées avec succès !";
+
+                await DisplayAlert("✓ Synchronisation réussie", message, "OK");
+            });
         }
 
         protected override async void OnAppearing()

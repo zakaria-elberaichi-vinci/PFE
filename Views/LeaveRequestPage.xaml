@@ -40,14 +40,40 @@
                         </HorizontalStackLayout>
                     </Frame>
 
-                    <!-- Message de synchronisation en cours -->
-                    <Frame IsVisible="{Binding IsSyncing}"
+                    <!-- Indicateur de demandes en attente de synchronisation -->
+                    <Frame IsVisible="{Binding HasPendingRequests}"
                            Padding="12"
                            BackgroundColor="#FFA500"
                            CornerRadius="8"
                            HasShadow="False"
                            Margin="0,0,0,5">
-                        <HorizontalStackLayout Spacing="10">
+                        <HorizontalStackLayout Spacing="10"
+                                               HorizontalOptions="Center">
+                            <ActivityIndicator IsRunning="True"
+                                               Color="White"
+                                               WidthRequest="20"
+                                               HeightRequest="20" />
+                            <Label TextColor="White"
+                                   FontSize="14"
+                                   FontAttributes="Bold"
+                                   VerticalOptions="Center">
+                                <Label.Text>
+                                    <Binding Path="PendingRequestsCount" 
+                                             StringFormat="⏳ {0} demande(s) en attente de synchronisation" />
+                                </Label.Text>
+                            </Label>
+                        </HorizontalStackLayout>
+                    </Frame>
+
+                    <!-- Message de synchronisation en cours -->
+                    <Frame IsVisible="{Binding IsSyncing}"
+                           Padding="12"
+                           BackgroundColor="#3B82F6"
+                           CornerRadius="8"
+                           HasShadow="False"
+                           Margin="0,0,0,5">
+                        <HorizontalStackLayout Spacing="10"
+                                               HorizontalOptions="Center">
                             <ActivityIndicator IsRunning="True"
                                                Color="White"
                                                WidthRequest="20"
@@ -60,10 +86,10 @@
                         </HorizontalStackLayout>
                     </Frame>
 
-                    <!-- Message de statut de synchronisation -->
+                    <!-- Message de statut de synchronisation (succès) -->
                     <Frame IsVisible="{Binding ShowSyncStatus}"
                            Padding="12"
-                           BackgroundColor="#2E7D32"
+                           BackgroundColor="#22C55E"
                            CornerRadius="8"
                            HasShadow="False"
                            Margin="0,0,0,5">
@@ -73,6 +99,7 @@
                                FontAttributes="Bold"
                                HorizontalTextAlignment="Center" />
                     </Frame>
+
                     <Label Text="Formulaire pour demander un congé"
                            FontSize="16" />
 
