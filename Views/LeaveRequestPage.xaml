@@ -120,11 +120,15 @@
 
                     <VerticalStackLayout Spacing="6"
                                          IsVisible="{Binding LeaveTypes.Count, Converter={StaticResource IntToBoolConverter}}">
-                        <Label Text="Type de congé" />
+                        <Label Text="Type de congé"
+                               TextColor="White" />
                         <Picker ItemsSource="{Binding LeaveTypes}"
                                 ItemDisplayBinding="{Binding Name}"
                                 SelectedItem="{Binding SelectedLeaveType, Mode=TwoWay}"
-                                Title="Choisissez un type de congé" />
+                                Title="Choisissez un type de congé"
+                                TextColor="White"
+                                TitleColor="#9CA3AF"
+                                BackgroundColor="#020617" />
                     </VerticalStackLayout>
 
                     <VerticalStackLayout Spacing="6">

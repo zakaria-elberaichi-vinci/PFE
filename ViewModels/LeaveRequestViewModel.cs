@@ -404,6 +404,7 @@ namespace PFE.ViewModels
 
                         List<AllocationSummary> allocations = await _odooClient.GetAllocationsSummaryAsync();
 
+                        // Types avec allocation - triés par jours restants décroissant
                         List<LeaveTypeItem> typesWithAllocation = allocations
                             .Select(a => new LeaveTypeItem(
                                 Id: a.LeaveTypeId,
@@ -411,13 +412,11 @@ namespace PFE.ViewModels
                                 RequiresAllocation: true,
                                 Days: a.TotalRemaining
                             ))
+                            .OrderByDescending(t => t.Days ?? 0)
                             .ToList();
 
-                        List<LeaveTypeItem> combinedTypes = typesWithAllocation
-                            .Concat(typesWithoutAllocation)
-                            .OrderBy(t => t.Name)
-                            .ThenBy(t => t.Id)
-                            .ToList();
+                        // Ne garder que les types avec allocation (les autres ne sont pas sélectionnables)
+                        List<LeaveTypeItem> combinedTypes = typesWithAllocation;
 
                         // Sauvegarder les types combinés dans la base de données
                         await _databaseService.SaveLeaveTypesAsync(_employeeId, combinedTypes);
