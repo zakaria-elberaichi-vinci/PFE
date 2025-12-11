@@ -22,6 +22,7 @@ namespace PFE.Services
         private Task? _pollingTask;
         private readonly TimeSpan _pollingInterval = TimeSpan.FromSeconds(5);
         private bool _isFirstSync = true;
+        private int _notificationId;
 
         public bool IsRunning => _pollingTask != null && !_pollingTask.IsCompleted;
 

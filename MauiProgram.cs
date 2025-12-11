@@ -69,6 +69,7 @@ namespace PFE
             builder.Services.AddTransient<ManageLeavesViewModel>();
             builder.Services.AddTransient<LeaveRequestViewModel>();
             builder.Services.AddTransient<CalendarViewModel>();
+            builder.Services.AddTransient<LeaveViewModel>();
 
             builder.Services.AddTransient<LoginPage>();
             builder.Services.AddTransient<UserProfilePage>();
@@ -76,6 +77,7 @@ namespace PFE
             builder.Services.AddTransient<ManageLeavesPage>();
             builder.Services.AddTransient<LeaveRequestPage>();
             builder.Services.AddTransient<CalendarPage>();
+            builder.Services.AddTransient<LeavesPage>();
 
             builder.Services.AddSingleton<App>(sp => new App(sp));
             builder.Services.AddTransient<Func<LoginPage>>(sp => () => sp.GetRequiredService<LoginPage>());
