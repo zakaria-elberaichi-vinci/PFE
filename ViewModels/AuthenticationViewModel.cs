@@ -78,10 +78,7 @@ namespace PFE.ViewModels
 
                 if (success)
                 {
-                    // Toujours sauvegarder les credentials (RememberMe activé par défaut)
                     await PersistCredentialsAsync();
-
-                    // Démarrer le service approprié selon le rôle
                     if (_odooClient.session.Current.IsManager)
                     {
                         _backgroundNotificationService.Start();
@@ -114,7 +111,6 @@ namespace PFE.ViewModels
 
         private async void LoadRememberedCredentials()
         {
-            // Charger les credentials si disponibles
             Login = Preferences.Get(LoginKey, string.Empty);
 
             try
@@ -127,13 +123,11 @@ namespace PFE.ViewModels
             }
             catch
             {
-                // Ignorer les erreurs de SecureStorage
             }
         }
 
         private async Task PersistCredentialsAsync()
         {
-            // Toujours sauvegarder (RememberMe toujours activé)
             Preferences.Set(RememberMeKey, true);
             Preferences.Set(LoginKey, Login);
 
@@ -143,7 +137,6 @@ namespace PFE.ViewModels
             }
             catch
             {
-                // Ignorer les erreurs de SecureStorage
             }
         }
 

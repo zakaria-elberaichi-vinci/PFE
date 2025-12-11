@@ -1,9 +1,9 @@
-﻿using PFE.Services;
+﻿using System.Globalization;
+using System.Resources;
+using PFE.Services;
 using PFE.Views;
 using Plugin.LocalNotification;
 using Syncfusion.Maui.Scheduler;
-using System.Globalization;
-using System.Resources;
 
 namespace PFE;
 
@@ -20,8 +20,6 @@ public partial class App : Application
         SfSchedulerResources.ResourceManager = new ResourceManager("PFE.Resources.SfScheduler", typeof(App).Assembly);
 
         _services = services;
-
-        // Page de chargement temporaire pendant la vérification auto-login
         MainPage = new ContentPage
         {
             BackgroundColor = Color.FromArgb("#0F172A"),
@@ -39,22 +37,16 @@ public partial class App : Application
     protected override async void OnStart()
     {
         base.OnStart();
-
-        // Demander la permission de notification au démarrage (Android 13+)
         _ = RequestNotificationPermissionAsync();
-
-        // Tenter la reconnexion automatique
         bool autoLoginSuccess = await TryAutoLoginAsync();
 
         if (autoLoginSuccess)
         {
-            // Aller directement au Dashboard
             DashboardPage dashboardPage = _services.GetRequiredService<DashboardPage>();
             MainPage = new NavigationPage(dashboardPage);
         }
         else
         {
-            // Aller à la page de login
             LoginPage loginPage = _services.GetRequiredService<LoginPage>();
             MainPage = new NavigationPage(loginPage);
         }
@@ -64,7 +56,6 @@ public partial class App : Application
     {
         try
         {
-            // Vérifier si "Se souvenir" est activé
             bool rememberMe = Preferences.Get("auth.rememberme", false);
             if (!rememberMe)
             {
@@ -72,7 +63,6 @@ public partial class App : Application
                 return false;
             }
 
-            // Récupérer les credentials
             string login = Preferences.Get("auth.login", string.Empty);
             string? password = await SecureStorage.GetAsync("auth.password");
 
@@ -83,16 +73,12 @@ public partial class App : Application
             }
 
             System.Diagnostics.Debug.WriteLine($"AutoLogin: Tentative de connexion pour {login}");
-
-            // Tenter la connexion
             OdooClient odooClient = _services.GetRequiredService<OdooClient>();
             bool success = await odooClient.LoginAsync(login, password);
 
             if (success)
             {
                 System.Diagnostics.Debug.WriteLine("AutoLogin: Connexion réussie !");
-
-                // Démarrer les services de notification appropriés
                 if (odooClient.session.Current.IsManager)
                 {
                     IBackgroundNotificationService notifService = _services.GetRequiredService<IBackgroundNotificationService>();
@@ -109,7 +95,6 @@ public partial class App : Application
             else
             {
                 System.Diagnostics.Debug.WriteLine("AutoLogin: Échec de connexion (credentials invalides ou expirés)");
-                // Nettoyer les credentials invalides
                 Preferences.Remove("auth.login");
                 _ = SecureStorage.Remove("auth.password");
                 return false;
@@ -127,7 +112,6 @@ public partial class App : Application
 #if ANDROID || IOS || MACCATALYST
         try
         {
-            // Attendre un peu que l'app soit complètement chargée
             await Task.Delay(1000);
 
             bool isEnabled = await LocalNotificationCenter.Current.AreNotificationsEnabled();

@@ -238,7 +238,7 @@ namespace PFE.ViewModels
                 IsBusy = true;
                 ErrorMessage = string.Empty;
 
-                List<Leave> leaves = await _odooClient.GetLeavesAsync(null, "confirm", "validate", "validate1");
+                List<Leave> leaves = await _odooClient.GetLeavesAsync("confirm", "validate", "validate1");
 
                 _blockedDatesSet.Clear();
 
@@ -252,9 +252,6 @@ namespace PFE.ViewModels
                         _ = _blockedDatesSet.Add(day);
                     }
                 }
-
-                string format = "dd/MM/yyyy";
-                System.Diagnostics.Debug.WriteLine($"RES blockedDates: {string.Join(',', _blockedDatesSet.Select(d => d.ToString(format)))}");
 
                 SelectableDayPredicate = date => !_blockedDatesSet.Contains(date.Date);
 
@@ -279,11 +276,9 @@ namespace PFE.ViewModels
                 IsBusy = true;
                 ErrorMessage = string.Empty;
 
-                int? year = SelectedRange?.StartDate?.Year;
+                List<LeaveTypeItem> typesWithoutAllocation = await _odooClient.GetLeaveTypesAsync();
 
-                List<LeaveTypeItem> typesWithoutAllocation = await _odooClient.GetLeaveTypesAsync(yearRequested: year);
-
-                List<AllocationSummary> allocations = await _odooClient.GetAllocationsSummaryAsync(year);
+                List<AllocationSummary> allocations = await _odooClient.GetAllocationsSummaryAsync();
 
                 List<LeaveTypeItem> typesWithAllocation = allocations
                     .Select(a => new LeaveTypeItem(

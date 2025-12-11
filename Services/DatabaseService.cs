@@ -3,9 +3,6 @@ using SQLite;
 
 namespace PFE.Services
 {
-    /// <summary>
-    /// Service de base de données SQLite locale
-    /// </summary>
     public class DatabaseService : IDatabaseService
     {
         private SQLiteAsyncConnection? _database;
@@ -17,10 +14,6 @@ namespace PFE.Services
         {
             _dbPath = Path.Combine(FileSystem.AppDataDirectory, "pfe_local.db3");
         }
-
-        /// <summary>
-        /// Initialise la base de données et crée les tables si nécessaire
-        /// </summary>
         public async Task InitializeAsync()
         {
             if (_isInitialized)
@@ -37,8 +30,6 @@ namespace PFE.Services
                 }
 
                 _database = new SQLiteAsyncConnection(_dbPath, SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create | SQLiteOpenFlags.SharedCache);
-
-                // Créer les tables
                 _ = await _database.CreateTableAsync<SeenLeaveNotification>();
                 _ = await _database.CreateTableAsync<NotifiedLeaveStatusChange>();
                 _ = await _database.CreateTableAsync<PendingLeaveRequest>();
@@ -59,6 +50,7 @@ namespace PFE.Services
             {
                 await InitializeAsync();
             }
+
             return _database!;
         }
 
@@ -77,8 +69,6 @@ namespace PFE.Services
         public async Task MarkLeaveAsNotifiedAsync(int employeeId, int leaveId, string status)
         {
             SQLiteAsyncConnection db = await GetDatabaseAsync();
-
-            // Vérifier si déjà notifié
             NotifiedLeaveStatusChange? existing = await db.Table<NotifiedLeaveStatusChange>()
                 .Where(x => x.EmployeeId == employeeId && x.LeaveId == leaveId && x.NotifiedStatus == status)
                 .FirstOrDefaultAsync();
@@ -203,7 +193,6 @@ namespace PFE.Services
         public async Task CleanupSyncedRequestsAsync()
         {
             SQLiteAsyncConnection db = await GetDatabaseAsync();
-            // Supprimer les demandes synchronisées avec succès depuis plus de 7 jours
             DateTime threshold = DateTime.UtcNow.AddDays(-7);
             _ = await db.ExecuteAsync(
                 "DELETE FROM pending_leave_requests WHERE SyncStatus = ? AND LastSyncAttempt < ?",

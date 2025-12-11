@@ -40,8 +40,8 @@
                                TextColor="White" />
 
                         <Button Text="Voir mes congés"
-                                x:Name="BtnLeaves"
-                                BackgroundColor="#22C55E"
+                                x:Name="BtnCalendar"
+                                BackgroundColor="#0EA5E9"
                                 TextColor="White"
                                 CornerRadius="12"
                                 HeightRequest="48"
@@ -51,15 +51,6 @@
                         <Button Text="Rentrer une demande de congé"
                                 x:Name="BtnNewLeave"
                                 BackgroundColor="#3B82F6"
-                                TextColor="White"
-                                CornerRadius="12"
-                                HeightRequest="48"
-                                FontSize="14"
-                                IsVisible="False" />
-
-                        <Button Text="Voir le calendrier"
-                                x:Name="BtnCalendar"
-                                BackgroundColor="#0EA5E9"
                                 TextColor="White"
                                 CornerRadius="12"
                                 HeightRequest="48"

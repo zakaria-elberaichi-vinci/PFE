@@ -100,11 +100,11 @@ namespace PFE.Helpers
                         sum = nod.GetDouble();
                     }
                 }
+
                 result[typeId.Value] = sum;
             }
 
             return result;
         }
-
     }
 }

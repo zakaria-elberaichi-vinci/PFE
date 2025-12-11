@@ -1,4 +1,5 @@
 ﻿using System.Net;
+using DotNetEnv;
 using Microsoft.Extensions.Logging;
 using PFE.Context;
 using PFE.Services;
@@ -15,7 +16,10 @@ namespace PFE
         [Obsolete]
         public static MauiApp CreateMauiApp()
         {
-            SyncfusionLicenseProvider.RegisterLicense("Ngo9BigBOggjGyl/Vkd+XU9FcVRDQmtWfFN0Q3NYflRxfV9DZ0wgOX1dQl9mSHxTf0RiW3pfdndUR2hXUkU=");
+            Env.Load();
+            string synfusionKey = Env.GetString("SYNCFUSION_LICENSE_KEY");
+            SyncfusionLicenseProvider.RegisterLicense(synfusionKey);
+
             MauiAppBuilder builder = MauiApp.CreateBuilder();
             builder
                 .ConfigureSyncfusionCore()
@@ -26,8 +30,6 @@ namespace PFE
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                     fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
                 });
-
-            // Database Service (SQLite)
             builder.Services.AddSingleton<IDatabaseService, DatabaseService>();
 
             builder.Services.AddSingleton(new CookieContainer());
@@ -61,14 +63,12 @@ namespace PFE
 
             builder.Services.AddTransient<AuthenticationViewModel>();
             builder.Services.AddTransient<UserProfileViewModel>();
-            builder.Services.AddTransient<LeaveViewModel>();
             builder.Services.AddTransient<ManageLeavesViewModel>();
             builder.Services.AddTransient<LeaveRequestViewModel>();
             builder.Services.AddTransient<CalendarViewModel>();
 
             builder.Services.AddTransient<LoginPage>();
             builder.Services.AddTransient<UserProfilePage>();
-            builder.Services.AddTransient<LeavesPage>();
             builder.Services.AddTransient<DashboardPage>();
             builder.Services.AddTransient<ManageLeavesPage>();
             builder.Services.AddTransient<LeaveRequestPage>();

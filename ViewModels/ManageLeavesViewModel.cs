@@ -44,15 +44,7 @@ namespace PFE.ViewModels
         private int ManagerUserId => _odoo.session.Current.UserId ?? 0;
 
         public ObservableCollection<LeaveToApprove> Leaves { get; }
-
-        /// <summary>
-        /// Liste des nouvelles demandes détectées (non encore vues)
-        /// </summary>
         public List<LeaveToApprove> NewLeaves { get; private set; } = [];
-
-        /// <summary>
-        /// Indique s'il y a de nouvelles demandes
-        /// </summary>
         public bool HasNewLeaves => NewLeaves.Count > 0;
 
         public bool IsBusy
@@ -113,12 +105,8 @@ namespace PFE.ViewModels
                 }
 
                 List<LeaveToApprove> list = await _odoo.GetLeavesToApproveAsync();
-
-                // Détecter les nouvelles demandes
                 HashSet<int> seenIds = await _notificationService.GetSeenLeaveIdsAsync(ManagerUserId);
                 NewLeaves = list.Where(l => !seenIds.Contains(l.Id)).ToList();
-
-                // Marquer toutes les demandes actuelles comme vues
                 await _notificationService.MarkLeavesAsSeenAsync(ManagerUserId, list.Select(l => l.Id));
 
                 Leaves.Clear();
@@ -203,8 +191,6 @@ namespace PFE.ViewModels
         private async Task ReloadAfterChangeAsync()
         {
             List<LeaveToApprove> list = await _odoo.GetLeavesToApproveAsync();
-
-            // Marquer comme vues
             await _notificationService.MarkLeavesAsSeenAsync(ManagerUserId, list.Select(l => l.Id));
 
             Leaves.Clear();

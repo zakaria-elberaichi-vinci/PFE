@@ -14,36 +14,19 @@ namespace PFE.ViewModels
         private readonly OdooClient _odooClient;
         private bool _isBusy;
         private string _errorMessage = string.Empty;
-        private int _selectedYear;
 
         private int _totalAllocated;
         private int _totalTaken;
         private int _totalRemaining;
-        private DateTime? _selectedDate;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
         public CalendarViewModel(OdooClient odooClient)
         {
             _odooClient = odooClient;
-            _selectedYear = DateTime.Today.Year;
             Appointments = [];
 
             RefreshCommand = new RelayCommand(async _ => await LoadAsync(), _ => !IsBusy);
-        }
-
-        public int SelectedYear
-        {
-            get => _selectedYear;
-            set
-            {
-                if (_selectedYear != value)
-                {
-                    _selectedYear = value;
-                    OnPropertyChanged();
-                    _ = LoadAsync();
-                }
-            }
         }
 
         public int TotalAllocated
@@ -83,19 +66,6 @@ namespace PFE.ViewModels
             private set { _errorMessage = value; OnPropertyChanged(); }
         }
 
-        public DateTime? SelectedDate
-        {
-            get => _selectedDate;
-            set
-            {
-                if (_selectedDate != value)
-                {
-                    _selectedDate = value;
-                    OnPropertyChanged();
-                }
-            }
-        }
-
         public bool IsEmployee => _odooClient.session.Current.IsAuthenticated && !_odooClient.session.Current.IsManager;
 
         public ICommand RefreshCommand { get; }
@@ -122,13 +92,13 @@ namespace PFE.ViewModels
                     return;
                 }
 
-                List<AllocationSummary> summaries = await _odooClient.GetAllocationsSummaryAsync(SelectedYear);
+                List<AllocationSummary> summaries = await _odooClient.GetAllocationsSummaryAsync();
 
                 TotalAllocated = summaries.Sum(s => s.TotalAllocated);
                 TotalTaken = summaries.Sum(s => s.TotalTaken);
                 TotalRemaining = summaries.Sum(s => s.TotalRemaining);
 
-                List<Leave> leaves = await _odooClient.GetLeavesAsync(SelectedYear);
+                List<Leave> leaves = await _odooClient.GetLeavesAsync();
 
                 Appointments.Clear();
 
@@ -137,6 +107,9 @@ namespace PFE.ViewModels
                     string colorHex = LeaveTypeHelper.GetColorHex(leave.Type);
                     Brush background = new SolidColorBrush(Color.FromArgb(colorHex));
 
+                    string notes = $"Statut: {leave.Status}\n" +
+                                   (leave.FirstApprover != null ? $"Approbateur: {leave.FirstApprover}\n" : "");
+
                     Appointments.Add(new SchedulerAppointment
                     {
                         Subject = $"{leave.Type} : {leave.Days} {(leave.Days > 1 ? "jours" : "jour")}",
@@ -144,7 +117,7 @@ namespace PFE.ViewModels
                         EndTime = leave.EndDate,
                         IsAllDay = true,
                         Background = background,
-                        Notes = leave.Status,
+                        Notes = notes,
                     });
                 }
             }

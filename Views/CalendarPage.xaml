@@ -114,9 +114,7 @@
                                    FirstDayOfWeek="Monday"
                                    BackgroundColor="#111827"
                                    AllowedViews="Week,Month"
-                                   SelectedDate="{Binding SelectedDate, Mode=TwoWay}"
                                    AppointmentsSource="{Binding Appointments}"
-                                   ViewChanged="OnSchedulerViewChanged"
                                    Tapped="OnSchedulerTapped"
                                    ShowBusyIndicator="{Binding IsBusy}">
 

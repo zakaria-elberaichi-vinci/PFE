@@ -13,12 +13,6 @@ namespace PFE.Services
         void Stop();
         bool IsRunning { get; }
     }
-
-    /// <summary>
-    /// Service de notification pour les employés : notifie quand un congé est validé ou refusé.
-    /// Logique simple : si un congé a le statut "Validé" ou "Refusé" et qu'on n'a pas encore
-    /// envoyé de notification pour ce congé+statut, on envoie la notification.
-    /// </summary>
     public class BackgroundLeaveStatusService : IBackgroundLeaveStatusService
     {
         private readonly OdooClient _odooClient;
@@ -27,9 +21,6 @@ namespace PFE.Services
         private CancellationTokenSource? _cts;
         private Task? _pollingTask;
         private readonly TimeSpan _pollingInterval = TimeSpan.FromSeconds(5);
-        private int _notificationId = 500;
-
-        // Flag pour savoir si c'est la première synchronisation de cette session
         private bool _isFirstSync = true;
 
         public bool IsRunning => _pollingTask != null && !_pollingTask.IsCompleted;
@@ -51,13 +42,11 @@ namespace PFE.Services
                 return;
             }
 
-            // Seulement pour les employés (non-managers)
             if (!_session.Current.IsAuthenticated || _session.Current.IsManager)
             {
                 return;
             }
 
-            // Réinitialiser le flag
             _isFirstSync = true;
 
             _cts = new CancellationTokenSource();
@@ -78,7 +67,6 @@ namespace PFE.Services
 
         private async Task PollForStatusChangesAsync(CancellationToken cancellationToken)
         {
-            // Initialiser la base de données
             await _databaseService.InitializeAsync();
 
             while (!cancellationToken.IsCancellationRequested)
@@ -119,17 +107,9 @@ namespace PFE.Services
 
             try
             {
-                // Récupérer tous les congés de l'employé depuis Odoo
                 List<Leave> leaves = await _odooClient.GetLeavesAsync();
-
-                // Récupérer les congés déjà notifiés comme "validé"
                 HashSet<int> notifiedAsApproved = await _databaseService.GetNotifiedLeaveIdsAsync(employeeId, "approved");
-
-                // Récupérer les congés déjà notifiés comme "refusé"
                 HashSet<int> notifiedAsRefused = await _databaseService.GetNotifiedLeaveIdsAsync(employeeId, "refused");
-
-                // Première synchronisation : marquer tous les congés existants comme déjà notifiés
-                // pour ne pas spammer l'utilisateur avec des anciennes notifications
                 if (_isFirstSync)
                 {
                     System.Diagnostics.Debug.WriteLine("BackgroundLeaveStatusService: Première sync - initialisation des congés existants");
@@ -142,15 +122,12 @@ namespace PFE.Services
                         }
 
                         string status = leave.Status;
-
-                        // Marquer les congés validés comme déjà notifiés
                         if ((status == "Validé par le RH" || status == "Validé par le manager")
                             && !notifiedAsApproved.Contains(leave.Id))
                         {
                             await _databaseService.MarkLeaveAsNotifiedAsync(employeeId, leave.Id, "approved");
                             System.Diagnostics.Debug.WriteLine($"Init: Congé {leave.Id} marqué comme notifié (approved)");
                         }
-                        // Marquer les congés refusés comme déjà notifiés
                         else if (status == "Refusé" && !notifiedAsRefused.Contains(leave.Id))
                         {
                             await _databaseService.MarkLeaveAsNotifiedAsync(employeeId, leave.Id, "refused");
@@ -163,7 +140,6 @@ namespace PFE.Services
                     return; // Ne pas envoyer de notifications lors de la première sync
                 }
 
-                // Synchronisations suivantes : envoyer les notifications pour les nouveaux changements
                 foreach (Leave leave in leaves)
                 {
                     if (leave.Id == 0)
@@ -172,8 +148,6 @@ namespace PFE.Services
                     }
 
                     string status = leave.Status;
-
-                    // Congé VALIDÉ et pas encore notifié
                     if ((status == "Validé par le RH" || status == "Validé par le manager")
                         && !notifiedAsApproved.Contains(leave.Id))
                     {
@@ -183,11 +157,8 @@ namespace PFE.Services
                             "? Congé accepté !",
                             $"Votre demande du {leave.StartDate:dd/MM/yyyy} au {leave.EndDate:dd/MM/yyyy} a été acceptée."
                         );
-
-                        // Marquer comme notifié
                         await _databaseService.MarkLeaveAsNotifiedAsync(employeeId, leave.Id, "approved");
                     }
-                    // Congé REFUSÉ et pas encore notifié
                     else if (status == "Refusé" && !notifiedAsRefused.Contains(leave.Id))
                     {
                         System.Diagnostics.Debug.WriteLine($"NOTIFICATION: Congé {leave.Id} refusé");
@@ -196,8 +167,6 @@ namespace PFE.Services
                             "? Congé refusé",
                             $"Votre demande du {leave.StartDate:dd/MM/yyyy} au {leave.EndDate:dd/MM/yyyy} a été refusée."
                         );
-
-                        // Marquer comme notifié
                         await _databaseService.MarkLeaveAsNotifiedAsync(employeeId, leave.Id, "refused");
                     }
                 }

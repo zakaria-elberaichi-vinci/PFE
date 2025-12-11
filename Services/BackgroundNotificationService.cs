@@ -22,7 +22,6 @@ namespace PFE.Services
         private CancellationTokenSource? _cts;
         private Task? _pollingTask;
         private readonly TimeSpan _pollingInterval = TimeSpan.FromSeconds(5);
-        private int _notificationId = 100;
 
         public bool IsRunning => _pollingTask != null && !_pollingTask.IsCompleted;
 
@@ -42,7 +41,7 @@ namespace PFE.Services
             {
                 return;
             }
-            // Seulement pour les managers
+
             if (!_session.Current.IsManager)
             {
                 return;
@@ -66,7 +65,6 @@ namespace PFE.Services
 
         private async Task PollForNewLeavesAsync(CancellationToken cancellationToken)
         {
-            // Initialiser la base de données
             await _databaseService.InitializeAsync();
 
             while (!cancellationToken.IsCancellationRequested)
@@ -117,7 +115,6 @@ namespace PFE.Services
                     await SendNotificationAsync(newLeave);
                 }
 
-                // Marquer comme vues
                 if (newLeaves.Count > 0)
                 {
                     await _databaseService.MarkLeavesAsSeenAsync(managerUserId, newLeaves.Select(l => l.Id));

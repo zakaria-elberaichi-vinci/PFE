@@ -6,6 +6,7 @@
         DateTime StartDate,
         DateTime EndDate,
         string Status,
-        int Days
+        int Days,
+        string? FirstApprover
         );
 }

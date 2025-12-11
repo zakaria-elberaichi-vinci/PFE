@@ -21,18 +21,6 @@ public partial class CalendarPage : ContentPage
         await _vm.LoadAsync();
     }
 
-    private void OnSchedulerViewChanged(object sender, SchedulerViewChangedEventArgs e)
-    {
-        if (e.NewVisibleDates != null && e.NewVisibleDates.Count > 0)
-        {
-            int newYear = e.NewVisibleDates[e.NewVisibleDates.Count / 2].Year;
-            if (newYear != _vm.SelectedYear)
-            {
-                _vm.SelectedYear = newYear;
-            }
-        }
-    }
-
     private async void OnSchedulerTapped(object sender, SchedulerTappedEventArgs e)
     {
         if (e.Appointments != null && e.Appointments.Count > 0)

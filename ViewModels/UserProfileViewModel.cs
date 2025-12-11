@@ -91,6 +91,7 @@ namespace PFE.ViewModels
                     Clear();
                     return;
                 }
+
                 UserProfile profile = await _odooClient.GetUserInfosAsync();
                 if (profile == null)
                 {

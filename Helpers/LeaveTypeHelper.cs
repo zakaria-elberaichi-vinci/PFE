@@ -5,7 +5,6 @@ namespace PFE.Helpers;
 
 public static class LeaveTypeHelper
 {
-    // EN -> FR
     private static readonly Dictionary<string, string> _translations = new(StringComparer.OrdinalIgnoreCase)
     {
         { "Paid Time Off", "Congés payés" },
@@ -27,8 +26,6 @@ public static class LeaveTypeHelper
         { "Sick Leave Without Certificate", "Congé maladie sans certificat" },
         { "Brief Holiday (Birth)", "Congé de naissance" }
     };
-
-    // FR -> Couleur (hex)
     private static readonly Dictionary<string, string> _colors = new(StringComparer.OrdinalIgnoreCase)
     {
         { "Congés payés", "#2563EB" },              // Bleu
@@ -70,6 +67,7 @@ public static class LeaveTypeHelper
                 _ = sb.Append(ch);
             }
         }
+
         return sb.ToString().Normalize(NormalizationForm.FormC).ToLowerInvariant();
     }
 

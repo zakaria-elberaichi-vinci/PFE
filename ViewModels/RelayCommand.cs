@@ -34,6 +34,5 @@ namespace PFE.ViewModels
             EventHandler? handler = _canExecuteChanged;
             handler?.Invoke(this, EventArgs.Empty);
         }
-
     }
 }

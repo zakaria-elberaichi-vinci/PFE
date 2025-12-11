@@ -7,5 +7,4 @@ namespace PFE.Context
     {
         public SessionUser Current { get; set; } = new();
     }
-
 }

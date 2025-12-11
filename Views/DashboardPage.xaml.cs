@@ -21,12 +21,6 @@ public partial class DashboardPage : ContentPage
         _backgroundNotificationService = backgroundNotificationService;
         _backgroundLeaveStatusService = backgroundLeaveStatusService;
 
-        BtnLeaves.Clicked += async (s, e) =>
-        {
-            LeavesPage leavesPage = _services.GetRequiredService<LeavesPage>();
-            await Navigation.PushAsync(leavesPage);
-        };
-
         BtnProfile.Clicked += async (s, e) =>
         {
             UserProfilePage userProfilePage = _services.GetRequiredService<UserProfilePage>();
@@ -69,7 +63,6 @@ public partial class DashboardPage : ContentPage
         bool isManager = _client.session.Current.IsManager;
         bool isEmployee = !isManager;
 
-        BtnLeaves.IsVisible = isEmployee;
         BtnNewLeave.IsVisible = isEmployee;
         BtnCalendar.IsVisible = isEmployee;
         BtnManageLeaves.IsVisible = isManager;
