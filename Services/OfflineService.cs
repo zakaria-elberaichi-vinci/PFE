@@ -1,23 +1,14 @@
-﻿using System.Text.Json;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using PFE.Models.Database;
 
 namespace PFE.Services
 {
     public class OfflineService
     {
-        private readonly string _filePath;
-        private readonly SemaphoreSlim _mutex = new(1, 1);
         private readonly OdooClient _odooClient;
+        private readonly IDatabaseService _databaseService;
         private readonly ILogger<OfflineService> _logger;
-        private readonly JsonSerializerOptions _jsonOptions = new()
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            WriteIndented = false
-        };
-
-        // Compteur local pour générer des IDs temporaires uniques
-        private int _localIdCounter = 0;
+        private readonly SemaphoreSlim _syncLock = new(1, 1);
 
         public event EventHandler<SyncStatusEventArgs>? SyncStatusChanged;
 
@@ -34,11 +25,11 @@ namespace PFE.Services
             HasSyncCompleted = false;
         }
 
-        public OfflineService(OdooClient odooClient, ILogger<OfflineService> logger)
+        public OfflineService(OdooClient odooClient, IDatabaseService databaseService, ILogger<OfflineService> logger)
         {
             _odooClient = odooClient;
+            _databaseService = databaseService;
             _logger = logger;
-            _filePath = Path.Combine(FileSystem.AppDataDirectory, "pending_leaves.json");
 
             Connectivity.Current.ConnectivityChanged += OnConnectivityChanged;
 
@@ -48,25 +39,16 @@ namespace PFE.Services
 
         public async Task AddPendingAsync(PendingLeaveRequest item)
         {
-            await _mutex.WaitAsync();
             try
             {
-                List<PendingLeaveRequest> list = await ReadAllAsync().ConfigureAwait(false);
-
-                // Assigner un ID temporaire si nécessaire
-                if (item.Id == 0)
-                {
-                    _localIdCounter = list.Count > 0 ? list.Max(x => x.Id) + 1 : 1;
-                    item.Id = _localIdCounter;
-                }
-
-                list.Add(item);
-                await WriteAllAsync(list).ConfigureAwait(false);
+                await _databaseService.InitializeAsync();
+                _ = await _databaseService.AddPendingLeaveRequestAsync(item);
                 _logger.LogInformation("Demande hors-ligne enregistrée (Id={Id}).", item.Id);
             }
-            finally
+            catch (Exception ex)
             {
-                _ = _mutex.Release();
+                _logger.LogError(ex, "Erreur lors de l'enregistrement de la demande hors-ligne.");
+                throw;
             }
 
             // Essayer d'envoyer immédiatement si la connexion est disponible
@@ -78,15 +60,8 @@ namespace PFE.Services
 
         public async Task<List<PendingLeaveRequest>> GetAllPendingAsync()
         {
-            await _mutex.WaitAsync();
-            try
-            {
-                return await ReadAllAsync().ConfigureAwait(false);
-            }
-            finally
-            {
-                _ = _mutex.Release();
-            }
+            await _databaseService.InitializeAsync();
+            return await _databaseService.GetUnsyncedLeaveRequestsAsync();
         }
 
         public async Task TryFlushPendingAsync()
@@ -104,10 +79,18 @@ namespace PFE.Services
                 return;
             }
 
-            await _mutex.WaitAsync();
+            // Éviter les synchronisations concurrentes
+            if (!await _syncLock.WaitAsync(0))
+            {
+                _logger.LogDebug("Synchronisation déjà en cours.");
+                return;
+            }
+
             try
             {
-                List<PendingLeaveRequest> pending = await ReadAllAsync().ConfigureAwait(false);
+                await _databaseService.InitializeAsync();
+                List<PendingLeaveRequest> pending = await _databaseService.GetUnsyncedLeaveRequestsAsync();
+                
                 if (pending.Count == 0)
                 {
                     _logger.LogDebug("Aucune demande hors-ligne à envoyer.");
@@ -117,7 +100,6 @@ namespace PFE.Services
                 _logger.LogInformation("Début de la synchronisation de {Count} demande(s) hors-ligne.", pending.Count);
                 RaiseSyncStatusChanged(pending.Count, 0, 0, false);
 
-                List<PendingLeaveRequest> remaining = [];
                 int successCount = 0;
                 int failedCount = 0;
 
@@ -125,33 +107,43 @@ namespace PFE.Services
                 {
                     try
                     {
+                        // Marquer comme en cours de synchronisation
+                        await _databaseService.UpdateSyncStatusAsync(p.Id, SyncStatus.Syncing);
+
                         _logger.LogInformation("Envoi de la demande hors-ligne (Id={Id})...", p.Id);
                         int createdId = await _odooClient.CreateLeaveRequestAsync(
                             leaveTypeId: p.LeaveTypeId,
                             startDate: p.StartDate,
                             endDate: p.EndDate,
                             reason: p.Reason
-                        ).ConfigureAwait(false);
+                        );
 
+                        // Succès - marquer comme synchronisé avec l'ID Odoo
+                        await _databaseService.UpdateSyncStatusAsync(p.Id, SyncStatus.Synced, null, createdId);
                         _logger.LogInformation("Demande hors-ligne envoyée avec succès (tempId={TempId} -> odooId={OdooId}).", p.Id, createdId);
                         successCount++;
                     }
                     catch (InvalidOperationException ex)
                     {
-                        // Erreur métier : ne pas réessayer infiniment
-                        _logger.LogWarning(ex, "Erreur métier lors de l'envoi de la demande hors-ligne (Id={Id}). Suppression.", p.Id);
+                        // Erreur métier : ne pas réessayer infiniment, marquer comme échec définitif
+                        await _databaseService.UpdateSyncStatusAsync(p.Id, SyncStatus.Failed, ex.Message);
+                        _logger.LogWarning(ex, "Erreur métier lors de l'envoi de la demande hors-ligne (Id={Id}). Marquée comme échouée.", p.Id);
                         failedCount++;
                     }
                     catch (Exception ex)
                     {
-                        // Erreur réseau ou temporaire : garder pour réessayer plus tard
-                        _logger.LogWarning(ex, "Échec envoi demande hors-ligne (Id={Id}). Conserver pour réessai.", p.Id);
-                        remaining.Add(p);
+                        // Erreur réseau ou temporaire : remettre en pending pour réessayer plus tard
+                        await _databaseService.UpdateSyncStatusAsync(p.Id, SyncStatus.Pending, ex.Message);
+                        _logger.LogWarning(ex, "Échec envoi demande hors-ligne (Id={Id}). Sera réessayée.", p.Id);
                         failedCount++;
                     }
                 }
 
-                await WriteAllAsync(remaining).ConfigureAwait(false);
+                // Nettoyer les demandes synchronisées avec succès
+                await _databaseService.CleanupSyncedRequestsAsync();
+
+                // Compter les demandes restantes
+                List<PendingLeaveRequest> remaining = await _databaseService.GetUnsyncedLeaveRequestsAsync();
 
                 _logger.LogInformation("Synchronisation terminée : {Success} succès, {Failed} échecs, {Remaining} en attente.",
                     successCount, failedCount, remaining.Count);
@@ -159,39 +151,7 @@ namespace PFE.Services
             }
             finally
             {
-                _ = _mutex.Release();
-            }
-        }
-
-        private async Task<List<PendingLeaveRequest>> ReadAllAsync()
-        {
-            try
-            {
-                if (!File.Exists(_filePath))
-                {
-                    return [];
-                }
-
-                string json = await File.ReadAllTextAsync(_filePath).ConfigureAwait(false);
-                return string.IsNullOrWhiteSpace(json) ? [] : JsonSerializer.Deserialize<List<PendingLeaveRequest>>(json, _jsonOptions) ?? [];
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Impossible de lire les demandes hors-ligne depuis le fichier. Retourne une liste vide.");
-                return [];
-            }
-        }
-
-        private async Task WriteAllAsync(List<PendingLeaveRequest> list)
-        {
-            try
-            {
-                string tmp = JsonSerializer.Serialize(list, _jsonOptions);
-                await File.WriteAllTextAsync(_filePath, tmp).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Impossible d'écrire les demandes hors-ligne sur le disque.");
+                _syncLock.Release();
             }
         }
 

@@ -482,7 +482,9 @@ namespace PFE.ViewModels
                 {
                     PendingLeaveRequest pending = new()
                     {
+                        EmployeeId = _employeeId,
                         LeaveTypeId = SelectedLeaveType!.Id,
+                        LeaveTypeName = SelectedLeaveType.Name,
                         StartDate = SelectedRange!.StartDate!.Value,
                         EndDate = SelectedRange!.EndDate!.Value,
                         Reason = Reason?.Trim() ?? string.Empty,
@@ -512,7 +514,9 @@ namespace PFE.ViewModels
             {
                 PendingLeaveRequest pending = new()
                 {
+                    EmployeeId = _employeeId,
                     LeaveTypeId = SelectedLeaveType!.Id,
+                    LeaveTypeName = SelectedLeaveType.Name,
                     StartDate = SelectedRange!.StartDate!.Value,
                     EndDate = SelectedRange!.EndDate!.Value,
                     Reason = Reason?.Trim() ?? string.Empty,

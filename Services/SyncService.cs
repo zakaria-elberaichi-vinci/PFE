@@ -39,6 +39,11 @@ namespace PFE.Services
         int PendingDecisionsCount { get; }
 
         /// <summary>
+        /// Nombre de demandes de congés en attente de synchronisation
+        /// </summary>
+        int PendingRequestsCount { get; }
+
+        /// <summary>
         /// Événement déclenché quand le nombre de décisions en attente change
         /// </summary>
         event EventHandler<int>? PendingCountChanged;
@@ -53,10 +58,16 @@ namespace PFE.Services
         /// Paramètre: nombre de décisions synchronisées
         /// </summary>
         event EventHandler<int>? DecisionsSynced;
+
+        /// <summary>
+        /// Événement déclenché quand des demandes de congés ont été synchronisées avec succès
+        /// Paramètre: nombre de demandes synchronisées
+        /// </summary>
+        event EventHandler<int>? RequestsSynced;
     }
 
     /// <summary>
-    /// Service de synchronisation des décisions de congé prises offline
+    /// Service de synchronisation des décisions de congé et des demandes prises offline
     /// </summary>
     public class SyncService : ISyncService
     {
@@ -71,10 +82,12 @@ namespace PFE.Services
         public bool IsRunning => _syncTask != null && !_syncTask.IsCompleted;
         public bool IsOnline => Connectivity.Current.NetworkAccess == NetworkAccess.Internet;
         public int PendingDecisionsCount { get; private set; }
+        public int PendingRequestsCount { get; private set; }
 
         public event EventHandler<int>? PendingCountChanged;
         public event EventHandler? SyncCompleted;
         public event EventHandler<int>? DecisionsSynced;
+        public event EventHandler<int>? RequestsSynced;
 
         public SyncService(
             OdooClient odooClient,
@@ -129,8 +142,8 @@ namespace PFE.Services
         {
             await _databaseService.InitializeAsync();
 
-            // Mettre à jour le compteur initial
-            await UpdatePendingCountAsync();
+            // Mettre à jour les compteurs initiaux
+            await UpdatePendingCountsAsync();
 
             while (!cancellationToken.IsCancellationRequested)
             {
@@ -139,6 +152,7 @@ namespace PFE.Services
                     if (IsOnline)
                     {
                         await SyncPendingDecisionsAsync();
+                        await SyncPendingRequestsAsync();
                     }
                 }
                 catch (Exception ex)
@@ -181,7 +195,9 @@ namespace PFE.Services
                     }
                 }
 
+                // Synchroniser les décisions (managers) et les demandes (employés)
                 await SyncPendingDecisionsAsync();
+                await SyncPendingRequestsAsync();
             }
             catch (Exception ex)
             {
@@ -191,6 +207,12 @@ namespace PFE.Services
 
         private async Task SyncPendingDecisionsAsync()
         {
+            // Vérifier que l'utilisateur est un manager
+            if (!_session.Current.IsManager)
+            {
+                return;
+            }
+
             await _databaseService.InitializeAsync();
 
             List<PendingLeaveDecision> decisions = await _databaseService.GetUnsyncedLeaveDecisionsAsync();
@@ -202,19 +224,6 @@ namespace PFE.Services
             }
 
             System.Diagnostics.Debug.WriteLine($"SyncService: {decisions.Count} décision(s) à synchroniser");
-            System.Diagnostics.Debug.WriteLine($"SyncService: Session - IsAuthenticated={_session.Current.IsAuthenticated}, IsManager={_session.Current.IsManager}, UserId={_session.Current.UserId}");
-
-            // Vérifier que la session est valide et que l'utilisateur est manager
-            if (!_session.Current.IsAuthenticated || !_session.Current.IsManager)
-            {
-                System.Diagnostics.Debug.WriteLine("SyncService: Session invalide ou non-manager, tentative de ré-authentification...");
-                bool reauthSuccess = await TryReauthenticateAsync();
-                if (!reauthSuccess || !_session.Current.IsManager)
-                {
-                    System.Diagnostics.Debug.WriteLine("SyncService: Ré-authentification échouée ou non-manager, synchronisation annulée");
-                    return;
-                }
-            }
 
             int syncedCount = 0;
 
@@ -230,12 +239,10 @@ namespace PFE.Services
                     // Envoyer à Odoo
                     if (decision.DecisionType == "approve")
                     {
-                        System.Diagnostics.Debug.WriteLine($"SyncService: Appel ApproveLeaveAsync({decision.LeaveId})");
                         await _odooClient.ApproveLeaveAsync(decision.LeaveId);
                     }
                     else if (decision.DecisionType == "refuse")
                     {
-                        System.Diagnostics.Debug.WriteLine($"SyncService: Appel RefuseLeaveAsync({decision.LeaveId})");
                         await _odooClient.RefuseLeaveAsync(decision.LeaveId);
                     }
 
@@ -247,20 +254,14 @@ namespace PFE.Services
                 catch (Exception ex) when (IsSessionExpiredError(ex))
                 {
                     System.Diagnostics.Debug.WriteLine($"SyncService: Session expirée détectée - {ex.Message}");
-
-                    // Remettre en pending
                     await _databaseService.UpdateDecisionSyncStatusAsync(decision.Id, SyncStatus.Pending);
 
-                    // Tenter de se ré-authentifier
                     bool reauthSuccess = await TryReauthenticateAsync();
-
                     if (reauthSuccess && _session.Current.IsManager)
                     {
-                        System.Diagnostics.Debug.WriteLine($"SyncService: Ré-authentification réussie, retry...");
                         try
                         {
                             await _databaseService.UpdateDecisionSyncStatusAsync(decision.Id, SyncStatus.Syncing);
-
                             if (decision.DecisionType == "approve")
                             {
                                 await _odooClient.ApproveLeaveAsync(decision.LeaveId);
@@ -269,39 +270,135 @@ namespace PFE.Services
                             {
                                 await _odooClient.RefuseLeaveAsync(decision.LeaveId);
                             }
-
                             await _databaseService.UpdateDecisionSyncStatusAsync(decision.Id, SyncStatus.Synced);
-                            System.Diagnostics.Debug.WriteLine($"SyncService: Décision {decision.Id} synchronisée après réauth");
                             syncedCount++;
                         }
                         catch (Exception retryEx)
                         {
                             await _databaseService.UpdateDecisionSyncStatusAsync(decision.Id, SyncStatus.Failed, retryEx.Message);
-                            System.Diagnostics.Debug.WriteLine($"SyncService: Échec après réauth - {retryEx.Message}");
                         }
                     }
                     else
                     {
-                        await _databaseService.UpdateDecisionSyncStatusAsync(decision.Id, SyncStatus.Failed, "Session expirée et ré-authentification échouée");
-                        System.Diagnostics.Debug.WriteLine($"SyncService: Échec de la ré-authentification");
+                        await _databaseService.UpdateDecisionSyncStatusAsync(decision.Id, SyncStatus.Failed, "Session expirée");
                     }
                 }
                 catch (Exception ex)
                 {
-                    // Échec - marquer comme failed
                     await _databaseService.UpdateDecisionSyncStatusAsync(decision.Id, SyncStatus.Failed, ex.Message);
                     System.Diagnostics.Debug.WriteLine($"SyncService: Échec sync décision {decision.Id} - {ex.Message}");
                 }
             }
 
             // Mettre à jour le compteur
-            await UpdatePendingCountAsync();
+            await UpdatePendingCountsAsync();
 
-            // Notifier le nombre de décisions synchronisées
+            // Notifier
             if (syncedCount > 0)
             {
-                System.Diagnostics.Debug.WriteLine($"SyncService: {syncedCount} décision(s) synchronisée(s), notification...");
                 DecisionsSynced?.Invoke(this, syncedCount);
+                SyncCompleted?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        private async Task SyncPendingRequestsAsync()
+        {
+            // Vérifier que l'utilisateur est un employé (pas manager)
+            if (_session.Current.IsManager)
+            {
+                return;
+            }
+
+            await _databaseService.InitializeAsync();
+
+            List<PendingLeaveRequest> requests = await _databaseService.GetUnsyncedLeaveRequestsAsync();
+
+            if (requests.Count == 0)
+            {
+                System.Diagnostics.Debug.WriteLine("SyncService: Aucune demande de congé à synchroniser");
+                return;
+            }
+
+            System.Diagnostics.Debug.WriteLine($"SyncService: {requests.Count} demande(s) de congé à synchroniser");
+
+            int syncedCount = 0;
+
+            foreach (PendingLeaveRequest request in requests)
+            {
+                try
+                {
+                    System.Diagnostics.Debug.WriteLine($"SyncService: Traitement demande {request.Id} - {request.LeaveTypeName}");
+
+                    // Marquer comme en cours de sync
+                    await _databaseService.UpdateSyncStatusAsync(request.Id, SyncStatus.Syncing);
+
+                    // Envoyer à Odoo
+                    int odooLeaveId = await _odooClient.CreateLeaveRequestAsync(
+                        leaveTypeId: request.LeaveTypeId,
+                        startDate: request.StartDate,
+                        endDate: request.EndDate,
+                        reason: request.Reason
+                    );
+
+                    // Succès - marquer comme synchronisé avec l'ID Odoo
+                    await _databaseService.UpdateSyncStatusAsync(request.Id, SyncStatus.Synced, null, odooLeaveId);
+                    System.Diagnostics.Debug.WriteLine($"SyncService: Demande {request.Id} synchronisée avec succès (odooId={odooLeaveId})");
+                    syncedCount++;
+                }
+                catch (InvalidOperationException ex)
+                {
+                    // Erreur métier : marquer comme échec définitif
+                    await _databaseService.UpdateSyncStatusAsync(request.Id, SyncStatus.Failed, ex.Message);
+                    System.Diagnostics.Debug.WriteLine($"SyncService: Erreur métier demande {request.Id} - {ex.Message}");
+                }
+                catch (Exception ex) when (IsSessionExpiredError(ex))
+                {
+                    System.Diagnostics.Debug.WriteLine($"SyncService: Session expirée détectée - {ex.Message}");
+                    await _databaseService.UpdateSyncStatusAsync(request.Id, SyncStatus.Pending);
+
+                    bool reauthSuccess = await TryReauthenticateAsync();
+                    if (reauthSuccess)
+                    {
+                        try
+                        {
+                            await _databaseService.UpdateSyncStatusAsync(request.Id, SyncStatus.Syncing);
+                            int odooLeaveId = await _odooClient.CreateLeaveRequestAsync(
+                                leaveTypeId: request.LeaveTypeId,
+                                startDate: request.StartDate,
+                                endDate: request.EndDate,
+                                reason: request.Reason
+                            );
+                            await _databaseService.UpdateSyncStatusAsync(request.Id, SyncStatus.Synced, null, odooLeaveId);
+                            syncedCount++;
+                        }
+                        catch (Exception retryEx)
+                        {
+                            await _databaseService.UpdateSyncStatusAsync(request.Id, SyncStatus.Failed, retryEx.Message);
+                        }
+                    }
+                    else
+                    {
+                        await _databaseService.UpdateSyncStatusAsync(request.Id, SyncStatus.Failed, "Session expirée");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Erreur réseau : garder en pending pour réessayer
+                    await _databaseService.UpdateSyncStatusAsync(request.Id, SyncStatus.Pending, ex.Message);
+                    System.Diagnostics.Debug.WriteLine($"SyncService: Échec sync demande {request.Id} - {ex.Message}");
+                }
+            }
+
+            // Nettoyer les demandes synchronisées
+            await _databaseService.CleanupSyncedRequestsAsync();
+
+            // Mettre à jour le compteur
+            await UpdatePendingCountsAsync();
+
+            // Notifier
+            if (syncedCount > 0)
+            {
+                RequestsSynced?.Invoke(this, syncedCount);
                 SyncCompleted?.Invoke(this, EventArgs.Empty);
             }
         }
@@ -381,15 +478,25 @@ namespace PFE.Services
             }
         }
 
-        private async Task UpdatePendingCountAsync()
+        private async Task UpdatePendingCountsAsync()
         {
+            // Compter les décisions en attente
             List<PendingLeaveDecision> decisions = await _databaseService.GetUnsyncedLeaveDecisionsAsync();
-            int newCount = decisions.Count;
+            int newDecisionCount = decisions.Count;
 
-            if (PendingDecisionsCount != newCount)
+            if (PendingDecisionsCount != newDecisionCount)
             {
-                PendingDecisionsCount = newCount;
-                PendingCountChanged?.Invoke(this, newCount);
+                PendingDecisionsCount = newDecisionCount;
+                PendingCountChanged?.Invoke(this, newDecisionCount);
+            }
+
+            // Compter les demandes en attente
+            List<PendingLeaveRequest> requests = await _databaseService.GetUnsyncedLeaveRequestsAsync();
+            int newRequestCount = requests.Count;
+
+            if (PendingRequestsCount != newRequestCount)
+            {
+                PendingRequestsCount = newRequestCount;
             }
         }
     }
