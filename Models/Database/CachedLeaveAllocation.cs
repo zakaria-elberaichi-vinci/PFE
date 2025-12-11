@@ -12,14 +12,12 @@ namespace PFE.Models.Database
 
         public int Year { get; set; }
 
- 
         public int Allocated { get; set; }
 
         public int Taken { get; set; }
 
         public int Remaining { get; set; }
 
-   
         public DateTime LastUpdated { get; set; }
     }
 }

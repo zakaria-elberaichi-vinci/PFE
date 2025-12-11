@@ -85,16 +85,13 @@ namespace PFE.ViewModels
 
                 if (success)
                 {
-                
+
                     await PersistCredentialsAsync();
 
-                 
                     await SaveUserSessionAsync();
 
-                   
                     _syncService.Start();
 
-              
                     if (_odooClient.session.Current.IsManager)
                     {
                         _backgroundNotificationService.Start();
@@ -163,13 +160,11 @@ namespace PFE.ViewModels
             }
             catch
             {
-                // Ignorer les erreurs de SecureStorage
             }
         }
 
         private async Task PersistCredentialsAsync()
         {
-            // Toujours sauvegarder (RememberMe toujours activé)
             Preferences.Set(RememberMeKey, true);
             Preferences.Set(LoginKey, Login);
 
@@ -179,7 +174,6 @@ namespace PFE.ViewModels
             }
             catch
             {
-                // Ignorer les erreurs de SecureStorage
             }
         }
 

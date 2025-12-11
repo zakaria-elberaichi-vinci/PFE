@@ -15,7 +15,6 @@ namespace PFE
         [Obsolete]
         public static MauiApp CreateMauiApp()
         {
-            // Clé de licence Syncfusion (fonctionne sur toutes les plateformes)
             SyncfusionLicenseProvider.RegisterLicense("Ngo9BigBOggjGyl/Vkd+XU9FcVRDQmtWfFN0Q3NYflRxfV9DZ0wgOX1dQl9mSHxTf0RiW3pfdndUR2hXUkU=");
 
             MauiAppBuilder builder = MauiApp.CreateBuilder();

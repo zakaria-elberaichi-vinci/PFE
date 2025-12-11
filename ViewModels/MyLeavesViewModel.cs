@@ -15,7 +15,6 @@ namespace PFE.ViewModels
         private readonly OdooClient _odooClient;
         private readonly OfflineService _offlineService;
 
-        // État de chargement
         private bool _isListBusy;
         private bool _isCalendarBusy;
         private string _listErrorMessage = string.Empty;
@@ -24,12 +23,10 @@ namespace PFE.ViewModels
         private string _syncMessage = string.Empty;
         private bool _isReauthenticating = false;
 
-        // Données calendrier
         private int _totalAllocated;
         private int _totalTaken;
         private int _totalRemaining;
 
-        // Filtres
         private YearItem? _selectedYearItem;
         private StatusItem? _selectedStatusItem;
 
@@ -85,7 +82,11 @@ namespace PFE.ViewModels
             get => _selectedYearItem;
             set
             {
-                if (_selectedYearItem == value) return;
+                if (_selectedYearItem == value)
+                {
+                    return;
+                }
+
                 _selectedYearItem = value;
                 OnPropertyChanged();
                 if (!IsListBusy)
@@ -100,7 +101,11 @@ namespace PFE.ViewModels
             get => _selectedStatusItem;
             set
             {
-                if (_selectedStatusItem == value) return;
+                if (_selectedStatusItem == value)
+                {
+                    return;
+                }
+
                 _selectedStatusItem = value;
                 OnPropertyChanged();
                 if (!IsListBusy)
@@ -190,7 +195,10 @@ namespace PFE.ViewModels
 
         private async Task LoadListAsync()
         {
-            if (IsListBusy) return;
+            if (IsListBusy)
+            {
+                return;
+            }
 
             IsListBusy = true;
             ListErrorMessage = string.Empty;
@@ -199,7 +207,6 @@ namespace PFE.ViewModels
             {
                 if (!IsEmployee)
                 {
-                    // Tenter une ré-authentification si pas connecté
                     bool reauthSuccess = await TryReauthenticateAsync();
                     if (!reauthSuccess || !IsEmployee)
                     {
@@ -222,13 +229,11 @@ namespace PFE.ViewModels
                 }
                 catch (Exception ex) when (IsSessionExpiredError(ex))
                 {
-                    // Session expirée - tenter une ré-authentification
                     System.Diagnostics.Debug.WriteLine($"MyLeavesViewModel: Session expirée, tentative de ré-authentification...");
                     bool reauthSuccess = await TryReauthenticateAsync();
 
                     if (reauthSuccess)
                     {
-                        // Réessayer après ré-authentification
                         list = await _odooClient.GetLeavesAsync(SelectedStateEn);
                     }
                     else
@@ -237,6 +242,11 @@ namespace PFE.ViewModels
                         Leaves.Clear();
                         return;
                     }
+                }
+
+                if (SelectedYearItem?.Value != null)
+                {
+                    list = list.Where(l => l.StartDate.Year == SelectedYearItem?.Value).ToList();
                 }
 
                 Leaves.Clear();
@@ -263,7 +273,10 @@ namespace PFE.ViewModels
 
         private async Task LoadCalendarAsync()
         {
-            if (IsCalendarBusy) return;
+            if (IsCalendarBusy)
+            {
+                return;
+            }
 
             IsCalendarBusy = true;
             CalendarErrorMessage = string.Empty;
@@ -272,7 +285,6 @@ namespace PFE.ViewModels
             {
                 if (!IsEmployee)
                 {
-                    // Tenter une ré-authentification si pas connecté
                     bool reauthSuccess = await TryReauthenticateAsync();
                     if (!reauthSuccess || !IsEmployee)
                     {
@@ -295,13 +307,11 @@ namespace PFE.ViewModels
                 }
                 catch (Exception ex) when (IsSessionExpiredError(ex))
                 {
-                    // Session expirée - tenter une ré-authentification
                     System.Diagnostics.Debug.WriteLine($"MyLeavesViewModel: Session expirée (calendrier), tentative de ré-authentification...");
                     bool reauthSuccess = await TryReauthenticateAsync();
 
                     if (reauthSuccess)
                     {
-                        // Réessayer après ré-authentification
                         summaries = await _odooClient.GetAllocationsSummaryAsync();
                         leaves = await _odooClient.GetLeavesAsync();
                     }
@@ -388,7 +398,6 @@ namespace PFE.ViewModels
 
             try
             {
-                // Récupérer les credentials sauvegardés
                 string login = Preferences.Get("auth.login", string.Empty);
                 string? password = null;
 
@@ -409,7 +418,6 @@ namespace PFE.ViewModels
 
                 System.Diagnostics.Debug.WriteLine($"MyLeavesViewModel: Tentative de ré-authentification pour {login}...");
 
-                // Tenter la connexion
                 bool success = await _odooClient.LoginAsync(login, password);
 
                 if (success)
@@ -481,13 +489,13 @@ namespace PFE.ViewModels
                     _ = Task.Run(async () =>
                     {
                         await Task.Delay(3000);
-                        await MainThread.InvokeOnMainThreadAsync(() => SyncMessage = string.Empty);
+                        _ = await MainThread.InvokeOnMainThreadAsync(() => SyncMessage = string.Empty);
                     });
                 });
             }
             else if (e.PendingCount > 0)
             {
-                await MainThread.InvokeOnMainThreadAsync(() =>
+                _ = await MainThread.InvokeOnMainThreadAsync(() =>
                     SyncMessage = $"? {e.PendingCount} demande{(e.PendingCount > 1 ? "s" : "")} en attente");
             }
         }

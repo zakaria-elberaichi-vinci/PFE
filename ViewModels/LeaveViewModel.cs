@@ -1,10 +1,6 @@
 ﻿
-
-
-
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using PFE.Models;
@@ -113,7 +109,6 @@ namespace PFE.ViewModels
             InitializeYears();
             InitializeStatuses();
 
-            
             _offlineService.SyncStatusChanged += OnSyncStatusChanged;
             Connectivity.Current.ConnectivityChanged += OnConnectivityChanged;
         }
@@ -163,7 +158,6 @@ namespace PFE.ViewModels
                     return;
                 }
 
-                
                 if (_odooClient.session.Current.EmployeeId.HasValue)
                 {
                     _employeeId = _odooClient.session.Current.EmployeeId.Value;
@@ -171,7 +165,7 @@ namespace PFE.ViewModels
 
                 if (IsOffline)
                 {
-                    
+
                     System.Diagnostics.Debug.WriteLine("[LeaveViewModel] Mode hors-ligne, chargement depuis le cache...");
                     await LoadFromCacheAsync();
                     return;
@@ -181,13 +175,11 @@ namespace PFE.ViewModels
                 List<Leave> list = await _odooClient.GetLeavesAsync(SelectedStateEn);
                 System.Diagnostics.Debug.WriteLine($"[LeaveViewModel] {list.Count} congés récupérés");
 
-               
                 if (string.IsNullOrEmpty(SelectedStateEn) && _employeeId > 0)
                 {
                     await _databaseService.SaveLeavesAsync(_employeeId, list);
                 }
 
-                
                 if (SelectedYear.HasValue)
                 {
                     list = list.Where(l => l.StartDate.Year == SelectedYear.Value).ToList();
@@ -208,8 +200,7 @@ namespace PFE.ViewModels
             {
                 System.Diagnostics.Debug.WriteLine($"[LeaveViewModel] Erreur réseau HttpRequestException: {ex.Message}");
                 IsOffline = true;
-                
-                
+
                 if (_employeeId > 0)
                 {
                     await LoadFromCacheAsync();
@@ -222,8 +213,7 @@ namespace PFE.ViewModels
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[LeaveViewModel] Erreur générale: {ex.GetType().Name} - {ex.Message}");
-                
-                // Vérifier si c'est une erreur réseau (inclut les exceptions enveloppées)
+
                 bool isNetworkError = ex.InnerException is HttpRequestException ||
                                       ex.Message.Contains("Hôte inconnu") ||
                                       ex.Message.Contains("host") ||
@@ -258,14 +248,12 @@ namespace PFE.ViewModels
         {
             try
             {
-                // Vérifier que l'employeeId est initialisé
                 if (_employeeId <= 0)
                 {
                     ErrorMessage = "Aucun congé en cache. Connectez-vous une première fois pour charger vos congés.";
                     return;
                 }
 
-                // Convertir le statut français pour le filtrage du cache
                 string? statusFilter = SelectedStatusItem?.LabelFr;
                 if (statusFilter == "(Tous)")
                 {
@@ -305,24 +293,19 @@ namespace PFE.ViewModels
 
         private async void OnSyncStatusChanged(object? sender, SyncStatusEventArgs e)
         {
-            // Quand la synchronisation est terminée avec succès, rafraîchir la liste
             if (e.IsComplete && e.SuccessCount > 0)
             {
                 System.Diagnostics.Debug.WriteLine($"[LeaveViewModel] Synchronisation terminée: {e.SuccessCount} succès");
 
-                // Exécuter sur le thread principal
                 await MainThread.InvokeOnMainThreadAsync(async () =>
                 {
                     SyncMessage = $"✓ {e.SuccessCount} congé{(e.SuccessCount > 1 ? "s synchronisé" : " synchronisé")}s";
 
-                    // Attendre un court instant pour que Odoo traite la demande
                     await Task.Delay(1500);
 
-                    // Rafraîchir la liste des congés
                     System.Diagnostics.Debug.WriteLine("[LeaveViewModel] Rafraîchissement de la liste après sync...");
                     await LoadAsync();
 
-                    // Effacer le message après un moment
                     _ = Task.Run(async () =>
                     {
                         await Task.Delay(3000);
@@ -346,13 +329,11 @@ namespace PFE.ViewModels
                 if (e.NetworkAccess == NetworkAccess.Internet)
                 {
                     System.Diagnostics.Debug.WriteLine("[LeaveViewModel] Connexion rétablie, rafraîchissement...");
-                    // Connexion rétablie : rafraîchir les données depuis le serveur
                     await LoadAsync();
                 }
                 else
                 {
                     System.Diagnostics.Debug.WriteLine("[LeaveViewModel] Connexion perdue, chargement depuis le cache...");
-                    // Connexion perdue : charger depuis le cache
                     await LoadFromCacheAsync();
                 }
             });

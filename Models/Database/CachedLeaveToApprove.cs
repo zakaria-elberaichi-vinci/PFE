@@ -9,15 +9,12 @@ namespace PFE.Models.Database
         [PrimaryKey]
         public int LeaveId { get; set; }
 
-  
         [Indexed]
         public int ManagerUserId { get; set; }
 
-       
         public string EmployeeName { get; set; } = string.Empty;
 
         public string LeaveType { get; set; } = string.Empty;
-
 
         public DateTime StartDate { get; set; }
 
@@ -25,14 +22,12 @@ namespace PFE.Models.Database
 
         public int Days { get; set; }
 
-      
         public string Status { get; set; } = string.Empty;
 
         public string Reason { get; set; } = string.Empty;
 
         public bool CanValidate { get; set; }
 
-     
         public bool CanRefuse { get; set; }
 
         public DateTime CachedAt { get; set; }

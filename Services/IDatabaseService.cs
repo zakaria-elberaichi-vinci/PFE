@@ -38,10 +38,8 @@ namespace PFE.Services
         Task<List<DB.PendingLeaveDecision>> GetSyncedLeaveDecisionsAsync(int managerUserId);
         Task<List<DB.PendingLeaveDecision>> GetUnsyncedLeaveDecisionsAsync();
 
-  
         Task UpdateDecisionSyncStatusAsync(int decisionId, DB.SyncStatus status, string? errorMessage = null);
         Task DeletePendingLeaveDecisionAsync(int decisionId);
-
 
         Task<bool> HasDecisionForLeaveAsync(int leaveId);
         Task CleanupOldSyncedDecisionsAsync(int daysOld = 30);
@@ -52,9 +50,7 @@ namespace PFE.Services
 
         Task<DB.PendingLeaveRequest> AddPendingLeaveRequestAsync(DB.PendingLeaveRequest request);
 
-
         Task<List<DB.PendingLeaveRequest>> GetPendingLeaveRequestsAsync(int employeeId);
-
 
         Task<List<DB.PendingLeaveRequest>> GetUnsyncedLeaveRequestsAsync();
         Task UpdateSyncStatusAsync(int requestId, DB.SyncStatus status, string? errorMessage = null, int? odooLeaveId = null);
@@ -80,10 +76,8 @@ namespace PFE.Services
 
         #region CachedLeaveType
 
-     
         Task SaveLeaveTypesAsync(int employeeId, List<LeaveTypeItem> leaveTypes);
 
-   
         Task<List<LeaveTypeItem>> GetLeaveTypesAsync(int employeeId);
         Task ClearLeaveTypesAsync(int employeeId);
 

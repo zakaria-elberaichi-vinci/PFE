@@ -30,7 +30,6 @@ public partial class CalendarPage : ContentPage
     {
         if (!e.Value)
         {
-            // Désactiver le switch pendant la navigation pour éviter les clics multiples
             if (sender is Switch sw)
             {
                 sw.IsEnabled = false;
@@ -38,19 +37,16 @@ public partial class CalendarPage : ContentPage
 
             try
             {
-                // Sauvegarder la préférence
                 _viewPreference.IsCalendarView = false;
 
                 LeavesPage leavesPage = _sp.GetRequiredService<LeavesPage>();
-                
-                // Remplacer la page actuelle au lieu de l'empiler
+
                 INavigation nav = Navigation;
                 nav.InsertPageBefore(leavesPage, this);
-                await nav.PopAsync(false); // false = sans animation pour plus de fluidité
+                _ = await nav.PopAsync(false); // false = sans animation pour plus de fluidité
             }
             catch
             {
-                // En cas d'erreur, réinitialiser le switch
                 if (sender is Switch sw2)
                 {
                     sw2.IsToggled = true;

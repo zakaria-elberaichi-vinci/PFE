@@ -24,7 +24,6 @@ namespace PFE.Views
         {
             if (e.Value)
             {
-                // Désactiver le switch pendant la navigation pour éviter les clics multiples
                 if (sender is Switch sw)
                 {
                     sw.IsEnabled = false;
@@ -32,19 +31,16 @@ namespace PFE.Views
 
                 try
                 {
-                    // Sauvegarder la préférence
                     _viewPreference.IsCalendarView = true;
 
                     CalendarPage calendarPage = _sp.GetRequiredService<CalendarPage>();
-                    
-                    // Remplacer la page actuelle au lieu de l'empiler
+
                     INavigation nav = Navigation;
                     nav.InsertPageBefore(calendarPage, this);
-                    await nav.PopAsync(false); // false = sans animation pour plus de fluidité
+                    _ = await nav.PopAsync(false); // false = sans animation pour plus de fluidité
                 }
                 catch
                 {
-                    // En cas d'erreur, réinitialiser le switch
                     if (sender is Switch sw2)
                     {
                         sw2.IsToggled = false;
@@ -58,7 +54,6 @@ namespace PFE.Views
         {
             base.OnAppearing();
 
-            // Vérifier si une synchronisation a eu lieu pendant qu'on était ailleurs
             if (_offlineService.HasSyncCompleted)
             {
                 System.Diagnostics.Debug.WriteLine("[LeavesPage] Sync détectée, rafraîchissement forcé...");
