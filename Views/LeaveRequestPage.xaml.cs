@@ -45,8 +45,8 @@ namespace PFE.Views
             if (success)
             {
                 await DisplayAlert("Demande envoyée", message, "OK");
-                LeavesPage leavesPage = _sp.GetRequiredService<LeavesPage>();
-                await Navigation.PushAsync(leavesPage);
+                DashboardPage dashboardPage = _sp.GetRequiredService<DashboardPage>();
+                await Navigation.PushAsync(dashboardPage);
             }
             else
             {
