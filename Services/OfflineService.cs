@@ -34,7 +34,6 @@ namespace PFE.Services
 
             Connectivity.Current.ConnectivityChanged += OnConnectivityChanged;
 
-            // Tentative initiale au démarrage si connecté
             _ = TryFlushPendingAsync();
         }
 
@@ -52,7 +51,6 @@ namespace PFE.Services
                 throw;
             }
 
-            // Essayer d'envoyer immédiatement si la connexion est disponible
             if (Connectivity.Current.NetworkAccess == NetworkAccess.Internet)
             {
                 _ = TryFlushPendingAsync();
@@ -73,7 +71,6 @@ namespace PFE.Services
                 return;
             }
 
-            // Si pas authentifié localement, tenter une ré-authentification
             if (!_odooClient.session.Current.IsAuthenticated)
             {
                 _logger.LogDebug("Utilisateur non authentifié localement, tentative de ré-authentification...");
@@ -85,7 +82,6 @@ namespace PFE.Services
                 }
             }
 
-            // Éviter les synchronisations concurrentes
             if (!await _syncLock.WaitAsync(0))
             {
                 _logger.LogDebug("Synchronisation déjà en cours.");
@@ -96,7 +92,7 @@ namespace PFE.Services
             {
                 await _databaseService.InitializeAsync();
                 List<PendingLeaveRequest> pending = await _databaseService.GetUnsyncedLeaveRequestsAsync();
-                
+
                 if (pending.Count == 0)
                 {
                     _logger.LogDebug("Aucune demande hors-ligne à envoyer.");
@@ -113,7 +109,6 @@ namespace PFE.Services
                 {
                     try
                     {
-                        // Marquer comme en cours de synchronisation
                         await _databaseService.UpdateSyncStatusAsync(p.Id, SyncStatus.Syncing);
 
                         _logger.LogInformation("Envoi de la demande hors-ligne (Id={Id})...", p.Id);
@@ -124,21 +119,18 @@ namespace PFE.Services
                             reason: p.Reason
                         );
 
-                        // Succès - marquer comme synchronisé avec l'ID Odoo
                         await _databaseService.UpdateSyncStatusAsync(p.Id, SyncStatus.Synced, null, createdId);
                         _logger.LogInformation("Demande hors-ligne envoyée avec succès (tempId={TempId} -> odooId={OdooId}).", p.Id, createdId);
                         successCount++;
                     }
                     catch (Exception ex) when (IsSessionExpiredError(ex))
                     {
-                        // Session expirée - tenter une ré-authentification
                         _logger.LogWarning("Session Odoo expirée, tentative de ré-authentification...");
                         await _databaseService.UpdateSyncStatusAsync(p.Id, SyncStatus.Pending);
 
                         bool reauthSuccess = await TryReauthenticateAsync();
                         if (reauthSuccess)
                         {
-                            // Réessayer après ré-authentification
                             try
                             {
                                 await _databaseService.UpdateSyncStatusAsync(p.Id, SyncStatus.Syncing);
@@ -167,24 +159,20 @@ namespace PFE.Services
                     }
                     catch (InvalidOperationException ex)
                     {
-                        // Erreur métier : ne pas réessayer infiniment, marquer comme échec définitif
                         await _databaseService.UpdateSyncStatusAsync(p.Id, SyncStatus.Failed, ex.Message);
                         _logger.LogWarning(ex, "Erreur métier lors de l'envoi de la demande hors-ligne (Id={Id}). Marquée comme échouée.", p.Id);
                         failedCount++;
                     }
                     catch (Exception ex)
                     {
-                        // Erreur réseau ou temporaire : remettre en pending pour réessayer plus tard
                         await _databaseService.UpdateSyncStatusAsync(p.Id, SyncStatus.Pending, ex.Message);
                         _logger.LogWarning(ex, "Échec envoi demande hors-ligne (Id={Id}). Sera réessayée.", p.Id);
                         failedCount++;
                     }
                 }
 
-                // Nettoyer les demandes synchronisées avec succès
                 await _databaseService.CleanupSyncedRequestsAsync();
 
-                // Compter les demandes restantes
                 List<PendingLeaveRequest> remaining = await _databaseService.GetUnsyncedLeaveRequestsAsync();
 
                 _logger.LogInformation("Synchronisation terminée : {Success} succès, {Failed} échecs, {Remaining} en attente.",
@@ -193,7 +181,7 @@ namespace PFE.Services
             }
             finally
             {
-                _syncLock.Release();
+                _ = _syncLock.Release();
             }
         }
 
@@ -225,7 +213,6 @@ namespace PFE.Services
 
             try
             {
-                // Récupérer les credentials sauvegardés
                 string login = Preferences.Get("auth.login", string.Empty);
                 string? password = null;
 
@@ -283,7 +270,6 @@ namespace PFE.Services
         {
             System.Diagnostics.Debug.WriteLine($"[OfflineService] RaiseSyncStatusChanged: pending={pendingCount}, success={successCount}, failed={failedCount}, complete={isComplete}");
 
-            // Marquer qu'une synchronisation réussie a eu lieu
             if (isComplete && successCount > 0)
             {
                 HasSyncCompleted = true;

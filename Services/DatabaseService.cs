@@ -32,7 +32,6 @@ namespace PFE.Services
 
                 _database = new SQLiteAsyncConnection(_dbPath, SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create | SQLiteOpenFlags.SharedCache);
 
-                // Créer les tables
                 _ = await _database.CreateTableAsync<DB.SeenLeaveNotification>();
                 _ = await _database.CreateTableAsync<DB.NotifiedLeaveStatusChange>();
                 _ = await _database.CreateTableAsync<DB.PendingLeaveRequest>();
@@ -80,7 +79,6 @@ namespace PFE.Services
         {
             SQLiteAsyncConnection db = await GetDatabaseAsync();
 
-            // Vérifier si déjà notifié
             DB.NotifiedLeaveStatusChange? existing = await db.Table<DB.NotifiedLeaveStatusChange>()
                 .Where(x => x.EmployeeId == employeeId && x.LeaveId == leaveId && x.NotifiedStatus == status)
                 .FirstOrDefaultAsync();
@@ -154,10 +152,8 @@ namespace PFE.Services
         {
             SQLiteAsyncConnection db = await GetDatabaseAsync();
 
-            // Supprimer l'ancien cache pour ce manager
             _ = await db.ExecuteAsync("DELETE FROM cached_leaves_to_approve WHERE ManagerUserId = ?", managerUserId);
 
-            // Insérer les nouvelles demandes
             DateTime now = DateTime.UtcNow;
             foreach (DB.CachedLeaveToApprove leave in leaves)
             {
@@ -436,10 +432,8 @@ namespace PFE.Services
         {
             SQLiteAsyncConnection db = await GetDatabaseAsync();
 
-            // Supprimer les anciens types de congés en cache pour cet employé
             _ = await db.ExecuteAsync("DELETE FROM cached_leave_types WHERE EmployeeId = ?", employeeId);
 
-            // Insérer les nouveaux types combinés
             foreach (LeaveTypeItem leaveType in leaveTypes)
             {
                 _ = await db.InsertAsync(new DB.CachedLeaveType
@@ -488,10 +482,8 @@ namespace PFE.Services
         {
             SQLiteAsyncConnection db = await GetDatabaseAsync();
 
-            // Supprimer les anciennes dates bloquées pour cet employé
             _ = await db.ExecuteAsync("DELETE FROM cached_blocked_dates WHERE EmployeeId = ?", employeeId);
 
-            // Insérer les nouvelles dates
             foreach ((DateTime date, int leaveId, string? status) in blockedDates)
             {
                 _ = await db.InsertAsync(new DB.CachedBlockedDate
@@ -537,10 +529,8 @@ namespace PFE.Services
         {
             SQLiteAsyncConnection db = await GetDatabaseAsync();
 
-            // Supprimer les anciennes allocations pour cet employé
             _ = await db.ExecuteAsync("DELETE FROM cached_allocation_summaries WHERE EmployeeId = ?", employeeId);
 
-            // Insérer les nouvelles allocations
             foreach (AllocationSummary allocation in allocations)
             {
                 _ = await db.InsertAsync(new DB.CachedAllocationSummary
@@ -596,10 +586,8 @@ namespace PFE.Services
         {
             SQLiteAsyncConnection db = await GetDatabaseAsync();
 
-            // Supprimer les anciens congés en cache pour cet employé
             _ = await db.ExecuteAsync("DELETE FROM cached_leaves WHERE EmployeeId = ?", employeeId);
 
-            // Insérer les nouveaux congés
             foreach (Leave leave in leaves)
             {
                 _ = await db.InsertAsync(new DB.CachedLeave
@@ -627,13 +615,11 @@ namespace PFE.Services
                 .Where(x => x.EmployeeId == employeeId)
                 .ToListAsync();
 
-            // Filtrer par statut si spécifié
             if (!string.IsNullOrEmpty(status))
             {
                 cached = cached.Where(x => x.Status == status).ToList();
             }
 
-            // Filtrer par année si spécifiée
             if (year.HasValue)
             {
                 cached = cached.Where(x => x.Year == year.Value).ToList();

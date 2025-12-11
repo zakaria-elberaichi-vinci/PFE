@@ -52,10 +52,8 @@ namespace PFE.ViewModels
                 param => !IsBusy && param is LeaveToApprove
             );
 
-            
             _syncService.PendingCountChanged += OnPendingCountChanged;
 
-           
             _syncService.SyncCompleted += OnSyncCompleted;
 
             RefreshOdooCommand = new RelayCommand(
@@ -71,19 +69,17 @@ namespace PFE.ViewModels
 
         private void OnPendingCountChanged(object? sender, int count)
         {
-           
+
             MainThread.BeginInvokeOnMainThread(() =>
             {
                 PendingDecisionsCount = count;
                 System.Diagnostics.Debug.WriteLine($"ManageLeavesViewModel: PendingCountChanged -> {count}");
-                
-               
+
                 if (count == 0 && IsOfflineMode)
                 {
                     SuccessMessage = "✓ Toutes les décisions ont été synchronisées !";
                     IsOfflineMode = false;
-                    
-                 
+
                     _ = ClearSuccessMessageAfterDelayAsync();
                 }
             });
@@ -92,13 +88,11 @@ namespace PFE.ViewModels
         private async void OnSyncCompleted(object? sender, EventArgs e)
         {
             System.Diagnostics.Debug.WriteLine("ManageLeavesViewModel: SyncCompleted reçu");
-            
-           
+
             await MainThread.InvokeOnMainThreadAsync(async () =>
             {
                 await RefreshPendingCountAsync();
-                
-                
+
                 await LoadAsync();
             });
         }
@@ -109,7 +103,7 @@ namespace PFE.ViewModels
             {
                 List<PendingLeaveDecision> pendingDecisions = await _databaseService.GetUnsyncedLeaveDecisionsAsync();
                 int newCount = pendingDecisions.Count;
-                
+
                 if (PendingDecisionsCount != newCount)
                 {
                     PendingDecisionsCount = newCount;
@@ -155,13 +149,10 @@ namespace PFE.ViewModels
 
         public ObservableCollection<LeaveToApprove> Leaves { get; }
 
-        
         public List<LeaveToApprove> NewLeaves { get; private set; } = [];
 
-        
         public bool HasNewLeaves => NewLeaves.Count > 0;
 
-       
         public int PendingDecisionsCount
         {
             get => _pendingDecisionsCount;
@@ -178,7 +169,6 @@ namespace PFE.ViewModels
             }
         }
 
-      
         public bool HasPendingDecisions => PendingDecisionsCount > 0;
 
         public bool IsBusy
@@ -275,18 +265,15 @@ namespace PFE.ViewModels
                 List<PendingLeaveDecision> allDecisions = await _databaseService.GetAllLeaveDecisionsAsync(ManagerUserId);
                 HashSet<int> processedLeaveIds = allDecisions.Select(d => d.LeaveId).ToHashSet();
 
-               
                 int pendingCount = allDecisions.Count(d => d.SyncStatus is SyncStatus.Pending or SyncStatus.Failed);
                 PendingDecisionsCount = pendingCount;
 
-                
                 List<LeaveToApprove> list;
                 try
                 {
                     list = await _odoo.GetLeavesToApproveAsync();
                     IsOfflineMode = false;
 
-                   
                     await UpdateCacheAsync(list);
                 }
                 catch (Exception ex) when (IsSessionExpiredError(ex))
@@ -306,7 +293,7 @@ namespace PFE.ViewModels
                         }
                         catch (Exception retryEx)
                         {
-                            
+
                             System.Diagnostics.Debug.WriteLine($"ManageLeavesViewModel: Échec après réauth - {retryEx.Message}");
                             IsOfflineMode = true;
                             InfoMessage = "Mode hors ligne. Affichage des données en cache.";
@@ -358,7 +345,6 @@ namespace PFE.ViewModels
                 OnPropertyChanged(nameof(HasNewLeaves));
                 OnPropertyChanged(nameof(IsOfflineMode));
 
-                // Nettoyer les anciennes décisions
                 await _databaseService.CleanupOldSyncedDecisionsAsync(30);
             }
             catch (Exception ex)
@@ -538,7 +524,6 @@ namespace PFE.ViewModels
             }
             catch (Exception ex) when (IsNetworkOrOfflineError(ex))
             {
-                // Sauvegarder localement
                 await SaveDecisionLocally(leave, "refuse");
             }
             catch (Exception ex)
@@ -623,7 +608,6 @@ namespace PFE.ViewModels
 
             try
             {
-                // Récupérer les credentials sauvegardés
                 string login = Preferences.Get("auth.login", string.Empty);
                 string? password = null;
 
@@ -642,7 +626,6 @@ namespace PFE.ViewModels
                     return false;
                 }
 
-                // Tenter la connexion
                 bool success = await _odoo.LoginAsync(login, password);
 
                 if (success)
@@ -697,10 +680,8 @@ namespace PFE.ViewModels
                     return;
                 }
 
-            
                 List<LeaveToApprove> leaves = await _odoo.GetLeavesToApproveAsync();
 
-              
                 Leaves.Clear();
                 foreach (LeaveToApprove leave in leaves)
                 {
@@ -722,10 +703,12 @@ namespace PFE.ViewModels
             }
         }
 
-       
         private async Task ClearCacheAsync()
         {
-            if (IsBusy) return;
+            if (IsBusy)
+            {
+                return;
+            }
 
             IsBusy = true;
             ErrorMessage = string.Empty;
@@ -733,22 +716,19 @@ namespace PFE.ViewModels
 
             try
             {
-                
+
                 await _databaseService.ClearLeavesToApproveCacheAsync(ManagerUserId);
 
                 await ClearAllPendingDecisionsAsync();
 
-                // Rafraîchir le compteur
                 PendingDecisionsCount = 0;
                 OnPropertyChanged(nameof(HasPendingDecisions));
 
                 SuccessMessage = "✓ Cache vidé avec succès !";
                 System.Diagnostics.Debug.WriteLine("ManageLeavesViewModel: Cache vidé");
 
-               
                 await LoadAsync();
 
-              
                 _ = ClearSuccessMessageAfterDelayAsync();
             }
             catch (Exception ex)
@@ -762,16 +742,14 @@ namespace PFE.ViewModels
             }
         }
 
-      
         private async Task ClearAllPendingDecisionsAsync()
         {
             try
             {
-                
+
                 List<PendingLeaveDecision> allDecisions = await _databaseService.GetAllLeaveDecisionsAsync(ManagerUserId);
-                
-                
-                foreach (var decision in allDecisions)
+
+                foreach (PendingLeaveDecision decision in allDecisions)
                 {
                     await _databaseService.DeletePendingLeaveDecisionAsync(decision.Id);
                     System.Diagnostics.Debug.WriteLine($"ManageLeavesViewModel: Décision {decision.Id} supprimée");

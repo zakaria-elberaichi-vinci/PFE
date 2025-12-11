@@ -21,37 +21,30 @@ namespace PFE.Views
         {
             base.OnAppearing();
 
-            // Restaurer la préférence de vue
             bool isCalendarView = _viewPreference.IsCalendarView;
             ViewSwitch.IsToggled = isCalendarView;
             UpdateViewState(isCalendarView);
 
-            // Charger les données
             await _vm.LoadAsync(isCalendarView);
         }
 
         private void OnViewToggled(object sender, ToggledEventArgs e)
         {
-            // Sauvegarder la préférence
             _viewPreference.IsCalendarView = e.Value;
 
-            // Basculer instantanément entre les vues
             UpdateViewState(e.Value);
 
-            // Charger les données si nécessaire
             _ = _vm.LoadAsync(e.Value);
         }
 
         private void UpdateViewState(bool isCalendarView)
         {
-            // Mise à jour des styles des labels
             ListLabel.FontAttributes = isCalendarView ? FontAttributes.None : FontAttributes.Bold;
             ListLabel.TextColor = isCalendarView ? Color.FromArgb("#9CA3AF") : Color.FromArgb("#60A5FA");
 
             CalendarLabel.FontAttributes = isCalendarView ? FontAttributes.Bold : FontAttributes.None;
             CalendarLabel.TextColor = isCalendarView ? Color.FromArgb("#60A5FA") : Color.FromArgb("#9CA3AF");
 
-            // Afficher/Masquer les vues
             StatsFrame.IsVisible = isCalendarView;
             ListViewContainer.IsVisible = !isCalendarView;
             CalendarViewContainer.IsVisible = isCalendarView;

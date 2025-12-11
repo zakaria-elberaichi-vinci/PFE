@@ -615,7 +615,6 @@ namespace PFE.Services
             string text = await res.Content.ReadAsStringAsync();
             _ = res.EnsureSuccessStatusCode();
 
-            // Vérifier les erreurs JSON-RPC (comme Session expired)
             CheckForOdooError(text);
         }
 
@@ -641,7 +640,6 @@ namespace PFE.Services
             string text = await res.Content.ReadAsStringAsync();
             _ = res.EnsureSuccessStatusCode();
 
-            // Vérifier les erreurs JSON-RPC (comme Session expired)
             CheckForOdooError(text);
         }
 
@@ -659,14 +657,12 @@ namespace PFE.Services
                 {
                     string errorMessage = "Erreur Odoo";
 
-                    // Essayer de récupérer le message d'erreur
                     if (errorEl.TryGetProperty("message", out JsonElement msgEl) &&
                         msgEl.ValueKind == JsonValueKind.String)
                     {
                         errorMessage = msgEl.GetString() ?? errorMessage;
                     }
 
-                    // Récupérer aussi le nom de l'erreur si disponible
                     if (errorEl.TryGetProperty("data", out JsonElement dataEl) &&
                         dataEl.TryGetProperty("name", out JsonElement nameEl) &&
                         nameEl.ValueKind == JsonValueKind.String)
@@ -683,7 +679,6 @@ namespace PFE.Services
             }
             catch (JsonException)
             {
-                // Si le parsing JSON échoue, ignorer (pas une réponse JSON valide)
             }
         }
 
@@ -1087,10 +1082,8 @@ namespace PFE.Services
                 throw new InvalidOperationException("Votre demande chevauche sur un congé qui a déjà été demandé ou pris.");
             }
 
-            // Vérifier si le type de congé nécessite une allocation
             bool requiresAllocation = await DoesLeaveTypeRequireAllocationAsync(leaveTypeId);
 
-            // Seulement vérifier l'allocation si le type de congé l'exige
             if (requiresAllocation && !await HasValidAllocationAsync(leaveTypeId))
             {
                 throw new InvalidOperationException("Aucune allocation valide ne couvre les dates demandées pour ce type de congé.");
@@ -1174,23 +1167,23 @@ namespace PFE.Services
                 resEl.ValueKind != JsonValueKind.Array ||
                 resEl.GetArrayLength() == 0)
             {
-                // Par défaut, considérer qu'une allocation est requise si on ne peut pas déterminer
                 return true;
             }
 
             JsonElement first = resEl[0];
 
-            // Dans Odoo, requires_allocation peut être "yes", "no" ou un booléen
             if (first.TryGetProperty("requires_allocation", out JsonElement reqEl))
             {
                 if (reqEl.ValueKind == JsonValueKind.True)
                 {
                     return true;
                 }
+
                 if (reqEl.ValueKind == JsonValueKind.False)
                 {
                     return false;
                 }
+
                 if (reqEl.ValueKind == JsonValueKind.String)
                 {
                     string val = reqEl.GetString() ?? "";

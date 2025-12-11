@@ -9,6 +9,7 @@ public partial class DashboardPage : ContentPage
     private readonly IBackgroundNotificationService _backgroundNotificationService;
     private readonly IBackgroundLeaveStatusService _backgroundLeaveStatusService;
 
+    [Obsolete]
     public DashboardPage(
         OdooClient client,
         IServiceProvider services,
@@ -52,7 +53,6 @@ public partial class DashboardPage : ContentPage
 
         BtnCalendar.Clicked += async (s, e) =>
         {
-            // Utiliser la page unifiée qui contient les deux vues
             MyLeavesPage myLeavesPage = _services.GetRequiredService<MyLeavesPage>();
             await Navigation.PushAsync(myLeavesPage);
         };

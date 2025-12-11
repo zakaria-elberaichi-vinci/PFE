@@ -69,7 +69,11 @@ namespace PFE.ViewModels
             get => _pendingRequestsCount;
             private set
             {
-                if (_pendingRequestsCount == value) return;
+                if (_pendingRequestsCount == value)
+                {
+                    return;
+                }
+
                 _pendingRequestsCount = value;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(HasPendingRequests));
@@ -273,7 +277,6 @@ namespace PFE.ViewModels
         {
             ErrorMessage = string.Empty;
 
-          
             IsOffline = Connectivity.Current.NetworkAccess != NetworkAccess.Internet;
 
             if (!IsEmployee)
@@ -283,7 +286,6 @@ namespace PFE.ViewModels
                 return;
             }
 
-           
             _employeeId = _odooClient.session.Current.UserId!.Value;
 
             await LoadLeaveTypesAsync();
@@ -291,7 +293,6 @@ namespace PFE.ViewModels
             await RefreshPendingCountAsync();
         }
 
-      
         private async Task RefreshPendingCountAsync()
         {
             try
@@ -349,7 +350,6 @@ namespace PFE.ViewModels
                 IsBusy = true;
                 ErrorMessage = string.Empty;
 
-                
                 bool isOnline = Connectivity.Current.NetworkAccess == NetworkAccess.Internet;
 
                 if (isOnline)
@@ -360,7 +360,6 @@ namespace PFE.ViewModels
 
                         _blockedDatesSet.Clear();
 
-                       
                         List<(DateTime date, int leaveId, string status)> blockedDatesForCache = [];
 
                         foreach (Leave leave in leaves)
@@ -375,7 +374,6 @@ namespace PFE.ViewModels
                             }
                         }
 
-                       
                         await _databaseService.SaveBlockedDatesAsync(_employeeId, blockedDatesForCache);
 
                         System.Diagnostics.Debug.WriteLine($"Dates bloquées récupérées du serveur et mises en cache ({_blockedDatesSet.Count} dates)");
@@ -434,7 +432,6 @@ namespace PFE.ViewModels
                 IsBusy = true;
                 ErrorMessage = string.Empty;
 
-                
                 bool isOnline = Connectivity.Current.NetworkAccess == NetworkAccess.Internet;
 
                 if (isOnline)
@@ -445,7 +442,6 @@ namespace PFE.ViewModels
 
                         List<AllocationSummary> allocations = await _odooClient.GetAllocationsSummaryAsync();
 
-                        
                         List<LeaveTypeItem> typesWithAllocation = allocations
                             .Select(a => new LeaveTypeItem(
                                 Id: a.LeaveTypeId,
@@ -456,7 +452,6 @@ namespace PFE.ViewModels
                             .OrderByDescending(t => t.Days ?? 0)
                             .ToList();
 
-                        // Types sans allocation
                         List<LeaveTypeItem> typesWithoutAllocationFormatted = typesWithoutAllocation
                             .Select(t => new LeaveTypeItem(
                                 Id: t.Id,
@@ -467,12 +462,10 @@ namespace PFE.ViewModels
                             .OrderBy(t => t.Name)
                             .ToList();
 
-                        
                         List<LeaveTypeItem> combinedTypes = typesWithAllocation
                             .Concat(typesWithoutAllocationFormatted)
                             .ToList();
 
-                      
                         await _databaseService.SaveLeaveTypesAsync(_employeeId, combinedTypes);
 
                         LeaveTypes = new ObservableCollection<LeaveTypeItem>(combinedTypes);
@@ -628,14 +621,14 @@ namespace PFE.ViewModels
 
             if (e.NetworkAccess == NetworkAccess.Internet)
             {
-                
+
                 await LoadLeaveTypesAsync();
                 await LoadBlockedDatesAsync();
                 await RefreshPendingCountAsync();
             }
             else
             {
-               
+
                 await LoadLeaveTypesFromCacheAsync();
                 await LoadBlockedDatesFromCacheAsync();
             }
@@ -655,7 +648,6 @@ namespace PFE.ViewModels
                 {
                     IsSyncing = false;
 
-              
                     await RefreshPendingCountAsync();
 
                     if (e.SuccessCount > 0 && e.PendingCount == 0)
@@ -663,7 +655,6 @@ namespace PFE.ViewModels
                         SyncMessage = $"✓ {e.SuccessCount} demande{(e.SuccessCount > 1 ? "s synchronisées" : " synchronisée")} avec succès";
                         ShowSyncStatus = true;
 
-                        
                         SyncCompleted?.Invoke(this, e.SuccessCount);
 
                         _ = Task.Run(async () =>

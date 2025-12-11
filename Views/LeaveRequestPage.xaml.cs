@@ -15,7 +15,6 @@ namespace PFE.Views
             BindingContext = _vm;
             _sp = sp;
 
-            // S'abonner à l'événement de synchronisation réussie
             _vm.SyncCompleted += OnSyncCompleted;
         }
 
@@ -37,7 +36,6 @@ namespace PFE.Views
 
             await _vm.LoadAsync();
 
-            // Si l'utilisateur n'a pas le droit d'accéder à cette page
             if (_vm.IsAccessDenied)
             {
                 await DisplayAlert("Accès refusé", _vm.ErrorMessage, "OK");
@@ -46,7 +44,6 @@ namespace PFE.Views
                 return;
             }
 
-            // Info initiale si un message existe mais pas de types de congés
             if (!string.IsNullOrWhiteSpace(_vm.ErrorMessage) && _vm.LeaveTypes.Count == 0)
             {
                 await DisplayAlert("Informations", _vm.ErrorMessage, "OK");

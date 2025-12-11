@@ -2,6 +2,7 @@
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using PFE.Models;
+using PFE.Models.Database;
 using PFE.Services;
 
 namespace PFE.ViewModels
@@ -138,7 +139,10 @@ namespace PFE.ViewModels
         }
         private async Task ClearCacheAsync()
         {
-            if (IsBusy) return;
+            if (IsBusy)
+            {
+                return;
+            }
 
             IsBusy = true;
             ErrorMessage = string.Empty;
@@ -151,18 +155,16 @@ namespace PFE.ViewModels
                 if (_odooClient.session.Current.IsManager)
                 {
                     await _databaseService.ClearLeavesToApproveCacheAsync(UserId);
-             
-                    var allDecisions = await _databaseService.GetAllLeaveDecisionsAsync(UserId);
-                    foreach (var decision in allDecisions)
+
+                    List<PendingLeaveDecision> allDecisions = await _databaseService.GetAllLeaveDecisionsAsync(UserId);
+                    foreach (PendingLeaveDecision decision in allDecisions)
                     {
                         await _databaseService.DeletePendingLeaveDecisionAsync(decision.Id);
                     }
                 }
 
-              
                 await _databaseService.ClearSeenNotificationsAsync(UserId);
 
-             
                 if (_odooClient.session.Current.EmployeeId.HasValue)
                 {
                     await _databaseService.ClearNotifiedLeavesAsync(_odooClient.session.Current.EmployeeId.Value);
