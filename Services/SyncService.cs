@@ -60,12 +60,11 @@ namespace PFE.Services
         private CancellationTokenSource? _cts;
         private Task? _syncTask;
         private readonly TimeSpan _syncInterval = TimeSpan.FromSeconds(10);
-        private int _pendingDecisionsCount;
         private bool _isReauthenticating = false;
 
         public bool IsRunning => _syncTask != null && !_syncTask.IsCompleted;
         public bool IsOnline => Connectivity.Current.NetworkAccess == NetworkAccess.Internet;
-        public int PendingDecisionsCount => _pendingDecisionsCount;
+        public int PendingDecisionsCount { get; private set; }
 
         public event EventHandler<int>? PendingCountChanged;
         public event EventHandler? SyncCompleted;
@@ -85,7 +84,10 @@ namespace PFE.Services
 
         public void Start()
         {
-            if (IsRunning) return;
+            if (IsRunning)
+            {
+                return;
+            }
 
             _cts = new CancellationTokenSource();
             _syncTask = SyncLoopAsync(_cts.Token);
@@ -108,10 +110,10 @@ namespace PFE.Services
             if (e.NetworkAccess == NetworkAccess.Internet)
             {
                 System.Diagnostics.Debug.WriteLine("SyncService: Connexion rétablie, synchronisation...");
-                
+
                 // Attendre un peu pour laisser la connexion s'établir
                 await Task.Delay(1000);
-                
+
                 await SyncNowAsync();
             }
         }
@@ -159,7 +161,7 @@ namespace PFE.Services
             try
             {
                 System.Diagnostics.Debug.WriteLine("SyncService: Début de SyncNowAsync");
-                
+
                 // S'assurer que la session est valide avant de synchroniser
                 if (!_session.Current.IsAuthenticated)
                 {
@@ -171,7 +173,7 @@ namespace PFE.Services
                         return;
                     }
                 }
-                
+
                 await SyncPendingDecisionsAsync();
             }
             catch (Exception ex)
@@ -183,7 +185,7 @@ namespace PFE.Services
         private async Task SyncPendingDecisionsAsync()
         {
             await _databaseService.InitializeAsync();
-            
+
             List<PendingLeaveDecision> decisions = await _databaseService.GetUnsyncedLeaveDecisionsAsync();
 
             if (decisions.Count == 0)
@@ -214,7 +216,7 @@ namespace PFE.Services
                 try
                 {
                     System.Diagnostics.Debug.WriteLine($"SyncService: Traitement décision {decision.Id} - {decision.DecisionType} pour congé {decision.LeaveId}");
-                    
+
                     // Marquer comme en cours de sync
                     await _databaseService.UpdateDecisionSyncStatusAsync(decision.Id, SyncStatus.Syncing);
 
@@ -238,20 +240,20 @@ namespace PFE.Services
                 catch (Exception ex) when (IsSessionExpiredError(ex))
                 {
                     System.Diagnostics.Debug.WriteLine($"SyncService: Session expirée détectée - {ex.Message}");
-                    
+
                     // Remettre en pending
                     await _databaseService.UpdateDecisionSyncStatusAsync(decision.Id, SyncStatus.Pending);
-                    
+
                     // Tenter de se ré-authentifier
                     bool reauthSuccess = await TryReauthenticateAsync();
-                    
+
                     if (reauthSuccess && _session.Current.IsManager)
                     {
                         System.Diagnostics.Debug.WriteLine($"SyncService: Ré-authentification réussie, retry...");
                         try
                         {
                             await _databaseService.UpdateDecisionSyncStatusAsync(decision.Id, SyncStatus.Syncing);
-                            
+
                             if (decision.DecisionType == "approve")
                             {
                                 await _odooClient.ApproveLeaveAsync(decision.LeaveId);
@@ -260,7 +262,7 @@ namespace PFE.Services
                             {
                                 await _odooClient.RefuseLeaveAsync(decision.LeaveId);
                             }
-                            
+
                             await _databaseService.UpdateDecisionSyncStatusAsync(decision.Id, SyncStatus.Synced);
                             System.Diagnostics.Debug.WriteLine($"SyncService: Décision {decision.Id} synchronisée après réauth");
                             anySynced = true;
@@ -345,10 +347,10 @@ namespace PFE.Services
                 }
 
                 System.Diagnostics.Debug.WriteLine($"SyncService: Tentative de connexion pour {login}");
-                
+
                 // Tenter la connexion
                 bool success = await _odooClient.LoginAsync(login, password);
-                
+
                 if (success)
                 {
                     System.Diagnostics.Debug.WriteLine($"SyncService: Ré-authentification réussie - IsManager={_session.Current.IsManager}");
@@ -376,9 +378,9 @@ namespace PFE.Services
             List<PendingLeaveDecision> decisions = await _databaseService.GetUnsyncedLeaveDecisionsAsync();
             int newCount = decisions.Count;
 
-            if (_pendingDecisionsCount != newCount)
+            if (PendingDecisionsCount != newCount)
             {
-                _pendingDecisionsCount = newCount;
+                PendingDecisionsCount = newCount;
                 PendingCountChanged?.Invoke(this, newCount);
             }
         }

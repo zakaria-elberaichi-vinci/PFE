@@ -25,7 +25,6 @@
                        TextColor="#9CA3AF" />
             </VerticalStackLayout>
 
-
             <VerticalStackLayout Grid.Row="1"
                                  Spacing="16">
                 <Frame BackgroundColor="#111827"
@@ -33,69 +32,43 @@
                        HasShadow="True"
                        Padding="18"
                        BorderColor="#1F2937">
-                    <VerticalStackLayout Spacing="16">
+                    <VerticalStackLayout Spacing="12">
 
                         <Label Text="Mes actions"
                                FontSize="18"
                                FontAttributes="Bold"
                                TextColor="White" />
 
-                        <VerticalStackLayout Spacing="10">
+                        <Button Text="Voir mes congés"
+                                x:Name="BtnCalendar"
+                                BackgroundColor="#0EA5E9"
+                                TextColor="White"
+                                CornerRadius="12"
+                                HeightRequest="48"
+                                FontSize="14"
+                                IsVisible="False" />
 
-                            <Button Text="Voir mes congés"
-                                    x:Name="BtnLeaves"
-                                    BackgroundColor="#22C55E"
-                                    TextColor="White"
-                                    CornerRadius="12"
-                                    HeightRequest="48"
-                                    FontSize="14"
-                                    IsVisible="False" />
+                        <Button Text="Rentrer une demande de congé"
+                                x:Name="BtnNewLeave"
+                                BackgroundColor="#3B82F6"
+                                TextColor="White"
+                                CornerRadius="12"
+                                HeightRequest="48"
+                                FontSize="14"
+                                IsVisible="False" />
 
-                            <Button Text="Rentrer une demande de congé"
-                                    x:Name="BtnNewLeave"
-                                    BackgroundColor="#3B82F6"
-                                    TextColor="White"
-                                    CornerRadius="12"
-                                    HeightRequest="48"
-                                    FontSize="14"
-                                    IsVisible="False" />
-
-                            <Button Text="Voir le calendrier"
-                                    x:Name="BtnCalendar"
-                                    BackgroundColor="#0EA5E9"
-                                    TextColor="White"
-                                    CornerRadius="12"
-                                    HeightRequest="48"
-                                    FontSize="14"
-                                    IsVisible="False" />
-
-                        </VerticalStackLayout>
-
-      
-                        <BoxView HeightRequest="1"
-                                 BackgroundColor="#1F2937"
-                                 Margin="0,8" />
-
-
-                        <VerticalStackLayout Spacing="10">
-                            <Label Text="Espace manager"
-                                   FontSize="14"
-                                   TextColor="#9CA3AF" />
-
-                            <Button x:Name="BtnManageLeaves"
-                                    Text="Gérer les demandes de congés"
-                                    BackgroundColor="#F59E0B"
-                                    TextColor="White"
-                                    CornerRadius="12"
-                                    HeightRequest="48"
-                                    FontSize="14"
-                                    IsVisible="False" />
-                        </VerticalStackLayout>
+                        <Button x:Name="BtnManageLeaves"
+                                Text="Gérer les demandes de congés"
+                                BackgroundColor="#F59E0B"
+                                TextColor="White"
+                                CornerRadius="12"
+                                HeightRequest="48"
+                                FontSize="14"
+                                IsVisible="False" />
 
                     </VerticalStackLayout>
                 </Frame>
 
- 
                 <Frame BackgroundColor="#111827"
                        CornerRadius="16"
                        HasShadow="True"

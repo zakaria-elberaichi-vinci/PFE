@@ -8,8 +8,9 @@
             DateTime endDate = end.Date;
 
             for (DateTime d = startDate; d <= endDate; d = d.AddDays(1))
+            {
                 yield return d;
+            }
         }
-
     }
 }

@@ -1,53 +1,22 @@
-using PFE.Models.Database;
 using PFE.Models;
 using DB = PFE.Models.Database;
 
 namespace PFE.Services
 {
-    /// <summary>
-    /// Interface du service de base de données locale
-    /// </summary>
     public interface IDatabaseService
     {
-        /// <summary>
-        /// Initialise la base de données et crée les tables
-        /// </summary>
         Task InitializeAsync();
 
         #region NotifiedLeaveStatusChange (Employés - Notifications envoyées)
-
-        /// <summary>
-        /// Récupère les IDs des congés pour lesquels une notification a déjà été envoyée
-        /// </summary>
         Task<HashSet<int>> GetNotifiedLeaveIdsAsync(int employeeId, string status);
-
-        /// <summary>
-        /// Marque un congé comme notifié pour un statut donné
-        /// </summary>
         Task MarkLeaveAsNotifiedAsync(int employeeId, int leaveId, string status);
-
-        /// <summary>
-        /// Supprime les notifications d'un employé
-        /// </summary>
         Task ClearNotifiedLeavesAsync(int employeeId);
 
         #endregion
 
         #region SeenLeaveNotification (Managers)
-
-        /// <summary>
-        /// Récupère les IDs des demandes de congé déjà vues par un manager
-        /// </summary>
         Task<HashSet<int>> GetSeenLeaveIdsAsync(int managerUserId);
-
-        /// <summary>
-        /// Marque des demandes comme vues par un manager
-        /// </summary>
         Task MarkLeavesAsSeenAsync(int managerUserId, IEnumerable<int> leaveIds);
-
-        /// <summary>
-        /// Supprime les notifications vues d'un manager
-        /// </summary>
         Task ClearSeenNotificationsAsync(int managerUserId);
 
         #endregion
@@ -190,14 +159,14 @@ namespace PFE.Services
         #region CachedLeaveType
 
         /// <summary>
-        /// Sauvegarde les types de congés en cache local
+        /// Sauvegarde les types de congés combinés en cache local
         /// </summary>
-        Task SaveLeaveTypesAsync(int employeeId, List<PFE.Models.LeaveTypeItem> leaveTypes, int? year, bool requiresAllocation);
+        Task SaveLeaveTypesAsync(int employeeId, List<LeaveTypeItem> leaveTypes);
 
         /// <summary>
         /// Récupère les types de congés depuis le cache local
         /// </summary>
-        Task<List<PFE.Models.LeaveTypeItem>> GetLeaveTypesAsync(int employeeId, int? year, bool requiresAllocation);
+        Task<List<LeaveTypeItem>> GetLeaveTypesAsync(int employeeId);
 
         /// <summary>
         /// Supprime les types de congés en cache pour un employé
@@ -225,5 +194,4 @@ namespace PFE.Services
 
         #endregion
     }
-
 }

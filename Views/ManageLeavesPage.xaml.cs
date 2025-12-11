@@ -24,8 +24,6 @@ namespace PFE.Views
             base.OnAppearing();
 
             await _vm.LoadAsync();
-
-            // Afficher une popup si nouvelles demandes détectées
             if (_vm.HasNewLeaves)
             {
                 await ShowNewLeavesAlertAsync();

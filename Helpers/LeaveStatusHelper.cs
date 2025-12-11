@@ -2,8 +2,9 @@
 {
     public static class LeaveStatusHelper
     {
-        public static string StateToFrench(string state) =>
-            state switch
+        public static string StateToFrench(string state)
+        {
+            return state switch
             {
                 "draft" => "En brouillon",
                 "confirm" => "En attente d'approbation",
@@ -13,6 +14,7 @@
                 "cancel" => "Annulé",
                 _ => state
             };
+        }
 
         public static readonly Dictionary<string, string> FrenchToEnglishStatus =
             new(StringComparer.OrdinalIgnoreCase)

@@ -1,12 +1,12 @@
-using System.Globalization;
+﻿using System.Globalization;
 
 namespace PFE.Converters
 {
-    public class NullOrEmptyToDefaultConverter : IValueConverter
+    public class IntToBoolConverter : IValueConverter
     {
         public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
         {
-            return value is string s && !string.IsNullOrWhiteSpace(s) ? s : parameter as string ?? "Non disponible";
+            return value is int count && count > 0;
         }
 
         public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

@@ -23,13 +23,17 @@ namespace PFE.Services
         private void EnsureAuthenticated()
         {
             if (!session.Current.IsAuthenticated)
+            {
                 throw new InvalidOperationException("Utilisateur non authentifié.");
+            }
         }
 
         private void EnsureIsManager()
         {
             if (session.Current.IsAuthenticated && !session.Current.IsManager)
+            {
                 throw new InvalidOperationException("Utilisateur n'est pas un manager.");
+            }
         }
         public async Task<bool> LoginAsync(
             string login, string password)
@@ -60,7 +64,9 @@ namespace PFE.Services
             string text = await res.Content.ReadAsStringAsync();
 
             if (!res.IsSuccessStatusCode)
+            {
                 return false;
+            }
 
             try
             {
@@ -68,7 +74,9 @@ namespace PFE.Services
                 JsonElement root = doc.RootElement;
 
                 if (root.TryGetProperty("error", out _))
+                {
                     return false;
+                }
 
                 if (root.TryGetProperty("result", out JsonElement result) &&
                     result.ValueKind == JsonValueKind.Object &&
@@ -110,6 +118,7 @@ namespace PFE.Services
                     return uid > 0;
 
                 }
+
                 return false;
             }
             catch
@@ -118,7 +127,7 @@ namespace PFE.Services
             }
         }
 
-        public async Task<UserProfile> GetUserInfosAsync()
+        public async Task<UserProfile?> GetUserInfosAsync()
         {
             EnsureAuthenticated();
 
@@ -157,25 +166,35 @@ namespace PFE.Services
             HttpResponseMessage res = await _httpClient.PostAsync(_baseUrl, BuildJsonContent(payload));
             string text = await res.Content.ReadAsStringAsync();
 
-            res.EnsureSuccessStatusCode();
+            _ = res.EnsureSuccessStatusCode();
 
             using JsonDocument doc = JsonDocument.Parse(text);
             JsonElement root = doc.RootElement;
 
             if (root.TryGetProperty("error", out JsonElement err))
+            {
                 throw new Exception("Erreur Odoo : " + err.ToString());
+            }
 
             if (!root.TryGetProperty("result", out JsonElement result))
+            {
                 throw new Exception("Réponse Odoo inattendue : " + text);
+            }
 
             if (result.ValueKind == JsonValueKind.False)
+            {
                 return null;
+            }
 
             if (result.ValueKind != JsonValueKind.Array)
+            {
                 throw new Exception("Réponse Odoo inattendue (result n'est pas un tableau) : " + text);
+            }
 
             if (result.GetArrayLength() == 0)
+            {
                 return null;
+            }
 
             JsonElement emp = result[0];
 
@@ -184,15 +203,27 @@ namespace PFE.Services
             string? workEmail = emp.TryGetProperty("work_email", out JsonElement emailEl) && emailEl.ValueKind == JsonValueKind.String ? emailEl.GetString() : null;
             string? jobTitle = emp.TryGetProperty("job_title", out JsonElement jobEl) && jobEl.ValueKind == JsonValueKind.String ? jobEl.GetString() : null;
 
-            (int? Id, string? Name) ParseMany2One(JsonElement el)
+            static (int? Id, string? Name) ParseMany2One(JsonElement el)
             {
-                if (el.ValueKind != JsonValueKind.Array) return (null, null);
+                if (el.ValueKind != JsonValueKind.Array)
+                {
+                    return (null, null);
+                }
+
                 int? m2oId = null;
                 string? m2oName = null;
                 int len = el.GetArrayLength();
 
-                if (len >= 1 && el[0].ValueKind == JsonValueKind.Number && el[0].TryGetInt32(out int i)) m2oId = i;
-                if (len >= 2 && el[1].ValueKind == JsonValueKind.String) m2oName = el[1].GetString();
+                if (len >= 1 && el[0].ValueKind == JsonValueKind.Number && el[0].TryGetInt32(out int i))
+                {
+                    m2oId = i;
+                }
+
+                if (len >= 2 && el[1].ValueKind == JsonValueKind.String)
+                {
+                    m2oName = el[1].GetString();
+                }
+
                 return (m2oId, m2oName);
             }
 
@@ -221,20 +252,10 @@ namespace PFE.Services
 
         }
 
-        public async Task<List<Leave>> GetLeavesAsync(int? yearRequest = null, params string[] states)
+        public async Task<List<Leave>> GetLeavesAsync(params string[] states)
         {
 
-            List<object> domain = new();
-
-            if (yearRequest.HasValue)
-            {
-                int year = yearRequest.Value;
-                DateTime startOfYear = new DateTime(year, 1, 1);
-                DateTime endOfYear = new DateTime(year, 12, 31);
-
-                domain.Add(new object[] { "request_date_to", ">=", startOfYear.ToString("yyyy-MM-dd") });
-                domain.Add(new object[] { "request_date_from", "<=", endOfYear.ToString("yyyy-MM-dd") });
-            }
+            List<object> domain = [];
 
             object[] allStates = { "draft", "confirm", "validate1", "validate", "refuse", "cancel" };
 
@@ -259,7 +280,8 @@ namespace PFE.Services
                 "state",
                 "request_date_to",
                 "request_date_from",
-                "number_of_days"
+                "number_of_days",
+                "first_approver_id"
             };
 
             var payload = new
@@ -288,32 +310,38 @@ namespace PFE.Services
                 id = 2
             };
 
-
             HttpResponseMessage res = await _httpClient.PostAsync(_baseUrl, BuildJsonContent(payload));
             string text = await res.Content.ReadAsStringAsync();
 
-            res.EnsureSuccessStatusCode();
+            _ = res.EnsureSuccessStatusCode();
 
             using JsonDocument doc = JsonDocument.Parse(text);
             JsonElement root = doc.RootElement;
 
             if (root.TryGetProperty("error", out JsonElement err))
+            {
                 throw new Exception("Erreur Odoo : " + err.ToString());
+            }
 
             if (!root.TryGetProperty("result", out JsonElement result))
+            {
                 throw new Exception("Réponse Odoo inattendue : " + text);
+            }
 
             if (result.ValueKind == JsonValueKind.False)
-                return new List<Leave>();
+            {
+                return [];
+            }
 
             if (result.ValueKind != JsonValueKind.Array)
+            {
                 throw new Exception("Réponse Odoo inattendue (result n'est pas un tableau) : " + text);
+            }
 
-            List<Leave> list = new List<Leave>();
+            List<Leave> list = [];
 
             foreach (JsonElement item in result.EnumerateArray())
             {
-                // Récupérer l'ID Odoo
                 int id = item.TryGetProperty("id", out JsonElement idEl) && idEl.ValueKind == JsonValueKind.Number
                     ? idEl.GetInt32()
                     : 0;
@@ -325,29 +353,50 @@ namespace PFE.Services
                 {
                     JsonElement nameElement = holidayStatusEl[1];
                     if (nameElement.ValueKind == JsonValueKind.String)
+                    {
                         type = nameElement.GetString() ?? "";
+                    }
                 }
 
                 if (!item.TryGetProperty("request_date_from", out JsonElement fromEl) ||
                     fromEl.ValueKind != JsonValueKind.String)
+                {
                     throw new Exception("Erreur sur la date de début.");
+                }
 
                 DateTime startDate = DateTime.Parse(fromEl.GetString());
 
                 if (!item.TryGetProperty("request_date_to", out JsonElement toEl) ||
                     toEl.ValueKind != JsonValueKind.String)
+                {
                     throw new Exception("Erreur sur la date de fin.");
+                }
 
                 DateTime endDate = DateTime.Parse(toEl.GetString());
 
                 string state = "";
                 if (item.TryGetProperty("state", out JsonElement stateEl) &&
                     stateEl.ValueKind == JsonValueKind.String)
+                {
                     state = stateEl.GetString() ?? "";
+                }
 
                 if (!item.TryGetProperty("number_of_days", out JsonElement daysEl) ||
                     daysEl.ValueKind != JsonValueKind.Number)
+                {
                     throw new Exception("Erreur sur les jours");
+                }
+
+                if (!item.TryGetProperty("first_approver_id", out JsonElement firEl))
+                {
+                    throw new Exception("Erreur sur l'approbateur");
+                }
+
+                string? firstApprover = null;
+                if (firEl.ValueKind == JsonValueKind.Array && firEl.GetArrayLength() >= 2 && firEl[1].ValueKind == JsonValueKind.String)
+                {
+                    firstApprover = firEl[1].GetString();
+                }
 
                 int days = (int)Math.Round(daysEl.GetDouble());
 
@@ -357,7 +406,8 @@ namespace PFE.Services
                     startDate,
                     endDate,
                     LeaveStatusHelper.StateToFrench(state),
-                    days
+                    days,
+                    firstApprover
                     ));
             }
 
@@ -415,13 +465,15 @@ namespace PFE.Services
             };
 
             HttpResponseMessage res = await _httpClient.PostAsync(_baseUrl, BuildJsonContent(payload));
-            res.EnsureSuccessStatusCode();
+            _ = res.EnsureSuccessStatusCode();
 
             string text = await res.Content.ReadAsStringAsync();
             using JsonDocument doc = JsonDocument.Parse(text);
 
             if (!doc.RootElement.TryGetProperty("result", out JsonElement result) || result.ValueKind != JsonValueKind.Array)
+            {
                 return false;
+            }
 
             foreach (JsonElement grp in result.EnumerateArray())
             {
@@ -436,10 +488,10 @@ namespace PFE.Services
                     }
                 }
             }
+
             return false;
 
         }
-
         public async Task<List<LeaveToApprove>> GetLeavesToApproveAsync()
         {
             EnsureIsManager();
@@ -483,18 +535,22 @@ namespace PFE.Services
             HttpResponseMessage res = await _httpClient.PostAsync(_baseUrl, BuildJsonContent(payload));
 
             string text = await res.Content.ReadAsStringAsync();
-            res.EnsureSuccessStatusCode();
+            _ = res.EnsureSuccessStatusCode();
 
             using JsonDocument doc = JsonDocument.Parse(text);
             JsonElement root = doc.RootElement;
 
-            if (root.TryGetProperty("error", out JsonElement _))
+            if (root.TryGetProperty("error", out _))
+            {
                 throw new Exception($"Erreur: {text}");
+            }
 
             if (!root.TryGetProperty("result", out JsonElement resEl) && resEl.ValueKind != JsonValueKind.Array)
-                return new List<LeaveToApprove>();
+            {
+                return [];
+            }
 
-            List<LeaveToApprove> leaves = new List<LeaveToApprove>();
+            List<LeaveToApprove> leaves = [];
 
             foreach (JsonElement item in resEl.EnumerateArray())
             {
@@ -557,7 +613,7 @@ namespace PFE.Services
 
             HttpResponseMessage res = await _httpClient.PostAsync(_baseUrl, BuildJsonContent(payload));
             string text = await res.Content.ReadAsStringAsync();
-            res.EnsureSuccessStatusCode();
+            _ = res.EnsureSuccessStatusCode();
 
             // Vérifier les erreurs JSON-RPC (comme Session expired)
             CheckForOdooError(text);
@@ -583,7 +639,7 @@ namespace PFE.Services
 
             HttpResponseMessage res = await _httpClient.PostAsync(_baseUrl, BuildJsonContent(payload));
             string text = await res.Content.ReadAsStringAsync();
-            res.EnsureSuccessStatusCode();
+            _ = res.EnsureSuccessStatusCode();
 
             // Vérifier les erreurs JSON-RPC (comme Session expired)
             CheckForOdooError(text);
@@ -602,14 +658,14 @@ namespace PFE.Services
                 if (root.TryGetProperty("error", out JsonElement errorEl))
                 {
                     string errorMessage = "Erreur Odoo";
-                    
+
                     // Essayer de récupérer le message d'erreur
-                    if (errorEl.TryGetProperty("message", out JsonElement msgEl) && 
+                    if (errorEl.TryGetProperty("message", out JsonElement msgEl) &&
                         msgEl.ValueKind == JsonValueKind.String)
                     {
                         errorMessage = msgEl.GetString() ?? errorMessage;
                     }
-                    
+
                     // Récupérer aussi le nom de l'erreur si disponible
                     if (errorEl.TryGetProperty("data", out JsonElement dataEl) &&
                         dataEl.TryGetProperty("name", out JsonElement nameEl) &&
@@ -664,29 +720,37 @@ namespace PFE.Services
 
             HttpResponseMessage res = await _httpClient.PostAsync(_baseUrl, BuildJsonContent(payload));
             string text = await res.Content.ReadAsStringAsync();
-            res.EnsureSuccessStatusCode();
+            _ = res.EnsureSuccessStatusCode();
 
             using JsonDocument doc = JsonDocument.Parse(text);
 
             if (!doc.RootElement.TryGetProperty("result", out JsonElement resEl))
+            {
                 throw new InvalidOperationException("Réponse Odoo invalide: 'result' manquant.");
+            }
 
             if (resEl.ValueKind != JsonValueKind.Array)
+            {
                 throw new InvalidOperationException("Réponse Odoo inattendue: 'result' n'est pas un tableau.");
+            }
 
             if (resEl.GetArrayLength() == 0)
+            {
                 throw new InvalidOperationException("Aucun employé associé à cet utilisateur (user_id).");
+            }
 
             JsonElement first = resEl[0];
 
             if (!first.TryGetProperty("id", out JsonElement idElement) || idElement.ValueKind != JsonValueKind.Number)
+            {
                 throw new InvalidOperationException("Champ 'id' introuvable ou invalide dans le résultat.");
+            }
 
             int employeeId = idElement.GetInt32();
             return employeeId;
 
         }
-        private async Task<bool> HasOverlappingLeaveAsync(DateTime startDate, DateTime endDate)
+        public async Task<bool> HasOverlappingLeaveAsync(DateTime startDate, DateTime endDate)
         {
             EnsureAuthenticated();
 
@@ -696,7 +760,7 @@ namespace PFE.Services
             object[] domain =
             {
         new object[] { "employee_id", "=", session.Current.EmployeeId!.Value },
-        new object[] { "state", "not in", new object[] { "cancel", "refuse" } },
+        new object[] { "state", "not in", new object[] { "cancel", "refuse", "draft" } },
         new object[] { "request_date_from", "<=", end },
         new object[] { "request_date_to", ">=", start }
             };
@@ -717,33 +781,32 @@ namespace PFE.Services
 
             HttpResponseMessage res = await _httpClient.PostAsync(_baseUrl, BuildJsonContent(payload));
             string text = await res.Content.ReadAsStringAsync();
-            res.EnsureSuccessStatusCode();
+            _ = res.EnsureSuccessStatusCode();
 
             using JsonDocument doc = JsonDocument.Parse(text);
             JsonElement root = doc.RootElement;
 
             if (!root.TryGetProperty("result", out JsonElement countEl) || countEl.ValueKind != JsonValueKind.Number)
+            {
                 throw new InvalidOperationException("Réponse Odoo inattendue pour search_count sur hr.leave.");
+            }
 
             int count = countEl.GetInt32();
             return count > 0;
         }
 
-        private async Task<List<LeaveTypeItem>> GetAllocationsAsync(int? yearRequested, int? typeId)
+        private async Task<List<LeaveTypeItem>> GetAllocationsAsync(int? typeId = null)
         {
-            int year = yearRequested ?? DateTime.Today.Year;
-
-            string dateFrom = new DateTime(year, 1, 1).ToString("yyyy-MM-dd");
-            string dateTo = new DateTime(year, 12, 31).ToString("yyyy-MM-dd");
+            string today = DateTime.Today.ToString("yyyy-MM-dd");
 
             object[] domain = new object[]
             {
         new object[] { "employee_id", "=", session.Current.EmployeeId!.Value },
         new object[] { "state", "=", "validate" },
-        new object[] { "date_from", "<=", dateTo },
+        new object[] { "date_from", "<=", today },
         "|",
         new object[] { "date_to", "=", false },
-        new object[] { "date_to", ">=", dateFrom },
+        new object[] { "date_to", ">=", today },
             };
 
             if (typeId.HasValue)
@@ -775,49 +838,63 @@ namespace PFE.Services
             };
 
             HttpResponseMessage res = await _httpClient.PostAsync(_baseUrl, BuildJsonContent(payload));
-            res.EnsureSuccessStatusCode();
+            _ = res.EnsureSuccessStatusCode();
             string text = await res.Content.ReadAsStringAsync();
 
             using JsonDocument doc = JsonDocument.Parse(text);
             JsonElement root = doc.RootElement;
 
             if (root.TryGetProperty("error", out JsonElement errEl))
+            {
                 throw new Exception("Erreur Odoo : " + errEl.ToString());
+            }
 
             if (!root.TryGetProperty("result", out JsonElement resEl) || resEl.ValueKind != JsonValueKind.Array)
+            {
                 throw new Exception("Réponse Odoo inattendue : " + text);
+            }
 
-            var items = new List<LeaveTypeItem>();
+            List<LeaveTypeItem> items = [];
 
             foreach (JsonElement row in resEl.EnumerateArray())
             {
                 if (!row.TryGetProperty("holiday_status_id", out JsonElement hsEl) || hsEl.ValueKind != JsonValueKind.Array)
+                {
                     continue;
+                }
 
                 if (hsEl.GetArrayLength() <= 0)
+                {
                     continue;
+                }
 
                 if (hsEl[0].ValueKind != JsonValueKind.Number)
+                {
                     continue;
+                }
+
                 int leaveTypeId = hsEl[0].GetInt32();
 
                 if (hsEl[1].ValueKind != JsonValueKind.String)
+                {
                     continue;
+                }
+
                 string name = hsEl[1].GetString()!;
 
                 if (!row.TryGetProperty("number_of_days", out JsonElement ndEl))
+                {
                     continue;
+                }
 
                 if (ndEl.ValueKind != JsonValueKind.Number)
+                {
                     continue;
+                }
 
-                int days;
-
-                if (ndEl.TryGetDecimal(out decimal d))
-                    days = (int)Math.Round(d, MidpointRounding.AwayFromZero);
-                else
-                    days = (int)Math.Round(ndEl.GetDouble(), MidpointRounding.AwayFromZero);
-
+                int days = ndEl.TryGetDecimal(out decimal d)
+                    ? (int)Math.Round(d, MidpointRounding.AwayFromZero)
+                    : (int)Math.Round(ndEl.GetDouble(), MidpointRounding.AwayFromZero);
                 items.Add(new LeaveTypeItem(leaveTypeId, LeaveTypeHelper.Translate(name), true, days));
             }
 
@@ -826,11 +903,11 @@ namespace PFE.Services
             return items;
         }
 
-        public async Task<List<LeaveTypeItem>> GetLeaveTypesAsync(bool requiredAllocation, int? yearRequested = null, int? idRequest = null)
+        public async Task<List<LeaveTypeItem>> GetLeaveTypesAsync(bool? requiredAllocation = null, int? idRequest = null)
         {
-            if (requiredAllocation)
+            if (requiredAllocation.HasValue && requiredAllocation == true)
             {
-                return await GetAllocationsAsync(yearRequested, idRequest);
+                return await GetAllocationsAsync(idRequest);
             }
 
             object[] domain = new object[]
@@ -859,23 +936,30 @@ namespace PFE.Services
                 id = 2
             };
 
-
             HttpResponseMessage res = await _httpClient.PostAsync(_baseUrl, BuildJsonContent(payload));
-            res.EnsureSuccessStatusCode();
+            _ = res.EnsureSuccessStatusCode();
             string text = await res.Content.ReadAsStringAsync();
 
             using JsonDocument doc = JsonDocument.Parse(text);
             JsonElement root = doc.RootElement;
             if (!root.TryGetProperty("result", out JsonElement resultEl) || resultEl.ValueKind != JsonValueKind.Array)
+            {
                 throw new InvalidOperationException("Réponse Odoo invalide: 'result' manquant ou non-array pour hr.leave.allocation.");
+            }
 
-            List<LeaveTypeItem> allowed = new();
+            List<LeaveTypeItem> allowed = [];
             foreach (JsonElement row in resultEl.EnumerateArray())
             {
 
-                if (!row.TryGetProperty("id", out JsonElement idEl) || idEl.ValueKind != JsonValueKind.Number) continue;
-                if (!row.TryGetProperty("name", out JsonElement nameEl) || nameEl.ValueKind != JsonValueKind.String) continue;
+                if (!row.TryGetProperty("id", out JsonElement idEl) || idEl.ValueKind != JsonValueKind.Number)
+                {
+                    continue;
+                }
 
+                if (!row.TryGetProperty("name", out JsonElement nameEl) || nameEl.ValueKind != JsonValueKind.String)
+                {
+                    continue;
+                }
 
                 int id = idEl.GetInt32();
                 string name = nameEl.GetString()!;
@@ -886,81 +970,33 @@ namespace PFE.Services
 
             return allowed;
         }
-
-        //TODO retirer
-        public async Task TestAllocs(int? yearRequested = null)
+        public async Task<List<AllocationSummary>> GetAllocationsSummaryAsync(int? idRequest = null)
         {
-            int year = yearRequested ?? DateTime.Today.Year;
-
-            string dateFrom = new DateTime(year, 1, 1).ToString("yyyy-MM-dd");
-            string dateTo = new DateTime(year, 12, 31).ToString("yyyy-MM-dd");
-
-
-            object[] domain = new object[]
-                {
-        new object[] { "employee_id", "=", session.Current.EmployeeId!.Value },
-        new object[] { "state", "=", "validate" },
-        new object[] { "date_from", "<=", dateTo },
-        "|",
-        new object[] { "date_to", "=", false },
-        new object[] { "date_to", ">=", dateFrom }
-                };
-
-            object[] fields = new object[]
-            {
-
-  "id", "name", "employee_id", "holiday_status_id",
-        "number_of_days",
-        "date_from", "date_to", "state"
-
-            };
-
-
-            var payloadAlloc = new
-            {
-                jsonrpc = "2.0",
-                method = "call",
-                @params = new
-                {
-                    model = "hr.leave.allocation",
-                    method = "search_read",
-                    args = new object[] { domain, fields },
-                    kwargs = new { limit = 0 }
-                },
-                id = 1
-            };
-
-            HttpResponseMessage res = await _httpClient.PostAsync(_baseUrl, BuildJsonContent(payloadAlloc));
-            res.EnsureSuccessStatusCode();
-            string text = await res.Content.ReadAsStringAsync();
-            System.Diagnostics.Debug.WriteLine($"ALLOCATIONS : {text}");
-        }
-
-        public async Task<(int totalAlloc, int totalLeaves, int totalRemaining)> GetNumberTimeOffAsync(int? yearRequested = null, int? idRequest = null)
-        {
-            int year = yearRequested ?? DateTime.Today.Year;
+            int year = DateTime.Today.Year;
 
             string dateFrom = new DateTime(year, 1, 1).ToString("yyyy-MM-dd");
             string dateTo = new DateTime(year, 12, 31).ToString("yyyy-MM-dd");
 
             int employeeId = session.Current.EmployeeId!.Value;
 
-            List<LeaveTypeItem> types = await GetLeaveTypesAsync(true, yearRequested, idRequest);
+            List<LeaveTypeItem> types = await GetAllocationsAsync(idRequest);
             int[] typeIds = types.Select(t => t.Id).ToArray();
 
-            var domain = new List<object[]>
-            {
+            List<object[]> domain =
+            [
                 new object[] { "employee_id", "=", employeeId }
-            };
+            ];
 
             if (idRequest.HasValue)
             {
-                domain.Add(new object[] { "holiday_status_id", "=", idRequest });
+                domain.Add(new object[] { "holiday_status_id", "=", idRequest.Value });
             }
             else
             {
                 if (typeIds.Length == 0)
-                    return (0, 0, 0);
+                {
+                    return [];
+                }
 
                 domain.Add(new object[] { "holiday_status_id", "in", typeIds });
             }
@@ -973,7 +1009,7 @@ namespace PFE.Services
                 {
                 domain.ToArray(),
                 new object[] { "number_of_days:sum" },
-                new object[] { }
+                new object[] { "holiday_status_id" }
             };
 
             var payloadLeaves = new
@@ -991,18 +1027,51 @@ namespace PFE.Services
             };
             HttpResponseMessage res = await _httpClient.PostAsync(_baseUrl, BuildJsonContent(payloadLeaves));
 
-            res.EnsureSuccessStatusCode();
+            _ = res.EnsureSuccessStatusCode();
 
             string text = await res.Content.ReadAsStringAsync();
 
-            int totalAllocDays = types.Sum(t => t.Days ?? 0);
-            int totalLeaves = (int)Math.Round(SumReadGroupNumberOfDays(text));
-            int totalRemaining = totalAllocDays - totalLeaves;
+            using JsonDocument doc = JsonDocument.Parse(text);
+            JsonElement root = doc.RootElement;
 
-            return (totalAllocDays, totalLeaves, totalRemaining);
+            if (root.TryGetProperty("error", out JsonElement errEl))
+            {
+                throw new Exception("Erreur Odoo : " + errEl.ToString());
+            }
+
+            if (!root.TryGetProperty("result", out JsonElement resEl))
+            {
+                throw new Exception("Réponse Odoo inattendue : " + text);
+            }
+
+            Dictionary<int, double> takenByType = ParseLeavesByType(text);
+
+            List<AllocationSummary> summaries = new(types.Count);
+
+            foreach (LeaveTypeItem t in types)
+            {
+                int totalAllocated = t.Days ?? 0;
+
+                int totalTaken = takenByType.TryGetValue(t.Id, out double taken)
+                    ? (int)Math.Round(taken)
+                    : 0;
+
+                int totalRemaining = totalAllocated - totalTaken;
+
+                summaries.Add(new AllocationSummary(
+                    LeaveTypeId: t.Id,
+                    LeaveTypeName: t.Name,
+                    TotalAllocated: totalAllocated,
+                    TotalTaken: totalTaken,
+                    TotalRemaining: totalRemaining
+                ));
+            }
+
+            return summaries
+                    .OrderBy(s => s.LeaveTypeName)
+                    .ThenBy(s => s.LeaveTypeId)
+                    .ToList();
         }
-
-
 
         public async Task<int>
             CreateLeaveRequestAsync(
@@ -1014,10 +1083,14 @@ namespace PFE.Services
             EnsureAuthenticated();
 
             if (await HasOverlappingLeaveAsync(startDate, endDate))
+            {
                 throw new InvalidOperationException("Votre demande chevauche sur un congé qui a déjà été demandé ou pris.");
+            }
 
-            if (!await HasValidAllocationAsync(leaveTypeId, startDate, endDate))
+            if (!await HasValidAllocationAsync(leaveTypeId))
+            {
                 throw new InvalidOperationException("Aucune allocation valide ne couvre les dates demandées pour ce type de congé.");
+            }
 
             Dictionary<string, object> values = new()
             {
@@ -1044,21 +1117,18 @@ namespace PFE.Services
 
             HttpResponseMessage res = await _httpClient.PostAsync(_baseUrl, BuildJsonContent(payload));
             string text = await res.Content.ReadAsStringAsync();
-            res.EnsureSuccessStatusCode();
+            _ = res.EnsureSuccessStatusCode();
 
             using JsonDocument doc = JsonDocument.Parse(text);
             JsonElement root = doc.RootElement;
 
-            if (root.TryGetProperty("error", out JsonElement errEl))
-                throw new Exception("Erreur Odoo : " + errEl.ToString());
-
-            if (!root.TryGetProperty("result", out JsonElement resEl))
-                throw new Exception("Réponse Odoo inattendue : " + text);
-
-            if (resEl.ValueKind != JsonValueKind.Number)
-                throw new Exception("Réponse Odoo inattendue (result n'est pas un entier) : " + text);
-
-            return resEl.GetInt32();
+            return root.TryGetProperty("error", out JsonElement errEl)
+                ? throw new Exception("Erreur Odoo : " + errEl.ToString())
+                : !root.TryGetProperty("result", out JsonElement resEl)
+                ? throw new Exception("Réponse Odoo inattendue : " + text)
+                : resEl.ValueKind != JsonValueKind.Number
+                ? throw new Exception("Réponse Odoo inattendue (result n'est pas un entier) : " + text)
+                : resEl.GetInt32();
         }
 
         public async Task<string> GetCurrentEmployeeNameAsync()
@@ -1091,7 +1161,7 @@ namespace PFE.Services
 
             HttpResponseMessage res = await _httpClient.PostAsync(_baseUrl, BuildJsonContent(payload));
             string text = await res.Content.ReadAsStringAsync();
-            res.EnsureSuccessStatusCode();
+            _ = res.EnsureSuccessStatusCode();
 
             using JsonDocument doc = JsonDocument.Parse(text);
 
@@ -1103,30 +1173,26 @@ namespace PFE.Services
             }
 
             JsonElement first = resEl[0];
-            if (first.TryGetProperty("name", out JsonElement nameEl) && nameEl.ValueKind == JsonValueKind.String)
-            {
-                return nameEl.GetString() ?? "Employé inconnu";
-            }
-
-            return "Employé inconnu";
+            return first.TryGetProperty("name", out JsonElement nameEl) && nameEl.ValueKind == JsonValueKind.String
+                ? nameEl.GetString() ?? "Employé inconnu"
+                : "Employé inconnu";
         }
 
-        private async Task<bool> HasValidAllocationAsync(int leaveTypeId, DateTime startDate, DateTime endDate)
+        private async Task<bool> HasValidAllocationAsync(int leaveTypeId)
         {
             EnsureAuthenticated();
 
-            string start = startDate.ToString("yyyy-MM-dd");
-            string end = endDate.ToString("yyyy-MM-dd");
+            string today = DateTime.Today.ToString("yyyy-MM-dd");
 
             object[] domain = new object[]
             {
                 new object[] { "employee_id", "=", session.Current.EmployeeId!.Value },
                 new object[] { "holiday_status_id", "=", leaveTypeId },
                 new object[] { "state", "=", "validate" },
-                new object[] { "date_from", "<=", start },
+                new object[] { "date_from", "<=", today },
                 "|",
                 new object[] { "date_to", "=", false },
-                new object[] { "date_to", ">=", end }
+                new object[] { "date_to", ">=", today }
             };
 
             var payload = new
@@ -1145,16 +1211,13 @@ namespace PFE.Services
 
             HttpResponseMessage res = await _httpClient.PostAsync(_baseUrl, BuildJsonContent(payload));
             string text = await res.Content.ReadAsStringAsync();
-            res.EnsureSuccessStatusCode();
+            _ = res.EnsureSuccessStatusCode();
 
             using JsonDocument doc = JsonDocument.Parse(text);
             JsonElement root = doc.RootElement;
 
-            if (!root.TryGetProperty("result", out JsonElement countEl) || countEl.ValueKind != JsonValueKind.Number)
-                return false;
-
-            return countEl.GetInt32() > 0;
+            System.Diagnostics.Debug.WriteLine($"{text}");
+            return root.TryGetProperty("result", out JsonElement countEl) && countEl.ValueKind == JsonValueKind.Number && countEl.GetInt32() > 0;
         }
     }
 }
-

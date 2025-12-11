@@ -21,16 +21,23 @@ namespace PFE.Helpers
             JsonElement root = doc.RootElement;
 
             if (root.TryGetProperty("error", out JsonElement _))
+            {
                 return 0.0;
+            }
 
             if (!root.TryGetProperty("result", out JsonElement resultElem) || resultElem.ValueKind != JsonValueKind.Array)
+            {
                 return 0.0;
+            }
 
             double sum = 0.0;
 
             foreach (JsonElement row in resultElem.EnumerateArray())
             {
-                if (row.ValueKind != JsonValueKind.Object) continue;
+                if (row.ValueKind != JsonValueKind.Object)
+                {
+                    continue;
+                }
 
                 if (row.TryGetProperty("number_of_days", out JsonElement v))
                 {
@@ -50,6 +57,54 @@ namespace PFE.Helpers
                 JsonValueKind.Null => 0.0,
                 _ => 0.0
             };
+        }
+        public static Dictionary<int, double> ParseLeavesByType(string json)
+        {
+            Dictionary<int, double> result = [];
+
+            using JsonDocument doc = JsonDocument.Parse(json);
+            if (!doc.RootElement.TryGetProperty("result", out JsonElement resultElem)
+                || resultElem.ValueKind != JsonValueKind.Array)
+            {
+                return result;
+            }
+
+            foreach (JsonElement rec in resultElem.EnumerateArray())
+            {
+                int? typeId = null;
+                if (rec.TryGetProperty("holiday_status_id", out JsonElement hs))
+                {
+                    if (hs.ValueKind == JsonValueKind.Array && hs.GetArrayLength() >= 1)
+                    {
+                        if (hs[0].ValueKind == JsonValueKind.Number && hs[0].TryGetInt32(out int idVal))
+                        {
+                            typeId = idVal;
+                        }
+                    }
+                    else if (hs.ValueKind == JsonValueKind.Number && hs.TryGetInt32(out int idVal2))
+                    {
+                        typeId = idVal2;
+                    }
+                }
+
+                if (typeId is null)
+                {
+                    continue;
+                }
+
+                double sum = 0;
+                if (rec.TryGetProperty("number_of_days", out JsonElement nod))
+                {
+                    if (nod.ValueKind == JsonValueKind.Number)
+                    {
+                        sum = nod.GetDouble();
+                    }
+                }
+
+                result[typeId.Value] = sum;
+            }
+
+            return result;
         }
     }
 }

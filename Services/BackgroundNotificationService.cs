@@ -22,7 +22,6 @@ namespace PFE.Services
         private CancellationTokenSource? _cts;
         private Task? _pollingTask;
         private readonly TimeSpan _pollingInterval = TimeSpan.FromSeconds(5);
-        private int _notificationId = 100;
 
         public bool IsRunning => _pollingTask != null && !_pollingTask.IsCompleted;
 
@@ -38,9 +37,15 @@ namespace PFE.Services
 
         public void Start()
         {
-            if (IsRunning) return;
-            // Seulement pour les managers
-            if (!_session.Current.IsManager) return;
+            if (IsRunning)
+            {
+                return;
+            }
+
+            if (!_session.Current.IsManager)
+            {
+                return;
+            }
 
             _cts = new CancellationTokenSource();
             _pollingTask = PollForNewLeavesAsync(_cts.Token);
@@ -60,7 +65,6 @@ namespace PFE.Services
 
         private async Task PollForNewLeavesAsync(CancellationToken cancellationToken)
         {
-            // Initialiser la base de données
             await _databaseService.InitializeAsync();
 
             while (!cancellationToken.IsCancellationRequested)
@@ -94,7 +98,10 @@ namespace PFE.Services
             }
 
             int managerUserId = _session.Current.UserId ?? 0;
-            if (managerUserId == 0) return;
+            if (managerUserId == 0)
+            {
+                return;
+            }
 
             try
             {
@@ -108,7 +115,6 @@ namespace PFE.Services
                     await SendNotificationAsync(newLeave);
                 }
 
-                // Marquer comme vues
                 if (newLeaves.Count > 0)
                 {
                     await _databaseService.MarkLeavesAsSeenAsync(managerUserId, newLeaves.Select(l => l.Id));
@@ -144,7 +150,7 @@ namespace PFE.Services
 #elif ANDROID || IOS || MACCATALYST
             try
             {
-                NotificationRequest request = new NotificationRequest
+                NotificationRequest request = new()
                 {
                     NotificationId = _notificationId++,
                     Title = title,

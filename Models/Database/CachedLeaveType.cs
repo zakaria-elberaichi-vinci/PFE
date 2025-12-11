@@ -1,5 +1,4 @@
 using SQLite;
-using System;
 
 namespace PFE.Models.Database
 {
@@ -28,14 +27,14 @@ namespace PFE.Models.Database
         public string Name { get; set; } = string.Empty;
 
         /// <summary>
-        /// Année concernée (pour les types avec allocation)
-        /// </summary>
-        public int? Year { get; set; }
-
-        /// <summary>
         /// Indique si ce type requiert une allocation
         /// </summary>
         public bool RequiresAllocation { get; set; }
+
+        /// <summary>
+        /// Nombre de jours restants (pour les types avec allocation)
+        /// </summary>
+        public int? Days { get; set; }
 
         /// <summary>
         /// Date de dernière mise à jour

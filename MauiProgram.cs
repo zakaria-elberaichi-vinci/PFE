@@ -1,6 +1,6 @@
 ﻿using System.Net;
+using DotNetEnv;
 using Microsoft.Extensions.Logging;
-using PFE;
 using PFE.Context;
 using PFE.Services;
 using PFE.ViewModels;
@@ -9,14 +9,17 @@ using Plugin.LocalNotification;
 using Syncfusion.Licensing;
 using Syncfusion.Maui.Core.Hosting;
 
-
 namespace PFE
 {
     public static class MauiProgram
     {
+        [Obsolete]
         public static MauiApp CreateMauiApp()
         {
-            SyncfusionLicenseProvider.RegisterLicense("Ngo9BigBOggjGyl/Vkd+XU9FcVRDQmtWfFN0Q3NYflRxfV9DZ0wgOX1dQl9mSHxTf0RiW3pfdndUR2hXUkU=");
+            Env.Load();
+            string synfusionKey = Env.GetString("SYNCFUSION_LICENSE_KEY");
+            SyncfusionLicenseProvider.RegisterLicense(synfusionKey);
+
             MauiAppBuilder builder = MauiApp.CreateBuilder();
             builder
                 .ConfigureSyncfusionCore()
@@ -27,8 +30,6 @@ namespace PFE
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                     fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
                 });
-
-            // Database Service (SQLite)
             builder.Services.AddSingleton<IDatabaseService, DatabaseService>();
 
             builder.Services.AddSingleton(new CookieContainer());
@@ -65,18 +66,17 @@ namespace PFE
 
             builder.Services.AddTransient<AuthenticationViewModel>();
             builder.Services.AddTransient<UserProfileViewModel>();
-            builder.Services.AddSingleton<LeaveViewModel>();
             builder.Services.AddTransient<ManageLeavesViewModel>();
             builder.Services.AddTransient<LeaveRequestViewModel>();
+            builder.Services.AddTransient<CalendarViewModel>();
 
             builder.Services.AddTransient<LoginPage>();
             builder.Services.AddTransient<UserProfilePage>();
-            builder.Services.AddTransient<LeavesPage>();
             builder.Services.AddTransient<DashboardPage>();
             builder.Services.AddTransient<ManageLeavesPage>();
             builder.Services.AddTransient<LeaveRequestPage>();
+            builder.Services.AddTransient<CalendarPage>();
 
-            // App reçoit IServiceProvider pour gérer l'auto-login
             builder.Services.AddSingleton<App>(sp => new App(sp));
             builder.Services.AddTransient<Func<LoginPage>>(sp => () => sp.GetRequiredService<LoginPage>());
 

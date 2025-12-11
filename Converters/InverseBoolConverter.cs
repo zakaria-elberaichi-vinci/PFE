@@ -6,16 +6,12 @@ namespace PFE.Converters
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value is bool b)
-                return !b;
-            return true;
+            return value is not bool b || !b;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value is bool b)
-                return !b;
-            return false;
+            return value is bool b && !b;
         }
     }
 }

@@ -2,14 +2,11 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
-using Microsoft.Maui.Networking;
-using PFE.Helpers;
 using PFE.Models;
 using PFE.Models.Database;
 using PFE.Services;
 using Syncfusion.Maui.Calendar;
 using static PFE.Helpers.DateHelper;
-using DB = PFE.Models.Database;
 
 namespace PFE.ViewModels
 {
@@ -19,23 +16,22 @@ namespace PFE.ViewModels
         private readonly OfflineService _offlineService;
         private readonly IDatabaseService _databaseService;
 
+        private int _employeeId;
+
         private CalendarDateRange? _selectedRange;
 
-        private ObservableCollection<LeaveTypeItem> _leaveTypes = new();
+        private ObservableCollection<LeaveTypeItem> _leaveTypes = [];
 
-        private HashSet<DateTime> _blockedDatesSet = new();
+        private readonly HashSet<DateTime> _blockedDatesSet = [];
 
         private LeaveTypeItem? _selectedLeaveType;
 
-        private bool _useAllocation;
         private string _reason = string.Empty;
-        private int _totalAllocated;
-        private int _totalTaken;
-        private int _totalRemaining;
         private bool _isBusy;
         private string _errorMessage = string.Empty;
         private string _validationMessage = string.Empty;
         private bool _isAccessDenied;
+        private bool _hasOverlap;
         private bool _isSyncing;
         private string _syncMessage = string.Empty;
         private bool _showSyncStatus;
@@ -50,11 +46,6 @@ namespace PFE.ViewModels
             _databaseService = databaseService;
 
             SelectedRange = new CalendarDateRange(DateTime.Today, null);
-
-            RefreshCommand = new RelayCommand(
-                async _ => await RefreshTotalsAsync(),
-                _ => !IsBusy && AreDatesValid && IsEmployee
-            );
 
             SubmitCommand = new RelayCommand(
                 async _ => await SubmitAsync(),
@@ -89,7 +80,9 @@ namespace PFE.ViewModels
             private set
             {
                 if (Set(ref _leaveTypes, value))
+                {
                     OnPropertyChanged(nameof(LeaveTypes));
+                }
             }
         }
 
@@ -104,21 +97,8 @@ namespace PFE.ViewModels
                 {
                     OnPropertyChanged(nameof(SelectedLeaveType));
                     OnPropertyChanged(nameof(CanSubmit));
+                    UpdateValidationMessage();
                     (SubmitCommand as RelayCommand)?.RaiseCanExecuteChanged();
-                }
-            }
-        }
-
-        public bool UseAllocation
-        {
-            get => _useAllocation;
-            set
-            {
-                if (Set(ref _useAllocation, value))
-                {
-                    OnPropertyChanged(nameof(UseAllocation));
-                    ValidationMessage = string.Empty;
-                    _ = OnUseAllocationChangedAsync();
                 }
             }
         }
@@ -129,40 +109,8 @@ namespace PFE.ViewModels
             set
             {
                 if (Set(ref _reason, value))
-                    OnPropertyChanged(nameof(Reason));
-            }
-        }
-
-        public int TotalAllocated
-        {
-            get => _totalAllocated;
-            private set
-            {
-                if (Set(ref _totalAllocated, value))
-                    OnPropertyChanged(nameof(TotalAllocated));
-            }
-        }
-
-        public int TotalTaken
-        {
-            get => _totalTaken;
-            private set
-            {
-                if (Set(ref _totalTaken, value))
-                    OnPropertyChanged(nameof(TotalTaken));
-            }
-        }
-
-        public int TotalRemaining
-        {
-            get => _totalRemaining;
-            private set
-            {
-                if (Set(ref _totalRemaining, value))
                 {
-                    OnPropertyChanged(nameof(TotalRemaining));
-                    OnPropertyChanged(nameof(CanSubmit));
-                    (SubmitCommand as RelayCommand)?.RaiseCanExecuteChanged();
+                    OnPropertyChanged(nameof(Reason));
                 }
             }
         }
@@ -175,7 +123,6 @@ namespace PFE.ViewModels
                 if (Set(ref _isBusy, value))
                 {
                     OnPropertyChanged(nameof(IsBusy));
-                    (RefreshCommand as RelayCommand)?.RaiseCanExecuteChanged();
                     (SubmitCommand as RelayCommand)?.RaiseCanExecuteChanged();
                     OnPropertyChanged(nameof(CanSubmit));
                 }
@@ -188,7 +135,9 @@ namespace PFE.ViewModels
             private set
             {
                 if (Set(ref _errorMessage, value))
+                {
                     OnPropertyChanged(nameof(ErrorMessage));
+                }
             }
         }
 
@@ -198,7 +147,23 @@ namespace PFE.ViewModels
             private set
             {
                 if (Set(ref _validationMessage, value))
+                {
                     OnPropertyChanged(nameof(ValidationMessage));
+                }
+            }
+        }
+
+        public bool HasOverlap
+        {
+            get => _hasOverlap;
+            private set
+            {
+                if (Set(ref _hasOverlap, value))
+                {
+                    OnPropertyChanged(nameof(HasOverlap));
+                    OnPropertyChanged(nameof(CanSubmit));
+                    (SubmitCommand as RelayCommand)?.RaiseCanExecuteChanged();
+                }
             }
         }
 
@@ -211,7 +176,9 @@ namespace PFE.ViewModels
             private set
             {
                 if (Set(ref _isAccessDenied, value))
+                {
                     OnPropertyChanged(nameof(IsAccessDenied));
+                }
             }
         }
 
@@ -221,7 +188,9 @@ namespace PFE.ViewModels
             private set
             {
                 if (Set(ref _isSyncing, value))
+                {
                     OnPropertyChanged(nameof(IsSyncing));
+                }
             }
         }
 
@@ -244,7 +213,9 @@ namespace PFE.ViewModels
             private set
             {
                 if (Set(ref _showSyncStatus, value))
+                {
                     OnPropertyChanged(nameof(ShowSyncStatus));
+                }
             }
         }
 
@@ -254,15 +225,21 @@ namespace PFE.ViewModels
             private set
             {
                 if (Set(ref _isOffline, value))
+                {
                     OnPropertyChanged(nameof(IsOffline));
+                }
             }
         }
 
         public bool AreDatesValid => SelectedRange?.StartDate != null && SelectedRange?.EndDate != null;
 
-        public bool CanSubmit => !IsBusy && AreDatesValid && SelectedLeaveType is not null && !(UseAllocation && TotalRemaining == 0);
+        public bool CanSubmit =>
+            !IsBusy &&
+            AreDatesValid &&
+            SelectedLeaveType is not null &&
+            !HasOverlap &&
+            !(SelectedLeaveType.RequiresAllocation && (SelectedLeaveType.Days ?? 0) <= 0);
 
-        public ICommand RefreshCommand { get; }
         public ICommand SubmitCommand { get; }
 
         public async Task LoadAsync()
@@ -279,49 +256,49 @@ namespace PFE.ViewModels
                 return;
             }
 
+            // Initialiser l'employeeId global
+            _employeeId = _odooClient.session.Current.UserId!.Value;
+
             await LoadLeaveTypesAsync();
-            await RefreshTotalsAsync();
             await LoadBlockedDatesAsync();
             await CheckPendingRequestsAsync();
         }
 
-        private async Task OnUseAllocationChangedAsync()
+        private async Task OnDatesChangedAsync()
         {
-            // Mettre à jour l'état hors-ligne
-            IsOffline = Connectivity.Current.NetworkAccess != NetworkAccess.Internet;
-            
+            (SubmitCommand as RelayCommand)?.RaiseCanExecuteChanged();
+            ValidationMessage = string.Empty;
+            HasOverlap = false;
+
             await LoadLeaveTypesAsync();
+            await CheckOverlapAsync();
 
-            if (UseAllocation && TotalRemaining == 0)
-            {
-                ValidationMessage = "Votre solde d'allocation est de 0.";
-            }
-
+            UpdateValidationMessage();
             OnPropertyChanged(nameof(CanSubmit));
             (SubmitCommand as RelayCommand)?.RaiseCanExecuteChanged();
         }
 
-        private async Task OnDatesChangedAsync()
+        private async Task CheckOverlapAsync()
         {
-            (RefreshCommand as RelayCommand)?.RaiseCanExecuteChanged();
-            (SubmitCommand as RelayCommand)?.RaiseCanExecuteChanged();
-
-            ValidationMessage = string.Empty;
-
-            await RefreshTotalsAsync();
-
-            if (UseAllocation)
+            try
             {
-                await LoadLeaveTypesAsync();
-                if (TotalRemaining == 0)
-                {
-                    ValidationMessage = "Votre solde d'allocation est de 0.";
-                    return;
-                }
+                HasOverlap = await _odooClient.HasOverlappingLeaveAsync(
+                    SelectedRange!.StartDate!.Value,
+                    SelectedRange!.EndDate!.Value
+                );
             }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error CheckOverlapAsync: {ex.Message}");
+                HasOverlap = false;
+            }
+        }
 
-            OnPropertyChanged(nameof(CanSubmit));
-            (SubmitCommand as RelayCommand)?.RaiseCanExecuteChanged();
+        private void UpdateValidationMessage()
+        {
+            ValidationMessage = SelectedLeaveType?.RequiresAllocation == true && (SelectedLeaveType.Days ?? 0) <= 0
+                ? "Ce type de congé nécessite une allocation, mais vous n'avez plus de jours disponibles."
+                : HasOverlap ? "Les dates sélectionnées chevauchent un congé existant." : string.Empty;
         }
 
         private async Task LoadBlockedDatesAsync()
@@ -333,20 +310,17 @@ namespace PFE.ViewModels
 
                 // Vérifier la connectivité
                 bool isOnline = Connectivity.Current.NetworkAccess == NetworkAccess.Internet;
-                int employeeId = _odooClient.session.Current.UserId ?? 0;
 
                 if (isOnline)
                 {
                     try
                     {
-                        // Essayer de récupérer depuis le serveur
-                        List<Leave> leaves = await _odooClient.GetLeavesAsync(
-                            null, "confirm", "validate", "validate1", "refuse");
+                        List<Leave> leaves = await _odooClient.GetLeavesAsync("confirm", "validate", "validate1");
 
                         _blockedDatesSet.Clear();
 
                         // Préparer les données pour le cache
-                        List<(DateTime date, int leaveId, string status)> blockedDatesForCache = new();
+                        List<(DateTime date, int leaveId, string status)> blockedDatesForCache = [];
 
                         foreach (Leave leave in leaves)
                         {
@@ -355,28 +329,25 @@ namespace PFE.ViewModels
 
                             foreach (DateTime day in ExpandRangeToDays(start, end))
                             {
-                                _blockedDatesSet.Add(day);
+                                _ = _blockedDatesSet.Add(day);
                                 blockedDatesForCache.Add((day, leave.Id, leave.Status));
                             }
                         }
 
                         // Sauvegarder en cache
-                        await _databaseService.SaveBlockedDatesAsync(employeeId, blockedDatesForCache);
+                        await _databaseService.SaveBlockedDatesAsync(_employeeId, blockedDatesForCache);
 
-                        string format = "dd/MM/yyyy";
-                        System.Diagnostics.Debug.WriteLine($"RES blockedDates: {string.Join(',', _blockedDatesSet.Select(d => d.ToString(format)))}");
                         System.Diagnostics.Debug.WriteLine($"Dates bloquées récupérées du serveur et mises en cache ({_blockedDatesSet.Count} dates)");
                     }
                     catch (Exception ex)
                     {
                         System.Diagnostics.Debug.WriteLine($"Erreur serveur, utilisation du cache pour les dates bloquées: {ex.Message}");
-                        await LoadBlockedDatesFromCacheAsync(employeeId);
+                        await LoadBlockedDatesFromCacheAsync();
                     }
                 }
                 else
                 {
-                    // Mode hors-ligne : charger depuis le cache
-                    await LoadBlockedDatesFromCacheAsync(employeeId);
+                    await LoadBlockedDatesFromCacheAsync();
                 }
 
                 SelectableDayPredicate = date => !_blockedDatesSet.Contains(date.Date);
@@ -394,17 +365,17 @@ namespace PFE.ViewModels
             }
         }
 
-        private async Task LoadBlockedDatesFromCacheAsync(int employeeId)
+        private async Task LoadBlockedDatesFromCacheAsync()
         {
-            HashSet<DateTime> cached = await _databaseService.GetBlockedDatesAsync(employeeId);
+            HashSet<DateTime> cached = await _databaseService.GetBlockedDatesAsync(_employeeId);
 
             _blockedDatesSet.Clear();
 
             if (cached.Count > 0)
             {
-                foreach (var date in cached)
+                foreach (DateTime date in cached)
                 {
-                    _blockedDatesSet.Add(date);
+                    _ = _blockedDatesSet.Add(date);
                 }
 
                 System.Diagnostics.Debug.WriteLine($"Dates bloquées chargées depuis le cache ({cached.Count} dates)");
@@ -424,75 +395,55 @@ namespace PFE.ViewModels
 
                 // Vérifier la connectivité
                 bool isOnline = Connectivity.Current.NetworkAccess == NetworkAccess.Internet;
-                int employeeId = _odooClient.session.Current.UserId ?? 0;
-                int? year = SelectedRange?.StartDate?.Year;
 
                 if (isOnline)
                 {
                     try
                     {
-                        // Toujours charger et sauvegarder les types SANS allocation pour le mode hors-ligne
-                        List<LeaveTypeItem> baseTypes = await _odooClient.GetLeaveTypesAsync(false, year);
-                        List<LeaveTypeItem> baseTypesForCache = baseTypes.Select(lt => 
-                            new LeaveTypeItem(lt.Id, lt.Name, false)).ToList();
-                        await _databaseService.SaveLeaveTypesAsync(employeeId, baseTypesForCache, year, false);
-                        System.Diagnostics.Debug.WriteLine($"Types de base sauvegardés: {baseTypesForCache.Count}");
+                        List<LeaveTypeItem> typesWithoutAllocation = await _odooClient.GetLeaveTypesAsync();
 
-                        // Ensuite récupérer les types selon UseAllocation
-                        List<LeaveTypeItem> filtered;
-                        if (UseAllocation)
-                        {
-                            filtered = await _odooClient.GetLeaveTypesAsync(true, year);
-                            
-                            // Sauvegarder aussi les types avec allocation
-                            List<LeaveTypeItem> allocTypesForCache = filtered.Select(lt => 
-                                new LeaveTypeItem(lt.Id, lt.Name, true)).ToList();
-                            await _databaseService.SaveLeaveTypesAsync(employeeId, allocTypesForCache, year, true);
-                            
-                            // Ajouter le nombre de jours restants pour l'affichage
-                            List<LeaveTypeItem> updatedList = new();
-                            foreach (LeaveTypeItem leave in filtered)
-                            {
-                                (_, _, int remaining) = await _odooClient.GetNumberTimeOffAsync(
-                                    yearRequested: year,
-                                    idRequest: leave.Id);
+                        List<AllocationSummary> allocations = await _odooClient.GetAllocationsSummaryAsync();
 
-                                updatedList.Add(leave with { Name = $"{leave.Name} ({remaining} restants)" });
-                            }
-                            filtered = updatedList;
-                        }
-                        else
-                        {
-                            filtered = baseTypes;
-                        }
+                        List<LeaveTypeItem> typesWithAllocation = allocations
+                            .Select(a => new LeaveTypeItem(
+                                Id: a.LeaveTypeId,
+                                Name: $"{a.LeaveTypeName} ({a.TotalRemaining} restants sur {a.TotalAllocated})",
+                                RequiresAllocation: true,
+                                Days: a.TotalRemaining
+                            ))
+                            .ToList();
 
-                        LeaveTypes = new ObservableCollection<LeaveTypeItem>(filtered);
-                        SelectedLeaveType = LeaveTypes.FirstOrDefault();
+                        List<LeaveTypeItem> combinedTypes = typesWithAllocation
+                            .Concat(typesWithoutAllocation)
+                            .OrderBy(t => t.Name)
+                            .ThenBy(t => t.Id)
+                            .ToList();
 
-                        if (LeaveTypes.Count == 0)
-                        {
-                            ErrorMessage = "Aucun type de congé disponible. Veuillez demander une allocation.";
-                        }
+                        // Sauvegarder les types combinés dans la base de données
+                        await _databaseService.SaveLeaveTypesAsync(_employeeId, combinedTypes);
 
-                        System.Diagnostics.Debug.WriteLine($"Types de congés récupérés du serveur et mis en cache ({filtered.Count} types)");
+                        LeaveTypes = new ObservableCollection<LeaveTypeItem>(combinedTypes);
+
+                        SelectedLeaveType ??= LeaveTypes.FirstOrDefault();
+
+                        UpdateValidationMessage();
                     }
                     catch (Exception ex)
                     {
-                        System.Diagnostics.Debug.WriteLine($"Erreur serveur, utilisation du cache pour les types: {ex.Message}");
-                        await LoadLeaveTypesFromCacheAsync(employeeId, year, UseAllocation);
+                        System.Diagnostics.Debug.WriteLine($"Erreur serveur, utilisation du cache pour les types de congés: {ex.Message}");
+                        await LoadLeaveTypesFromCacheAsync();
                     }
                 }
                 else
                 {
-                    // Mode hors-ligne : charger depuis le cache
-                    await LoadLeaveTypesFromCacheAsync(employeeId, year, UseAllocation);
+                    await LoadLeaveTypesFromCacheAsync();
                 }
             }
             catch (Exception ex)
             {
                 ErrorMessage = "Impossible de charger les types de congés disponibles.";
                 System.Diagnostics.Debug.WriteLine($"Error LoadLeaveTypesAsync: {ex.Message}");
-                LeaveTypes = new ObservableCollection<LeaveTypeItem>();
+                LeaveTypes = [];
                 SelectedLeaveType = null;
             }
             finally
@@ -501,31 +452,11 @@ namespace PFE.ViewModels
             }
         }
 
-        private async Task LoadLeaveTypesFromCacheAsync(int employeeId, int? year, bool requiresAllocation)
+        private async Task LoadLeaveTypesFromCacheAsync()
         {
-            var cached = await _databaseService.GetLeaveTypesAsync(employeeId, year, requiresAllocation);
+            List<LeaveTypeItem> cached = await _databaseService.GetLeaveTypesAsync(_employeeId);
 
-            // Si rien trouvé avec requiresAllocation, essayer sans (types de base)
-            if ((cached == null || cached.Count == 0) && requiresAllocation)
-            {
-                cached = await _databaseService.GetLeaveTypesAsync(employeeId, year, false);
-                System.Diagnostics.Debug.WriteLine($"Fallback: types de congés sans allocation chargés depuis le cache");
-            }
-
-            // Si toujours rien, essayer sans année spécifique
-            if ((cached == null || cached.Count == 0) && year.HasValue)
-            {
-                cached = await _databaseService.GetLeaveTypesAsync(employeeId, null, requiresAllocation);
-                
-                if ((cached == null || cached.Count == 0) && requiresAllocation)
-                {
-                    cached = await _databaseService.GetLeaveTypesAsync(employeeId, null, false);
-                }
-                
-                System.Diagnostics.Debug.WriteLine($"Fallback: types de congés sans année chargés depuis le cache");
-            }
-
-            if (cached != null && cached.Count > 0)
+            if (cached.Count > 0)
             {
                 LeaveTypes = new ObservableCollection<LeaveTypeItem>(cached);
                 SelectedLeaveType = LeaveTypes.FirstOrDefault();
@@ -534,99 +465,10 @@ namespace PFE.ViewModels
             }
             else
             {
-                LeaveTypes = new ObservableCollection<LeaveTypeItem>();
+                LeaveTypes = [];
                 SelectedLeaveType = null;
 
-                if (IsOffline)
-                {
-                    ErrorMessage = "Connectez-vous à Internet une première fois pour charger les types de congé.";
-                }
-                else
-                {
-                    ErrorMessage = "Aucun type de congé disponible.";
-                }
-            }
-        }
-
-        public async Task RefreshTotalsAsync()
-        {
-            try
-            {
-                IsBusy = true;
-                ErrorMessage = string.Empty;
-
-                // Vérifier la connectivité
-                bool isOnline = Connectivity.Current.NetworkAccess == NetworkAccess.Internet;
-                IsOffline = !isOnline;
-
-                int year = SelectedRange?.StartDate?.Year ?? DateTime.Today.Year;
-                int employeeId = _odooClient.session.Current.UserId ?? 0;
-
-                if (isOnline)
-                {
-                    try
-                    {
-                        // Essayer de récupérer depuis le serveur
-                        (int allocated, int taken, int total) =
-                            await _odooClient.GetNumberTimeOffAsync(SelectedRange?.StartDate?.Year);
-                        
-                        TotalAllocated = allocated;
-                        TotalTaken = taken;
-                        TotalRemaining = total;
-
-                        // Sauvegarder en cache
-                        await _databaseService.SaveLeaveAllocationAsync(employeeId, year, allocated, taken, total);
-                        
-                        System.Diagnostics.Debug.WriteLine($"Allocations récupérées du serveur et mises en cache");
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"Erreur serveur, utilisation du cache: {ex.Message}");
-                        await LoadFromCacheAsync(employeeId, year);
-                    }
-                }
-                else
-                {
-                    // Mode hors-ligne : charger depuis le cache
-                    await LoadFromCacheAsync(employeeId, year);
-                }
-            }
-            catch (Exception ex)
-            {
-                ErrorMessage = "Impossible de rafraîchir les totaux de congés.";
-                System.Diagnostics.Debug.WriteLine($"Error RefreshTotalsAsync: {ex.Message}");
-                TotalAllocated = 0;
-                TotalTaken = 0;
-                TotalRemaining = 0;
-            }
-            finally
-            {
-                IsBusy = false;
-            }
-        }
-
-        private async Task LoadFromCacheAsync(int employeeId, int year)
-        {
-            DB.CachedLeaveAllocation? cached = await _databaseService.GetLeaveAllocationAsync(employeeId, year);
-            
-            if (cached is not null)
-            {
-                TotalAllocated = cached.Allocated;
-                TotalTaken = cached.Taken;
-                TotalRemaining = cached.Remaining;
-                
-                System.Diagnostics.Debug.WriteLine($"Allocations chargées depuis le cache (dernière mise à jour: {cached.LastUpdated})");
-            }
-            else
-            {
-                TotalAllocated = 0;
-                TotalTaken = 0;
-                TotalRemaining = 0;
-                
-                if (IsOffline)
-                {
-                    ErrorMessage = "Aucune donnée en cache. Veuillez vous connecter à Internet.";
-                }
+                ErrorMessage = IsOffline ? "Connectez-vous à Internet une première fois pour charger les types de congé." : "Aucun type de congé disponible.";
             }
         }
 
@@ -639,7 +481,7 @@ namespace PFE.ViewModels
                 // Si hors-ligne, ne pas appeler le serveur
                 if (Connectivity.Current.NetworkAccess != NetworkAccess.Internet)
                 {
-                    var pending = new PendingLeaveRequest
+                    PendingLeaveRequest pending = new()
                     {
                         LeaveTypeId = SelectedLeaveType!.Id,
                         StartDate = SelectedRange!.StartDate!.Value,
@@ -669,7 +511,7 @@ namespace PFE.ViewModels
             catch (Exception ex) when (ex is System.Net.Http.HttpRequestException ||
                                        Connectivity.Current.NetworkAccess != NetworkAccess.Internet)
             {
-                var pending = new PendingLeaveRequest
+                PendingLeaveRequest pending = new()
                 {
                     LeaveTypeId = SelectedLeaveType!.Id,
                     StartDate = SelectedRange!.StartDate!.Value,
@@ -682,9 +524,9 @@ namespace PFE.ViewModels
                 try
                 {
                     await _offlineService.AddPendingAsync(pending);
-                    
+
                     SyncMessage = "⏳ Demande enregistrée hors-ligne. Elle sera synchronisée automatiquement.";
-                    
+
                     return (true, null,
                         "⚠ Problème de connexion\n\nVotre demande a été enregistrée localement et sera envoyée automatiquement.");
                 }
@@ -696,10 +538,8 @@ namespace PFE.ViewModels
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine(
-                    $"Res SubmitAsync: {SelectedRange!.StartDate!.Value} - {SelectedRange!.EndDate!.Value}");
                 System.Diagnostics.Debug.WriteLine($"Error SubmitAsync: {ex.Message}");
-                return (false, null, "❌ Erreur\n\nImpossible d'envoyer la demande de congé.");
+                return (false, null, "Impossible d'envoyer la demande de congé.");
             }
             finally
             {
@@ -709,35 +549,37 @@ namespace PFE.ViewModels
 
         private bool Set<T>(ref T field, T value, [CallerMemberName] string? name = null)
         {
-            if (EqualityComparer<T>.Default.Equals(field, value)) return false;
+            if (EqualityComparer<T>.Default.Equals(field, value))
+            {
+                return false;
+            }
+
             field = value;
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
             return true;
         }
 
         private void OnPropertyChanged(string propertyName)
-            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
 
         private async void OnConnectivityChanged(object? sender, ConnectivityChangedEventArgs e)
         {
             IsOffline = e.NetworkAccess != NetworkAccess.Internet;
-            
+
             if (e.NetworkAccess == NetworkAccess.Internet)
             {
                 // Connexion rétablie : rafraîchir toutes les données
                 await LoadLeaveTypesAsync();
-                await RefreshTotalsAsync();
                 await LoadBlockedDatesAsync();
                 await CheckPendingRequestsAsync();
             }
             else
             {
                 // Connexion perdue : charger depuis le cache
-                int year = SelectedRange?.StartDate?.Year ?? DateTime.Today.Year;
-                int employeeId = _odooClient.session.Current.UserId ?? 0;
-                await LoadFromCacheAsync(employeeId, year);
-                await LoadLeaveTypesFromCacheAsync(employeeId, year, UseAllocation);
-                await LoadBlockedDatesFromCacheAsync(employeeId);
+                await LoadLeaveTypesFromCacheAsync();
+                await LoadBlockedDatesFromCacheAsync();
             }
         }
 
@@ -752,7 +594,7 @@ namespace PFE.ViewModels
             else
             {
                 IsSyncing = false;
-                
+
                 if (e.SuccessCount > 0 && e.PendingCount == 0)
                 {
                     SyncMessage = $"✓ {e.SuccessCount} demande{(e.SuccessCount > 1 ? "s synchronisées" : " synchronisée")} avec succès";
@@ -766,7 +608,7 @@ namespace PFE.ViewModels
                 }
                 else if (e.PendingCount > 0)
                 {
-                    SyncMessage = $"⚠ {e.PendingCount} demande{(e.PendingCount > 1 ? "s" : "")} en attente de synchronisation";     
+                    SyncMessage = $"⚠ {e.PendingCount} demande{(e.PendingCount > 1 ? "s" : "")} en attente de synchronisation";
                     ShowSyncStatus = true;
                 }
                 else
@@ -782,16 +624,16 @@ namespace PFE.ViewModels
             try
             {
                 List<PendingLeaveRequest> pending = await _offlineService.GetAllPendingAsync();
-                
+
                 if (pending.Count > 0)
                 {
                     IsSyncing = true;
                     SyncMessage = $"Synchronisation de {pending.Count} demande{(pending.Count > 1 ? "s" : "")} en attente...";
-                    
+
                     await Task.Delay(2000);
-                    
+
                     pending = await _offlineService.GetAllPendingAsync();
-                    
+
                     if (pending.Count == 0)
                     {
                         SyncMessage = "✓ Toutes les demandes ont été synchronisées";
@@ -802,7 +644,7 @@ namespace PFE.ViewModels
                     {
                         SyncMessage = $"⚠ {pending.Count} demande{(pending.Count > 1 ? "s" : "")} en attente de synchronisation";
                     }
-                    
+
                     IsSyncing = false;
                 }
             }

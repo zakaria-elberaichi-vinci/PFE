@@ -1,220 +1,175 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-         xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-         xmlns:sf="clr-namespace:Syncfusion.Maui.Calendar;assembly=Syncfusion.Maui.Calendar"
-         x:Class="PFE.Views.LeaveRequestPage"
-         BackgroundColor="#0F172A"
-         Title="Demande de congé">
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:sf="clr-namespace:Syncfusion.Maui.Calendar;assembly=Syncfusion.Maui.Calendar"
+             xmlns:conv="clr-namespace:PFE.Converters"
+             x:Class="PFE.Views.LeaveRequestPage"
+             BackgroundColor="#0F172A"
+             Title="Demande de congé">
 
-<ScrollView>
-    <VerticalStackLayout Padding="20"
-                         Spacing="15">
+    <Application.Resources>
+        <ResourceDictionary>
+            <conv:IntToBoolConverter x:Key="IntToBoolConverter" />
+        </ResourceDictionary>
+    </Application.Resources>
 
-        <ContentView IsVisible="{Binding IsEmployee}">
-            <VerticalStackLayout Spacing="15">
+    <ScrollView>
+        <VerticalStackLayout Padding="20"
+                             Spacing="15">
 
-                <!-- Indicateur hors-ligne -->
-                <Frame IsVisible="{Binding IsOffline}"
-                       Padding="12"
-                       BackgroundColor="#DC2626"
-                       CornerRadius="8"
-                       HasShadow="False"
-                       Margin="0,0,0,5">
-                    <HorizontalStackLayout Spacing="10"
-                                          HorizontalOptions="Center">
-                        <Label Text="📴"
-                               FontSize="16"
-                               VerticalOptions="Center" />
-                        <Label Text="Mode hors-ligne - Données en cache"
-                               TextColor="White"
-                               FontSize="14"
-                               FontAttributes="Bold"
-                               VerticalOptions="Center" />
-                    </HorizontalStackLayout>
-                </Frame>
+            <ContentView IsVisible="{Binding IsEmployee}">
+                <VerticalStackLayout Spacing="15">
 
-                <!-- Message de synchronisation en cours -->
-                <Frame IsVisible="{Binding IsSyncing}"
-                       Padding="12"
-                       BackgroundColor="#FFA500"
-                       CornerRadius="8"
-                       HasShadow="False"
-                       Margin="0,0,0,5">
-                    <HorizontalStackLayout Spacing="10">
-                        <ActivityIndicator IsRunning="True"
-                                          Color="White"
-                                          WidthRequest="20"
-                                          HeightRequest="20" />
+                    <!-- Indicateur hors-ligne -->
+                    <Frame IsVisible="{Binding IsOffline}"
+                           Padding="12"
+                           BackgroundColor="#DC2626"
+                           CornerRadius="8"
+                           HasShadow="False"
+                           Margin="0,0,0,5">
+                        <HorizontalStackLayout Spacing="10"
+                                               HorizontalOptions="Center">
+                            <Label Text="📴"
+                                   FontSize="16"
+                                   VerticalOptions="Center" />
+                            <Label Text="Mode hors-ligne - Données en cache"
+                                   TextColor="White"
+                                   FontSize="14"
+                                   FontAttributes="Bold"
+                                   VerticalOptions="Center" />
+                        </HorizontalStackLayout>
+                    </Frame>
+
+                    <!-- Message de synchronisation en cours -->
+                    <Frame IsVisible="{Binding IsSyncing}"
+                           Padding="12"
+                           BackgroundColor="#FFA500"
+                           CornerRadius="8"
+                           HasShadow="False"
+                           Margin="0,0,0,5">
+                        <HorizontalStackLayout Spacing="10">
+                            <ActivityIndicator IsRunning="True"
+                                               Color="White"
+                                               WidthRequest="20"
+                                               HeightRequest="20" />
+                            <Label Text="{Binding SyncMessage}"
+                                   TextColor="White"
+                                   FontSize="14"
+                                   FontAttributes="Bold"
+                                   VerticalOptions="Center" />
+                        </HorizontalStackLayout>
+                    </Frame>
+
+                    <!-- Message de statut de synchronisation -->
+                    <Frame IsVisible="{Binding ShowSyncStatus}"
+                           Padding="12"
+                           BackgroundColor="#2E7D32"
+                           CornerRadius="8"
+                           HasShadow="False"
+                           Margin="0,0,0,5">
                         <Label Text="{Binding SyncMessage}"
                                TextColor="White"
                                FontSize="14"
                                FontAttributes="Bold"
-                               VerticalOptions="Center" />
-                    </HorizontalStackLayout>
-                </Frame>
+                               HorizontalTextAlignment="Center" />
+                    </Frame>
+                    <Label Text="Formulaire pour demander un congé"
+                           FontSize="16" />
 
-                <!-- Message de statut de synchronisation -->
-                <Frame IsVisible="{Binding ShowSyncStatus}"
-                       Padding="12"
-                       BackgroundColor="#2E7D32"
-                       CornerRadius="8"
-                       HasShadow="False"
-                       Margin="0,0,0,5">
-                    <Label Text="{Binding SyncMessage}"
-                           TextColor="White"
-                           FontSize="14"
-                           FontAttributes="Bold"
-                           HorizontalTextAlignment="Center" />
-                </Frame>
+                    <VerticalStackLayout Spacing="10">
+                        <Label>
+                            <Label.Text>
+                                <MultiBinding StringFormat="Période: {0:dd/MM/yyyy} → {1:dd/MM/yyyy}">
+                                    <Binding Path="SelectedRange.StartDate" />
+                                    <Binding Path="SelectedRange.EndDate" />
+                                </MultiBinding>
+                            </Label.Text>
+                        </Label>
+                        <sf:SfCalendar SelectionMode="Range"
+                                       ShowTrailingAndLeadingDates="False"
+                                       HeightRequest="240"
+                                       WidthRequest="360"
+                                       HorizontalOptions="Start"
+                                       BackgroundColor="#33000000"
+                                       EnablePastDates="False"
+                                       View="Month"
+                                       SelectedDateRange="{Binding SelectedRange, Mode=TwoWay}"
+                                       SelectableDayPredicate="{Binding SelectableDayPredicate}"
+                                       SelectionChanged="SfCalendar_SelectionChanged">
 
-                <Label Text="{Binding SelectedRange.StartDate.Year, StringFormat='Allocations année {0}'}"
-                       FontSize="16"
-                       TextColor="White"
-                       FontAttributes="Bold" />
-                <Frame Padding="12"
-                       BackgroundColor="Transparent">
-                    <Grid ColumnDefinitions="*,*,*"
-                          ColumnSpacing="12">
-                        <VerticalStackLayout Grid.Column="0"
-                                             Spacing="4"
-                                             HorizontalOptions="Center">
-                            <Label Text="Alloué"
-                                   FontAttributes="Bold"
-                                   FontSize="12"
-                                   TextColor="#555" />
-                            <Label Text="{Binding TotalAllocated}"
-                                   FontSize="20"
-                                   FontAttributes="Bold"
-                                   TextColor="#2D7EF7" />
-                        </VerticalStackLayout>
+                            <sf:SfCalendar.HeaderView>
+                                <sf:CalendarHeaderView>
+                                    <sf:CalendarHeaderView.TextStyle>
+                                        <sf:CalendarTextStyle TextColor="White" />
+                                    </sf:CalendarHeaderView.TextStyle>
+                                </sf:CalendarHeaderView>
+                            </sf:SfCalendar.HeaderView>
 
-                        <VerticalStackLayout Grid.Column="1"
-                                             Spacing="4"
-                                             HorizontalOptions="Center">
-                            <Label Text="Pris"
-                                   FontAttributes="Bold"
-                                   FontSize="12"
-                                   TextColor="#555" />
-                            <Label Text="{Binding TotalTaken}"
-                                   FontSize="20"
-                                   FontAttributes="Bold"
-                                   TextColor="#E06C6C" />
-                        </VerticalStackLayout>
+                            <sf:SfCalendar.MonthView>
+                                <sf:CalendarMonthView>
+                                    <sf:CalendarMonthView.TextStyle>
+                                        <sf:CalendarTextStyle TextColor="White" />
+                                    </sf:CalendarMonthView.TextStyle>
+                                    <sf:CalendarMonthView.DisabledDatesTextStyle>
+                                        <sf:CalendarTextStyle TextColor="Gray" />
+                                    </sf:CalendarMonthView.DisabledDatesTextStyle>
+                                </sf:CalendarMonthView>
+                            </sf:SfCalendar.MonthView>
+                        </sf:SfCalendar>
+                    </VerticalStackLayout>
 
-                        <VerticalStackLayout Grid.Column="2"
-                                             Spacing="4"
-                                             HorizontalOptions="Center">
-                            <Label Text="Restant"
-                                   FontAttributes="Bold"
-                                   FontSize="12"
-                                   TextColor="#555" />
-                            <Label Text="{Binding TotalRemaining}"
-                                   FontSize="20"
-                                   FontAttributes="Bold"
-                                   TextColor="#2E7D32" />
-                        </VerticalStackLayout>
-                    </Grid>
-                </Frame>
+                    <VerticalStackLayout Spacing="6"
+                                         IsVisible="{Binding LeaveTypes.Count, Converter={StaticResource IntToBoolConverter}}">
+                        <Label Text="Type de congé" />
+                        <Picker ItemsSource="{Binding LeaveTypes}"
+                                ItemDisplayBinding="{Binding Name}"
+                                SelectedItem="{Binding SelectedLeaveType, Mode=TwoWay}"
+                                Title="Choisissez un type de congé" />
+                    </VerticalStackLayout>
 
-                <VerticalStackLayout Spacing="10">
-                    <Label>
-                        <Label.Text>
-                            <MultiBinding StringFormat="Période: {0:dd/MM/yyyy} → {1:dd/MM/yyyy}">
-                                <Binding Path="SelectedRange.StartDate" />
-                                <Binding Path="SelectedRange.EndDate" />
-                            </MultiBinding>
-                        </Label.Text>
-                    </Label>
-                    <sf:SfCalendar SelectionMode="Range"
-                                   ShowTrailingAndLeadingDates="False"
-                                   HeightRequest="240"
-                                   WidthRequest="360"
-                                   HorizontalOptions="Start"
-                                   BackgroundColor="#33000000"
-                                   EnablePastDates="False"
-                                   View="Month"
-                                   SelectedDateRange="{Binding SelectedRange, Mode=TwoWay}"
-                                   SelectableDayPredicate="{Binding SelectableDayPredicate}"
-                                   SelectionChanged="SfCalendar_SelectionChanged">
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Motif (optionnel)"
+                               TextColor="#E5E7EB"
+                               FontSize="14" />
+                        <Editor Text="{Binding Reason, Mode=TwoWay}"
+                                AutoSize="TextChanges"
+                                HeightRequest="110"
+                                TextColor="White"
+                                BackgroundColor="#020617"
+                                Placeholder="Ex : Vacances, rendez-vous médical..." />
+                    </VerticalStackLayout>
 
-                        <sf:SfCalendar.HeaderView>
-                            <sf:CalendarHeaderView>
-                                <sf:CalendarHeaderView.TextStyle>
-                                    <sf:CalendarTextStyle TextColor="White" />
-                                </sf:CalendarHeaderView.TextStyle>
-                            </sf:CalendarHeaderView>
-                        </sf:SfCalendar.HeaderView>
+                    <ActivityIndicator IsVisible="{Binding IsBusy}"
+                                       IsRunning="{Binding IsBusy}" />
 
-                        <sf:SfCalendar.MonthView>
-                            <sf:CalendarMonthView>
-                                <sf:CalendarMonthView.TextStyle>
-                                    <sf:CalendarTextStyle TextColor="White" />
-                                </sf:CalendarMonthView.TextStyle>
-                                <sf:CalendarMonthView.DisabledDatesTextStyle>
-                                    <sf:CalendarTextStyle TextColor="Gray" />
-                                </sf:CalendarMonthView.DisabledDatesTextStyle>
-                            </sf:CalendarMonthView>
-                        </sf:SfCalendar.MonthView>
-                    </sf:SfCalendar>
-                </VerticalStackLayout>
-
-                <HorizontalStackLayout Spacing="10"
-                                       VerticalOptions="Center">
-                    <CheckBox IsChecked="{Binding UseAllocation}"
-                              VerticalOptions="Center" />
-                    <Label Text="Demander un congé qui utilise votre allocation."
-                           VerticalOptions="Center" />
-                </HorizontalStackLayout>
-
-                <Label Text="Type de congé" />
-                <Picker ItemsSource="{Binding LeaveTypes}"
-                        ItemDisplayBinding="{Binding Name}"
-                        SelectedItem="{Binding SelectedLeaveType, Mode=TwoWay}"
-                        Title="Choisissez un type de congé" />
-
-                <VerticalStackLayout Spacing="6">
-                    <Label Text="Motif (optionnel)"
-                           TextColor="#E5E7EB"
+                    <Label Text="{Binding ValidationMessage}"
+                           TextColor="Tomato"
+                           HorizontalTextAlignment="Center"
                            FontSize="14" />
-                    <Editor Text="{Binding Reason, Mode=TwoWay}"
-                            AutoSize="TextChanges"
-                            HeightRequest="110"
+
+                    <Button Text="Envoyer la demande"
+                            BackgroundColor="#0078D7"
                             TextColor="White"
-                            BackgroundColor="#020617"
-                            Placeholder="Ex : Vacances, rendez-vous médical..." />
+                            CornerRadius="10"
+                            HeightRequest="50"
+                            Clicked="SubmitButton_Clicked"
+                            IsEnabled="{Binding CanSubmit}" />
+
+                    <Label Text="{Binding ErrorMessage}"
+                           TextColor="Tomato"
+                           HorizontalTextAlignment="Center"
+                           FontSize="14" />
                 </VerticalStackLayout>
+            </ContentView>
 
-                <ActivityIndicator IsVisible="{Binding IsBusy}"
-                                   IsRunning="{Binding IsBusy}" />
-
-                <Label Text="{Binding ValidationMessage}"
-                       TextColor="Tomato"
-                       HorizontalTextAlignment="Center"
-                       FontSize="14" />
-
-                <Button Text="Envoyer la demande"
-                        BackgroundColor="#0078D7"
-                        TextColor="White"
-                        CornerRadius="10"
-                        HeightRequest="50"
-                        Clicked="SubmitButton_Clicked"
-                        IsEnabled="{Binding CanSubmit}" />
-
-                <Label Text="{Binding ErrorMessage}"
-                       TextColor="Tomato"
-                       HorizontalTextAlignment="Center"
-                       FontSize="14" />
-            </VerticalStackLayout>
-        </ContentView>
-
-        <ContentView IsVisible="{Binding IsAccessDenied}">
-            <VerticalStackLayout>
-                <Label Text="Accès refusé : cette page est réservée aux employés connectés."
-                       TextColor="Tomato"
-                       HorizontalTextAlignment="Center"
-                       FontSize="16" />
-            </VerticalStackLayout>
-        </ContentView>
+            <ContentView IsVisible="{Binding IsAccessDenied}">
+                <VerticalStackLayout>
+                    <Label Text="Accès refusé : cette page est réservée aux employés connectés."
+                           TextColor="Tomato"
+                           HorizontalTextAlignment="Center"
+                           FontSize="16" />
+                </VerticalStackLayout>
+            </ContentView>
 
         </VerticalStackLayout>
     </ScrollView>

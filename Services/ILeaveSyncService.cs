@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using PFE.Models.Database;
+﻿using PFE.Models.Database;
 
 namespace PFE.Services
 {

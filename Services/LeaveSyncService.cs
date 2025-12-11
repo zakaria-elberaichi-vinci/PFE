@@ -1,8 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
+﻿using PFE.Models.Database;
 using SQLite;
-using PFE.Models.Database;
 
 namespace PFE.Services
 {
@@ -20,7 +17,7 @@ namespace PFE.Services
         /// </summary>
         public async Task<int> SavePendingAsync(int leaveTypeId, DateTime startDate, DateTime endDate, string? reason)
         {
-            var pending = new PendingLeaveRequest
+            PendingLeaveRequest pending = new()
             {
                 LeaveTypeId = leaveTypeId,
                 StartDate = startDate,
@@ -30,7 +27,7 @@ namespace PFE.Services
                 SyncStatus = SyncStatus.Pending
             };
 
-            await _db.InsertAsync(pending);
+            _ = await _db.InsertAsync(pending);
 
             // après InsertAsync, l'Id auto-incrémenté est rempli
             return pending.Id;

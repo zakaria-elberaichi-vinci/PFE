@@ -1,8 +1,11 @@
-﻿using PFE.Context;
+﻿using System.Globalization;
+using System.Resources;
+using PFE.Context;
 using PFE.Models.Database;
 using PFE.Services;
 using PFE.Views;
 using Plugin.LocalNotification;
+using Syncfusion.Maui.Scheduler;
 
 namespace PFE;
 
@@ -10,12 +13,15 @@ public partial class App : Application
 {
     private readonly IServiceProvider _services;
 
+    [Obsolete]
     public App(IServiceProvider services)
     {
         InitializeComponent();
-        _services = services;
 
-        // Page de chargement temporaire pendant la vérification auto-login
+        CultureInfo.CurrentUICulture = new CultureInfo("fr-FR");
+        SfSchedulerResources.ResourceManager = new ResourceManager("PFE.Resources.SfScheduler", typeof(App).Assembly);
+
+        _services = services;
         MainPage = new ContentPage
         {
             BackgroundColor = Color.FromArgb("#0F172A"),
@@ -29,25 +35,20 @@ public partial class App : Application
         };
     }
 
+    [Obsolete]
     protected override async void OnStart()
     {
         base.OnStart();
-
-        // Demander la permission de notification au démarrage (Android 13+)
         _ = RequestNotificationPermissionAsync();
-
-        // Tenter la reconnexion automatique
         bool autoLoginSuccess = await TryAutoLoginAsync();
 
         if (autoLoginSuccess)
         {
-            // Aller directement au Dashboard
             DashboardPage dashboardPage = _services.GetRequiredService<DashboardPage>();
             MainPage = new NavigationPage(dashboardPage);
         }
         else
         {
-            // Aller à la page de login
             LoginPage loginPage = _services.GetRequiredService<LoginPage>();
             MainPage = new NavigationPage(loginPage);
         }
@@ -57,10 +58,9 @@ public partial class App : Application
     {
         try
         {
-            // Vérifier si "Se souvenir" est activé
             bool rememberMe = Preferences.Get("auth.rememberme", false);
             System.Diagnostics.Debug.WriteLine($"AutoLogin: RememberMe = {rememberMe}");
-            
+
             if (!rememberMe)
             {
                 System.Diagnostics.Debug.WriteLine("AutoLogin: RememberMe désactivé, tentative offline quand même...");
@@ -68,7 +68,6 @@ public partial class App : Application
                 return await TryOfflineLoginAsync();
             }
 
-            // Récupérer les credentials
             string login = Preferences.Get("auth.login", string.Empty);
             string? password = await SecureStorage.GetAsync("auth.password");
 
@@ -88,7 +87,7 @@ public partial class App : Application
 
             // Tenter la connexion à Odoo
             OdooClient odooClient = _services.GetRequiredService<OdooClient>();
-            
+
             try
             {
                 bool success = await odooClient.LoginAsync(login, password);
@@ -134,7 +133,7 @@ public partial class App : Application
         try
         {
             System.Diagnostics.Debug.WriteLine("AutoLogin Offline: Début...");
-            
+
             IDatabaseService databaseService = _services.GetRequiredService<IDatabaseService>();
             await databaseService.InitializeAsync();
 

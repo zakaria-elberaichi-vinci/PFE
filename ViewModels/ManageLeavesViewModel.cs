@@ -18,7 +18,6 @@ namespace PFE.ViewModels
         private string _errorMessage = string.Empty;
         private string _successMessage = string.Empty;
         private string _infoMessage = string.Empty;
-        private List<LeaveToApprove> _newLeaves = new();
         private int _pendingDecisionsCount;
         private bool _isOfflineMode = false;
         private bool _isReauthenticating = false;
@@ -26,7 +25,7 @@ namespace PFE.ViewModels
         public event PropertyChangedEventHandler? PropertyChanged;
 
         public ManageLeavesViewModel(
-            OdooClient odoo, 
+            OdooClient odoo,
             ILeaveNotificationService notificationService,
             IDatabaseService databaseService,
             ISyncService syncService)
@@ -36,7 +35,7 @@ namespace PFE.ViewModels
             _databaseService = databaseService;
             _syncService = syncService;
 
-            Leaves = new ObservableCollection<LeaveToApprove>();
+            Leaves = [];
 
             RefreshCommand = new RelayCommand(
                 async _ => await LoadAsync(),
@@ -64,7 +63,7 @@ namespace PFE.ViewModels
             {
                 await LoadAsync();
             };
-            
+
             RefreshOdooCommand = new RelayCommand(
                     async _ => await RefreshLeavesFromOdooAsync(),
                     _ => !IsBusy
@@ -80,7 +79,11 @@ namespace PFE.ViewModels
             get => _isOfflineMode;
             private set
             {
-                if (_isOfflineMode == value) return;
+                if (_isOfflineMode == value)
+                {
+                    return;
+                }
+
                 _isOfflineMode = value;
                 OnPropertyChanged();
             }
@@ -91,12 +94,12 @@ namespace PFE.ViewModels
         /// <summary>
         /// Liste des nouvelles demandes détectées (non encore vues)
         /// </summary>
-        public List<LeaveToApprove> NewLeaves => _newLeaves;
+        public List<LeaveToApprove> NewLeaves { get; private set; } = [];
 
         /// <summary>
         /// Indique s'il y a de nouvelles demandes
         /// </summary>
-        public bool HasNewLeaves => _newLeaves.Count > 0;
+        public bool HasNewLeaves => NewLeaves.Count > 0;
 
         /// <summary>
         /// Nombre de décisions en attente de synchronisation
@@ -106,7 +109,11 @@ namespace PFE.ViewModels
             get => _pendingDecisionsCount;
             private set
             {
-                if (_pendingDecisionsCount == value) return;
+                if (_pendingDecisionsCount == value)
+                {
+                    return;
+                }
+
                 _pendingDecisionsCount = value;
                 OnPropertyChanged();
                 OnPropertyChanged(nameof(HasPendingDecisions));
@@ -123,7 +130,11 @@ namespace PFE.ViewModels
             get => _isBusy;
             private set
             {
-                if (_isBusy == value) return;
+                if (_isBusy == value)
+                {
+                    return;
+                }
+
                 _isBusy = value;
                 OnPropertyChanged();
                 RaiseAllCanExecuteChanged();
@@ -135,7 +146,11 @@ namespace PFE.ViewModels
             get => _errorMessage;
             private set
             {
-                if (_errorMessage == value) return;
+                if (_errorMessage == value)
+                {
+                    return;
+                }
+
                 _errorMessage = value;
                 OnPropertyChanged();
             }
@@ -146,7 +161,11 @@ namespace PFE.ViewModels
             get => _successMessage;
             private set
             {
-                if (_successMessage == value) return;
+                if (_successMessage == value)
+                {
+                    return;
+                }
+
                 _successMessage = value;
                 OnPropertyChanged();
             }
@@ -157,7 +176,11 @@ namespace PFE.ViewModels
             get => _infoMessage;
             private set
             {
-                if (_infoMessage == value) return;
+                if (_infoMessage == value)
+                {
+                    return;
+                }
+
                 _infoMessage = value;
                 OnPropertyChanged();
             }
@@ -172,13 +195,16 @@ namespace PFE.ViewModels
 
         public async Task LoadAsync()
         {
-            if (IsBusy) return;
+            if (IsBusy)
+            {
+                return;
+            }
 
             IsBusy = true;
             ErrorMessage = string.Empty;
             SuccessMessage = string.Empty;
             InfoMessage = string.Empty;
-            _newLeaves.Clear();
+            NewLeaves.Clear();
 
             try
             {
@@ -194,7 +220,7 @@ namespace PFE.ViewModels
                 HashSet<int> processedLeaveIds = allDecisions.Select(d => d.LeaveId).ToHashSet();
 
                 // Mettre à jour le compteur de décisions en attente
-                int pendingCount = allDecisions.Count(d => d.SyncStatus == SyncStatus.Pending || d.SyncStatus == SyncStatus.Failed);
+                int pendingCount = allDecisions.Count(d => d.SyncStatus is SyncStatus.Pending or SyncStatus.Failed);
                 PendingDecisionsCount = pendingCount;
 
                 // Essayer de charger les demandes depuis Odoo
@@ -211,9 +237,9 @@ namespace PFE.ViewModels
                 {
                     // Session expirée - tenter une ré-authentification
                     System.Diagnostics.Debug.WriteLine($"ManageLeavesViewModel: Session expirée, tentative de ré-authentification...");
-                    
+
                     bool reauthSuccess = await TryReauthenticateAsync();
-                    
+
                     if (reauthSuccess)
                     {
                         // Réessayer le chargement après ré-authentification
@@ -258,19 +284,25 @@ namespace PFE.ViewModels
                 if (!IsOfflineMode)
                 {
                     HashSet<int> seenIds = await _notificationService.GetSeenLeaveIdsAsync(ManagerUserId);
-                    _newLeaves = list.Where(l => !seenIds.Contains(l.Id)).ToList();
+                    NewLeaves = list.Where(l => !seenIds.Contains(l.Id)).ToList();
                     await _notificationService.MarkLeavesAsSeenAsync(ManagerUserId, list.Select(l => l.Id));
                 }
 
                 Leaves.Clear();
                 foreach (LeaveToApprove item in list)
+                {
                     Leaves.Add(item);
+                }
 
                 if (Leaves.Count == 0 && PendingDecisionsCount == 0)
+                {
                     ErrorMessage = "Aucune demande de congé en attente.";
+                }
 
                 if (HasPendingDecisions && IsOfflineMode)
+                {
                     InfoMessage = $"Mode hors ligne. {PendingDecisionsCount} décision(s) en attente de synchronisation.";
+                }
 
                 OnPropertyChanged(nameof(NewLeaves));
                 OnPropertyChanged(nameof(HasNewLeaves));
@@ -330,7 +362,10 @@ namespace PFE.ViewModels
 
         private async Task ApproveAsync(LeaveToApprove? leave)
         {
-            if (leave == null || IsBusy) return;
+            if (leave == null || IsBusy)
+            {
+                return;
+            }
 
             bool alreadyProcessed = await _databaseService.HasDecisionForLeaveAsync(leave.Id);
             if (alreadyProcessed)
@@ -347,21 +382,21 @@ namespace PFE.ViewModels
             {
                 // Essayer d'envoyer à Odoo
                 await _odoo.ApproveLeaveAsync(leave.Id);
-                
+
                 // Succès - sauvegarder comme synchronisé
                 await SaveDecisionAsync(leave, "approve", SyncStatus.Synced);
                 await _databaseService.RemoveFromCacheAsync(leave.Id);
                 SuccessMessage = "La demande de congé a été validée avec succès !";
                 NotificationRequested?.Invoke(this, SuccessMessage);
                 IsOfflineMode = false;
-                
-                Leaves.Remove(leave);
+
+                _ = Leaves.Remove(leave);
             }
             catch (Exception ex) when (IsSessionExpiredError(ex))
             {
                 // Session expirée - tenter réauth puis réessayer
                 bool reauthSuccess = await TryReauthenticateAsync();
-                
+
                 if (reauthSuccess)
                 {
                     try
@@ -372,7 +407,7 @@ namespace PFE.ViewModels
                         SuccessMessage = "La demande de congé a été validée avec succès !";
                         NotificationRequested?.Invoke(this, SuccessMessage);
                         IsOfflineMode = false;
-                        Leaves.Remove(leave);
+                        _ = Leaves.Remove(leave);
                     }
                     catch
                     {
@@ -403,7 +438,10 @@ namespace PFE.ViewModels
 
         private async Task RefuseAsync(LeaveToApprove? leave)
         {
-            if (leave == null || IsBusy) return;
+            if (leave == null || IsBusy)
+            {
+                return;
+            }
 
             bool alreadyProcessed = await _databaseService.HasDecisionForLeaveAsync(leave.Id);
             if (alreadyProcessed)
@@ -420,21 +458,21 @@ namespace PFE.ViewModels
             {
                 // Essayer d'envoyer à Odoo
                 await _odoo.RefuseLeaveAsync(leave.Id);
-                
+
                 // Succès - sauvegarder comme synchronisé
                 await SaveDecisionAsync(leave, "refuse", SyncStatus.Synced);
                 await _databaseService.RemoveFromCacheAsync(leave.Id);
                 SuccessMessage = "La demande de congé a été refusée avec succès !";
                 NotificationRequested?.Invoke(this, SuccessMessage);
                 IsOfflineMode = false;
-                
-                Leaves.Remove(leave);
+
+                _ = Leaves.Remove(leave);
             }
             catch (Exception ex) when (IsSessionExpiredError(ex))
             {
                 // Session expirée - tenter réauth puis réessayer
                 bool reauthSuccess = await TryReauthenticateAsync();
-                
+
                 if (reauthSuccess)
                 {
                     try
@@ -445,7 +483,7 @@ namespace PFE.ViewModels
                         SuccessMessage = "La demande de congé a été refusée avec succès !";
                         NotificationRequested?.Invoke(this, SuccessMessage);
                         IsOfflineMode = false;
-                        Leaves.Remove(leave);
+                        _ = Leaves.Remove(leave);
                     }
                     catch
                     {
@@ -481,7 +519,7 @@ namespace PFE.ViewModels
             SuccessMessage = "Décision enregistrée. Elle sera synchronisée dès que la connexion sera rétablie.";
             NotificationRequested?.Invoke(this, SuccessMessage);
             IsOfflineMode = true;
-            Leaves.Remove(leave);
+            _ = Leaves.Remove(leave);
             PendingDecisionsCount++;
         }
 
@@ -498,8 +536,8 @@ namespace PFE.ViewModels
                 SyncStatus = status
             };
 
-            await _databaseService.AddPendingLeaveDecisionAsync(decision);
-            
+            _ = await _databaseService.AddPendingLeaveDecisionAsync(decision);
+
             if (status == SyncStatus.Synced)
             {
                 await _databaseService.UpdateDecisionSyncStatusAsync(decision.Id, SyncStatus.Synced);
@@ -567,7 +605,7 @@ namespace PFE.ViewModels
 
                 // Tenter la connexion
                 bool success = await _odoo.LoginAsync(login, password);
-                
+
                 if (success)
                 {
                     System.Diagnostics.Debug.WriteLine($"ManageLeavesViewModel: Ré-authentification réussie pour {login}");
@@ -597,12 +635,17 @@ namespace PFE.ViewModels
             (RefuseCommand as RelayCommand)?.RaiseCanExecuteChanged();
         }
 
-        private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
+        private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+        {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
 
         public async Task RefreshLeavesFromOdooAsync()
         {
-            if (IsBusy) return;
+            if (IsBusy)
+            {
+                return;
+            }
 
             IsBusy = true;
             ErrorMessage = string.Empty;
@@ -620,11 +663,15 @@ namespace PFE.ViewModels
 
                 // Mettre à jour la collection affichée
                 Leaves.Clear();
-                foreach (var leave in leaves)
+                foreach (LeaveToApprove leave in leaves)
+                {
                     Leaves.Add(leave);
+                }
 
                 if (Leaves.Count == 0)
+                {
                     ErrorMessage = "Aucune demande de congé en attente.";
+                }
             }
             catch (Exception ex)
             {

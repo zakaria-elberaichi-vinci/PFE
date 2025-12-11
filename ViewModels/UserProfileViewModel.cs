@@ -91,6 +91,7 @@ namespace PFE.ViewModels
                     Clear();
                     return;
                 }
+
                 UserProfile profile = await _odooClient.GetUserInfosAsync();
                 if (profile == null)
                 {
@@ -132,6 +133,8 @@ namespace PFE.ViewModels
         }
 
         private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
-            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
     }
 }

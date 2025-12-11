@@ -13,7 +13,8 @@
 
             <conv:InverseBoolConverter x:Key="InverseBoolConverter" />
             <conv:StringNotEmptyConverter x:Key="StringNotEmptyConverter" />
-            
+            <conv:StatusColorConverter x:Key="StatusColorConverter" />
+
         </ResourceDictionary>
     </Application.Resources>
 </Application>

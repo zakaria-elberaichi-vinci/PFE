@@ -21,12 +21,6 @@ public partial class DashboardPage : ContentPage
         _backgroundNotificationService = backgroundNotificationService;
         _backgroundLeaveStatusService = backgroundLeaveStatusService;
 
-        BtnLeaves.Clicked += async (s, e) =>
-        {
-            LeavesPage leavesPage = _services.GetRequiredService<LeavesPage>();
-            await Navigation.PushAsync(leavesPage);
-        };
-
         BtnProfile.Clicked += async (s, e) =>
         {
             UserProfilePage userProfilePage = _services.GetRequiredService<UserProfilePage>();
@@ -41,7 +35,6 @@ public partial class DashboardPage : ContentPage
 
         BtnLogout.Clicked += (s, e) =>
         {
-            // Arrêter les services de notification en arrière-plan
             _backgroundNotificationService.Stop();
             _backgroundLeaveStatusService.Stop();
 
@@ -56,6 +49,12 @@ public partial class DashboardPage : ContentPage
             LeaveRequestPage leaveRequestPage = _services.GetRequiredService<LeaveRequestPage>();
             await Navigation.PushAsync(leaveRequestPage);
         };
+
+        BtnCalendar.Clicked += async (s, e) =>
+        {
+            CalendarPage calendarPage = _services.GetRequiredService<CalendarPage>();
+            await Navigation.PushAsync(calendarPage);
+        };
     }
 
     protected override async void OnAppearing()
@@ -64,19 +63,16 @@ public partial class DashboardPage : ContentPage
         bool isManager = _client.session.Current.IsManager;
         bool isEmployee = !isManager;
 
-        BtnLeaves.IsVisible = isEmployee;
         BtnNewLeave.IsVisible = isEmployee;
+        BtnCalendar.IsVisible = isEmployee;
         BtnManageLeaves.IsVisible = isManager;
 
-        // Démarrer les services de notification en arrière-plan selon le rôle
         if (isManager)
         {
-            // Service de notification pour les nouvelles demandes de congé (managers)
             _backgroundNotificationService.Start();
         }
         else if (isEmployee)
         {
-            // Service de notification pour les changements de statut (employés)
             _backgroundLeaveStatusService.Start();
         }
     }
