@@ -1,5 +1,4 @@
 ﻿using System.Net;
-using DotNetEnv;
 using Microsoft.Extensions.Logging;
 using PFE.Context;
 using PFE.Services;
@@ -16,9 +15,8 @@ namespace PFE
         [Obsolete]
         public static MauiApp CreateMauiApp()
         {
-            Env.Load();
-            string synfusionKey = Env.GetString("SYNCFUSION_LICENSE_KEY");
-            SyncfusionLicenseProvider.RegisterLicense(synfusionKey);
+            // Clé de licence Syncfusion (fonctionne sur toutes les plateformes)
+            SyncfusionLicenseProvider.RegisterLicense("Ngo9BigBOggjGyl/Vkd+XU9FcVRDQmtWfFN0Q3NYflRxfV9DZ0wgOX1dQl9mSHxTf0RiW3pfdndUR2hXUkU=");
 
             MauiAppBuilder builder = MauiApp.CreateBuilder();
             builder
