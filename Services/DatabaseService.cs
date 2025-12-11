@@ -42,6 +42,8 @@ namespace PFE.Services
                 _ = await _database.CreateTableAsync<DB.CachedLeaveAllocation>();
                 _ = await _database.CreateTableAsync<DB.CachedLeaveType>();
                 _ = await _database.CreateTableAsync<DB.CachedBlockedDate>();
+                _ = await _database.CreateTableAsync<DB.CachedAllocationSummary>();
+                _ = await _database.CreateTableAsync<DB.CachedLeave>();
 
                 _isInitialized = true;
                 System.Diagnostics.Debug.WriteLine($"DatabaseService: Base de données initialisée à {_dbPath}");
@@ -525,6 +527,141 @@ namespace PFE.Services
             SQLiteAsyncConnection db = await GetDatabaseAsync();
             _ = await db.ExecuteAsync("DELETE FROM cached_blocked_dates WHERE EmployeeId = ?", employeeId);
             System.Diagnostics.Debug.WriteLine($"DatabaseService: Dates bloquées supprimées du cache pour employé {employeeId}");
+        }
+
+        #endregion
+
+        #region CachedAllocationSummary
+
+        public async Task SaveAllocationSummariesAsync(int employeeId, List<AllocationSummary> allocations)
+        {
+            SQLiteAsyncConnection db = await GetDatabaseAsync();
+
+            // Supprimer les anciennes allocations pour cet employé
+            _ = await db.ExecuteAsync("DELETE FROM cached_allocation_summaries WHERE EmployeeId = ?", employeeId);
+
+            // Insérer les nouvelles allocations
+            foreach (AllocationSummary allocation in allocations)
+            {
+                _ = await db.InsertAsync(new DB.CachedAllocationSummary
+                {
+                    EmployeeId = employeeId,
+                    LeaveTypeId = allocation.LeaveTypeId,
+                    LeaveTypeName = allocation.LeaveTypeName,
+                    TotalAllocated = allocation.TotalAllocated,
+                    TotalTaken = allocation.TotalTaken,
+                    TotalRemaining = allocation.TotalRemaining,
+                    LastUpdated = DateTime.UtcNow
+                });
+            }
+
+            System.Diagnostics.Debug.WriteLine($"DatabaseService: {allocations.Count} allocations sauvegardées en cache pour employé {employeeId}");
+        }
+
+        public async Task<List<AllocationSummary>> GetAllocationSummariesAsync(int employeeId)
+        {
+            SQLiteAsyncConnection db = await GetDatabaseAsync();
+
+            List<DB.CachedAllocationSummary> cached = await db.Table<DB.CachedAllocationSummary>()
+                .Where(x => x.EmployeeId == employeeId)
+                .ToListAsync();
+
+            List<AllocationSummary> result = cached
+                .Select(c => new AllocationSummary(
+                    c.LeaveTypeId,
+                    c.LeaveTypeName,
+                    c.TotalAllocated,
+                    c.TotalTaken,
+                    c.TotalRemaining
+                ))
+                .ToList();
+
+            System.Diagnostics.Debug.WriteLine($"DatabaseService: {result.Count} allocations récupérées depuis le cache pour employé {employeeId}");
+
+            return result;
+        }
+
+        public async Task ClearAllocationSummariesAsync(int employeeId)
+        {
+            SQLiteAsyncConnection db = await GetDatabaseAsync();
+            _ = await db.ExecuteAsync("DELETE FROM cached_allocation_summaries WHERE EmployeeId = ?", employeeId);
+            System.Diagnostics.Debug.WriteLine($"DatabaseService: Allocations supprimées du cache pour employé {employeeId}");
+        }
+
+        #endregion
+
+        #region CachedLeave (Congés de l'employé - Cache offline)
+
+        public async Task SaveLeavesAsync(int employeeId, List<Leave> leaves)
+        {
+            SQLiteAsyncConnection db = await GetDatabaseAsync();
+
+            // Supprimer les anciens congés en cache pour cet employé
+            _ = await db.ExecuteAsync("DELETE FROM cached_leaves WHERE EmployeeId = ?", employeeId);
+
+            // Insérer les nouveaux congés
+            foreach (Leave leave in leaves)
+            {
+                _ = await db.InsertAsync(new DB.CachedLeave
+                {
+                    LeaveId = leave.Id,
+                    EmployeeId = employeeId,
+                    LeaveType = leave.Type,
+                    StartDate = leave.StartDate,
+                    EndDate = leave.EndDate,
+                    Status = leave.Status,
+                    Days = leave.Days,
+                    Year = leave.StartDate.Year,
+                    CachedAt = DateTime.UtcNow
+                });
+            }
+
+            System.Diagnostics.Debug.WriteLine($"DatabaseService: {leaves.Count} congés sauvegardés en cache pour employé {employeeId}");
+        }
+
+        public async Task<List<Leave>> GetCachedLeavesAsync(int employeeId, string? status = null, int? year = null)
+        {
+            SQLiteAsyncConnection db = await GetDatabaseAsync();
+
+            List<DB.CachedLeave> cached = await db.Table<DB.CachedLeave>()
+                .Where(x => x.EmployeeId == employeeId)
+                .ToListAsync();
+
+            // Filtrer par statut si spécifié
+            if (!string.IsNullOrEmpty(status))
+            {
+                cached = cached.Where(x => x.Status == status).ToList();
+            }
+
+            // Filtrer par année si spécifiée
+            if (year.HasValue)
+            {
+                cached = cached.Where(x => x.Year == year.Value).ToList();
+            }
+
+            List<Leave> result = cached
+                .Select(c => new Leave(
+                    c.LeaveId,
+                    c.LeaveType,
+                    c.StartDate,
+                    c.EndDate,
+                    c.Status,
+                    c.Days,
+                    null // FirstApprover n'est pas stocké dans le cache
+                ))
+                .OrderByDescending(l => l.StartDate)
+                .ToList();
+
+            System.Diagnostics.Debug.WriteLine($"DatabaseService: {result.Count} congés récupérés depuis le cache pour employé {employeeId}");
+
+            return result;
+        }
+
+        public async Task ClearCachedLeavesAsync(int employeeId)
+        {
+            SQLiteAsyncConnection db = await GetDatabaseAsync();
+            _ = await db.ExecuteAsync("DELETE FROM cached_leaves WHERE EmployeeId = ?", employeeId);
+            System.Diagnostics.Debug.WriteLine($"DatabaseService: Congés supprimés du cache pour employé {employeeId}");
         }
 
         #endregion

@@ -6,12 +6,12 @@
              Title="Mes Informations"
              BackgroundColor="#0F172A">
 
-    <Application.Resources>
+    <ContentPage.Resources>
         <ResourceDictionary>
             <conv:StringNotEmptyConverter x:Key="StringNotEmptyConverter" />
             <conv:NullOrEmptyToDefaultConverter x:Key="NullOrEmptyConverter" />
         </ResourceDictionary>
-    </Application.Resources>
+    </ContentPage.Resources>
 
     <ScrollView>
         <Grid Padding="24">

@@ -193,5 +193,43 @@ namespace PFE.Services
         Task ClearBlockedDatesAsync(int employeeId);
 
         #endregion
+
+        #region CachedAllocationSummary
+
+        /// <summary>
+        /// Sauvegarde les allocations par type en cache local
+        /// </summary>
+        Task SaveAllocationSummariesAsync(int employeeId, List<AllocationSummary> allocations);
+
+        /// <summary>
+        /// Recupere les allocations par type depuis le cache local
+        /// </summary>
+        Task<List<AllocationSummary>> GetAllocationSummariesAsync(int employeeId);
+
+        /// <summary>
+        /// Supprime les allocations en cache pour un employe
+        /// </summary>
+        Task ClearAllocationSummariesAsync(int employeeId);
+
+        #endregion
+
+        #region CachedLeave (Congés de l'employé - Cache offline)
+
+        /// <summary>
+        /// Sauvegarde les congés de l'employé en cache local
+        /// </summary>
+        Task SaveLeavesAsync(int employeeId, List<Leave> leaves);
+
+        /// <summary>
+        /// Récupère les congés depuis le cache local avec filtres optionnels
+        /// </summary>
+        Task<List<Leave>> GetCachedLeavesAsync(int employeeId, string? status = null, int? year = null);
+
+        /// <summary>
+        /// Supprime les congés en cache pour un employé
+        /// </summary>
+        Task ClearCachedLeavesAsync(int employeeId);
+
+        #endregion
     }
 }
