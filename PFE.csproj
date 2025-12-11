@@ -102,6 +102,9 @@
 		<MauiXaml Update="Views\DashboardPage.xaml">
 			<Generator>MSBuild:Compile</Generator>
 		</MauiXaml>
+		<MauiXaml Update="Views\MyLeavesPage.xaml">
+		  <Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
 		<MauiXaml Update="Views\UserProfilePage.xaml">
 			<Generator>MSBuild:Compile</Generator>
 		</MauiXaml>

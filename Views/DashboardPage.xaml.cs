@@ -52,8 +52,9 @@ public partial class DashboardPage : ContentPage
 
         BtnCalendar.Clicked += async (s, e) =>
         {
-            CalendarPage calendarPage = _services.GetRequiredService<CalendarPage>();
-            await Navigation.PushAsync(calendarPage);
+            // Utiliser la page unifiée qui contient les deux vues
+            MyLeavesPage myLeavesPage = _services.GetRequiredService<MyLeavesPage>();
+            await Navigation.PushAsync(myLeavesPage);
         };
     }
 

@@ -54,7 +54,7 @@
              
                 <VerticalStackLayout Spacing="4"
                                      Margin="0,0,0,8">
-                    <Label Text="Mes congés"
+                    <Label Text="Liste"
                            FontSize="26"
                            FontAttributes="Bold"
                            TextColor="White" />
@@ -62,6 +62,33 @@
                            FontSize="14"
                            TextColor="#9CA3AF" />
                 </VerticalStackLayout>
+
+                <!-- Switch pour basculer vers la vue calendrier -->
+                <Frame CornerRadius="12"
+                       Padding="12"
+                       BackgroundColor="#111827"
+                       BorderColor="#1F2937"
+                       HasShadow="False"
+                       Margin="0,0,0,8">
+                    <HorizontalStackLayout Spacing="12"
+                                           HorizontalOptions="Center"
+                                           VerticalOptions="Center">
+                        <Label Text="📋 Liste"
+                               FontSize="14"
+                               FontAttributes="Bold"
+                               TextColor="#60A5FA"
+                               VerticalOptions="Center" />
+                        <Switch x:Name="ViewSwitch"
+                                IsToggled="False"
+                                Toggled="OnViewToggled"
+                                OnColor="#3B82F6"
+                                ThumbColor="White" />
+                        <Label Text="📅 Calendrier"
+                               FontSize="14"
+                               TextColor="#9CA3AF"
+                               VerticalOptions="Center" />
+                    </HorizontalStackLayout>
+                </Frame>
 
                
                 <Frame CornerRadius="16"

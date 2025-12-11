@@ -7,11 +7,11 @@
              BackgroundColor="#0F172A"
              Title="Demande de congé">
 
-    <Application.Resources>
+    <ContentPage.Resources>
         <ResourceDictionary>
             <conv:IntToBoolConverter x:Key="IntToBoolConverter" />
         </ResourceDictionary>
-    </Application.Resources>
+    </ContentPage.Resources>
 
     <ScrollView>
         <VerticalStackLayout Padding="20"

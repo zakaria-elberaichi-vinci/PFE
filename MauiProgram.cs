@@ -63,6 +63,7 @@ namespace PFE
             builder.Services.AddSingleton<ISyncService, SyncService>();
 
             builder.Services.AddSingleton<OfflineService>();
+            builder.Services.AddSingleton<ViewPreferenceService>();
 
             builder.Services.AddTransient<AuthenticationViewModel>();
             builder.Services.AddTransient<UserProfileViewModel>();
@@ -70,6 +71,7 @@ namespace PFE
             builder.Services.AddTransient<LeaveRequestViewModel>();
             builder.Services.AddTransient<CalendarViewModel>();
             builder.Services.AddTransient<LeaveViewModel>();
+            builder.Services.AddTransient<MyLeavesViewModel>();
 
             builder.Services.AddTransient<LoginPage>();
             builder.Services.AddTransient<UserProfilePage>();
@@ -78,6 +80,7 @@ namespace PFE
             builder.Services.AddTransient<LeaveRequestPage>();
             builder.Services.AddTransient<CalendarPage>();
             builder.Services.AddTransient<LeavesPage>();
+            builder.Services.AddTransient<MyLeavesPage>();
 
             builder.Services.AddSingleton<App>(sp => new App(sp));
             builder.Services.AddTransient<Func<LoginPage>>(sp => () => sp.GetRequiredService<LoginPage>());
