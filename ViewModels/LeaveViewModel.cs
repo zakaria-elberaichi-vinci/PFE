@@ -1,10 +1,8 @@
 ﻿
-
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
-using Microsoft.Maui.Networking;
 using PFE.Models;
 using PFE.Services;
 using static PFE.Helpers.LeaveStatusHelper;
@@ -15,14 +13,20 @@ namespace PFE.ViewModels
     {
         public string LabelFr { get; init; } = default!;
         public string? ValueEn { get; init; }
-        public override string ToString() => LabelFr;
+        public override string ToString()
+        {
+            return LabelFr;
+        }
     }
 
     public class YearItem
     {
         public string Label { get; init; } = default!;
         public int? Value { get; init; }
-        public override string ToString() => Label;
+        public override string ToString()
+        {
+            return Label;
+        }
     }
 
     public class LeaveViewModel : INotifyPropertyChanged
@@ -34,18 +38,25 @@ namespace PFE.ViewModels
         private bool _isOffline;
         private string _syncMessage = string.Empty;
 
-        public ObservableCollection<YearItem> Years { get; } = new();
-        public ObservableCollection<StatusItem> Statuses { get; } = new();
+        public ObservableCollection<YearItem> Years { get; } = [];
+        public ObservableCollection<StatusItem> Statuses { get; } = [];
         private YearItem? _selectedYearItem;
         public YearItem? SelectedYearItem
         {
             get => _selectedYearItem;
             set
             {
-                if (_selectedYearItem == value) return;
+                if (_selectedYearItem == value)
+                {
+                    return;
+                }
+
                 _selectedYearItem = value;
                 OnPropertyChanged();
-                if (!IsBusy) _ = LoadAsync();
+                if (!IsBusy)
+                {
+                    _ = LoadAsync();
+                }
             }
         }
 
@@ -55,10 +66,17 @@ namespace PFE.ViewModels
             get => _selectedStatusItem;
             set
             {
-                if (_selectedStatusItem == value) return;
+                if (_selectedStatusItem == value)
+                {
+                    return;
+                }
+
                 _selectedStatusItem = value;
                 OnPropertyChanged();
-                if (!IsBusy) _ = LoadAsync();
+                if (!IsBusy)
+                {
+                    _ = LoadAsync();
+                }
             }
         }
         public int? SelectedYear => SelectedYearItem?.Value;
@@ -82,7 +100,7 @@ namespace PFE.ViewModels
         {
             _odooClient = odooClient;
             _offlineService = offlineService;
-            Leaves = new ObservableCollection<Leave>();
+            Leaves = [];
             RefreshCommand = new RelayCommand(async _ => await LoadAsync(), _ => !IsBusy);
 
             InitializeYears();
@@ -150,10 +168,14 @@ namespace PFE.ViewModels
 
                 Leaves.Clear();
                 foreach (Leave item in list)
+                {
                     Leaves.Add(item);
+                }
 
                 if (Leaves.Count == 0)
+                {
                     ErrorMessage = "Aucun congé trouvé.";
+                }
             }
             catch (Exception ex)
             {
@@ -190,13 +212,13 @@ namespace PFE.ViewModels
                     _ = Task.Run(async () =>
                     {
                         await Task.Delay(3000);
-                        await MainThread.InvokeOnMainThreadAsync(() => SyncMessage = string.Empty);
+                        _ = await MainThread.InvokeOnMainThreadAsync(() => SyncMessage = string.Empty);
                     });
                 });
             }
             else if (e.PendingCount > 0)
             {
-                await MainThread.InvokeOnMainThreadAsync(() =>
+                _ = await MainThread.InvokeOnMainThreadAsync(() =>
                     SyncMessage = $"⏳ {e.PendingCount} demande{(e.PendingCount > 1 ? "s" : "")} en attente");
             }
         }
@@ -237,12 +259,16 @@ namespace PFE.ViewModels
             Statuses.Add(new StatusItem { LabelFr = "(Tous)", ValueEn = null });
 
             foreach (KeyValuePair<string, string> kv in FrenchToEnglishStatus)
+            {
                 Statuses.Add(new StatusItem { LabelFr = kv.Key, ValueEn = kv.Value });
+            }
 
             SelectedStatusItem = Statuses[0];
         }
 
         private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
-            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
     }
 }

@@ -17,32 +17,38 @@ namespace PFE.Services
         }
         public async Task InitializeAsync()
         {
-            if (_isInitialized) return;
+            if (_isInitialized)
+            {
+                return;
+            }
 
             await _initLock.WaitAsync();
             try
             {
-                if (_isInitialized) return;
+                if (_isInitialized)
+                {
+                    return;
+                }
 
                 _database = new SQLiteAsyncConnection(_dbPath, SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create | SQLiteOpenFlags.SharedCache);
 
                 // Créer les tables
-                await _database.CreateTableAsync<DB.SeenLeaveNotification>();
-                await _database.CreateTableAsync<DB.NotifiedLeaveStatusChange>();
-                await _database.CreateTableAsync<DB.PendingLeaveRequest>();
-                await _database.CreateTableAsync<DB.PendingLeaveDecision>();
-                await _database.CreateTableAsync<DB.CachedLeaveToApprove>();
-                await _database.CreateTableAsync<DB.UserSession>();
-                await _database.CreateTableAsync<DB.CachedLeaveAllocation>();
-                await _database.CreateTableAsync<DB.CachedLeaveType>();
-                await _database.CreateTableAsync<DB.CachedBlockedDate>();
+                _ = await _database.CreateTableAsync<DB.SeenLeaveNotification>();
+                _ = await _database.CreateTableAsync<DB.NotifiedLeaveStatusChange>();
+                _ = await _database.CreateTableAsync<DB.PendingLeaveRequest>();
+                _ = await _database.CreateTableAsync<DB.PendingLeaveDecision>();
+                _ = await _database.CreateTableAsync<DB.CachedLeaveToApprove>();
+                _ = await _database.CreateTableAsync<DB.UserSession>();
+                _ = await _database.CreateTableAsync<DB.CachedLeaveAllocation>();
+                _ = await _database.CreateTableAsync<DB.CachedLeaveType>();
+                _ = await _database.CreateTableAsync<DB.CachedBlockedDate>();
 
                 _isInitialized = true;
                 System.Diagnostics.Debug.WriteLine($"DatabaseService: Base de données initialisée à {_dbPath}");
             }
             finally
             {
-                _initLock.Release();
+                _ = _initLock.Release();
             }
         }
 
@@ -52,6 +58,7 @@ namespace PFE.Services
             {
                 await InitializeAsync();
             }
+
             return _database!;
         }
 
@@ -78,7 +85,7 @@ namespace PFE.Services
 
             if (existing == null)
             {
-                await db.InsertAsync(new DB.NotifiedLeaveStatusChange
+                _ = await db.InsertAsync(new DB.NotifiedLeaveStatusChange
                 {
                     EmployeeId = employeeId,
                     LeaveId = leaveId,
@@ -92,7 +99,7 @@ namespace PFE.Services
         public async Task ClearNotifiedLeavesAsync(int employeeId)
         {
             SQLiteAsyncConnection db = await GetDatabaseAsync();
-            await db.ExecuteAsync("DELETE FROM notified_leave_status_changes WHERE EmployeeId = ?", employeeId);
+            _ = await db.ExecuteAsync("DELETE FROM notified_leave_status_changes WHERE EmployeeId = ?", employeeId);
             System.Diagnostics.Debug.WriteLine($"DatabaseService: Notifications supprimées pour employé {employeeId}");
         }
 
@@ -120,7 +127,7 @@ namespace PFE.Services
             {
                 if (!existingIds.Contains(leaveId))
                 {
-                    await db.InsertAsync(new DB.SeenLeaveNotification
+                    _ = await db.InsertAsync(new DB.SeenLeaveNotification
                     {
                         ManagerUserId = managerUserId,
                         LeaveId = leaveId,
@@ -133,7 +140,7 @@ namespace PFE.Services
         public async Task ClearSeenNotificationsAsync(int managerUserId)
         {
             SQLiteAsyncConnection db = await GetDatabaseAsync();
-            await db.ExecuteAsync("DELETE FROM seen_leave_notifications WHERE ManagerUserId = ?", managerUserId);
+            _ = await db.ExecuteAsync("DELETE FROM seen_leave_notifications WHERE ManagerUserId = ?", managerUserId);
             System.Diagnostics.Debug.WriteLine($"DatabaseService: Notifications vues supprimées pour manager {managerUserId}");
         }
 
@@ -144,9 +151,9 @@ namespace PFE.Services
         public async Task UpdateLeavesToApproveCacheAsync(int managerUserId, IEnumerable<DB.CachedLeaveToApprove> leaves)
         {
             SQLiteAsyncConnection db = await GetDatabaseAsync();
-            
+
             // Supprimer l'ancien cache pour ce manager
-            await db.ExecuteAsync("DELETE FROM cached_leaves_to_approve WHERE ManagerUserId = ?", managerUserId);
+            _ = await db.ExecuteAsync("DELETE FROM cached_leaves_to_approve WHERE ManagerUserId = ?", managerUserId);
 
             // Insérer les nouvelles demandes
             DateTime now = DateTime.UtcNow;
@@ -154,7 +161,7 @@ namespace PFE.Services
             {
                 leave.ManagerUserId = managerUserId;
                 leave.CachedAt = now;
-                await db.InsertOrReplaceAsync(leave);
+                _ = await db.InsertOrReplaceAsync(leave);
             }
 
             System.Diagnostics.Debug.WriteLine($"DatabaseService: Cache mis à jour avec {leaves.Count()} demandes pour manager {managerUserId}");
@@ -172,14 +179,14 @@ namespace PFE.Services
         public async Task RemoveFromCacheAsync(int leaveId)
         {
             SQLiteAsyncConnection db = await GetDatabaseAsync();
-            await db.ExecuteAsync("DELETE FROM cached_leaves_to_approve WHERE LeaveId = ?", leaveId);
+            _ = await db.ExecuteAsync("DELETE FROM cached_leaves_to_approve WHERE LeaveId = ?", leaveId);
             System.Diagnostics.Debug.WriteLine($"DatabaseService: Demande {leaveId} supprimée du cache");
         }
 
         public async Task ClearLeavesToApproveCacheAsync(int managerUserId)
         {
             SQLiteAsyncConnection db = await GetDatabaseAsync();
-            await db.ExecuteAsync("DELETE FROM cached_leaves_to_approve WHERE ManagerUserId = ?", managerUserId);
+            _ = await db.ExecuteAsync("DELETE FROM cached_leaves_to_approve WHERE ManagerUserId = ?", managerUserId);
         }
 
         #endregion
@@ -191,7 +198,7 @@ namespace PFE.Services
             SQLiteAsyncConnection db = await GetDatabaseAsync();
             decision.DecisionDate = DateTime.UtcNow;
             decision.SyncStatus = DB.SyncStatus.Pending;
-            await db.InsertAsync(decision);
+            _ = await db.InsertAsync(decision);
             System.Diagnostics.Debug.WriteLine($"DatabaseService: Décision {decision.DecisionType} ajoutée pour congé {decision.LeaveId} (ID local: {decision.Id})");
             return decision;
         }
@@ -209,7 +216,7 @@ namespace PFE.Services
         {
             SQLiteAsyncConnection db = await GetDatabaseAsync();
             return await db.Table<DB.PendingLeaveDecision>()
-                .Where(x => x.ManagerUserId == managerUserId && 
+                .Where(x => x.ManagerUserId == managerUserId &&
                        (x.SyncStatus == DB.SyncStatus.Pending || x.SyncStatus == DB.SyncStatus.Failed))
                 .OrderByDescending(x => x.DecisionDate)
                 .ToListAsync();
@@ -247,7 +254,7 @@ namespace PFE.Services
                 decision.LastSyncAttempt = DateTime.UtcNow;
                 decision.SyncAttempts++;
 
-                await db.UpdateAsync(decision);
+                _ = await db.UpdateAsync(decision);
                 System.Diagnostics.Debug.WriteLine($"DatabaseService: Statut sync mis à jour pour décision {decisionId}: {status}");
             }
         }
@@ -255,7 +262,7 @@ namespace PFE.Services
         public async Task DeletePendingLeaveDecisionAsync(int decisionId)
         {
             SQLiteAsyncConnection db = await GetDatabaseAsync();
-            await db.DeleteAsync<DB.PendingLeaveDecision>(decisionId);
+            _ = await db.DeleteAsync<DB.PendingLeaveDecision>(decisionId);
             System.Diagnostics.Debug.WriteLine($"DatabaseService: Décision {decisionId} supprimée");
         }
 
@@ -272,7 +279,7 @@ namespace PFE.Services
         {
             SQLiteAsyncConnection db = await GetDatabaseAsync();
             DateTime threshold = DateTime.UtcNow.AddDays(-daysOld);
-            await db.ExecuteAsync(
+            _ = await db.ExecuteAsync(
                 "DELETE FROM pending_leave_decisions WHERE SyncStatus = ? AND DecisionDate < ?",
                 (int)DB.SyncStatus.Synced, threshold);
             System.Diagnostics.Debug.WriteLine($"DatabaseService: Anciennes décisions synchronisées supprimées (> {daysOld} jours)");
@@ -287,7 +294,7 @@ namespace PFE.Services
             SQLiteAsyncConnection db = await GetDatabaseAsync();
             request.CreatedAt = DateTime.UtcNow;
             request.SyncStatus = DB.SyncStatus.Pending;
-            await db.InsertAsync(request);
+            _ = await db.InsertAsync(request);
             System.Diagnostics.Debug.WriteLine($"DatabaseService: Demande de congé ajoutée en attente (ID local: {request.Id})");
             return request;
         }
@@ -329,7 +336,7 @@ namespace PFE.Services
                     request.OdooLeaveId = odooLeaveId;
                 }
 
-                await db.UpdateAsync(request);
+                _ = await db.UpdateAsync(request);
                 System.Diagnostics.Debug.WriteLine($"DatabaseService: Statut sync mis à jour pour demande {requestId}: {status}");
             }
         }
@@ -338,7 +345,7 @@ namespace PFE.Services
         {
             SQLiteAsyncConnection db = await GetDatabaseAsync();
             DateTime threshold = DateTime.UtcNow.AddDays(-7);
-            await db.ExecuteAsync(
+            _ = await db.ExecuteAsync(
                 "DELETE FROM pending_leave_requests WHERE SyncStatus = ? AND LastSyncAttempt < ?",
                 (int)DB.SyncStatus.Synced, threshold);
         }
@@ -356,14 +363,7 @@ namespace PFE.Services
                 .Where(x => x.UserId == session.UserId)
                 .FirstOrDefaultAsync();
 
-            if (existing != null)
-            {
-                await db.UpdateAsync(session);
-            }
-            else
-            {
-                await db.InsertAsync(session);
-            }
+            _ = existing != null ? await db.UpdateAsync(session) : await db.InsertAsync(session);
         }
 
         public async Task<DB.UserSession?> GetUserSessionAsync(int userId)
@@ -400,12 +400,12 @@ namespace PFE.Services
                 existing.Taken = taken;
                 existing.Remaining = remaining;
                 existing.LastUpdated = DateTime.UtcNow;
-                await db.UpdateAsync(existing);
+                _ = await db.UpdateAsync(existing);
                 System.Diagnostics.Debug.WriteLine($"DatabaseService: Allocations mises à jour pour employé {employeeId}, année {year}");
             }
             else
             {
-                await db.InsertAsync(new DB.CachedLeaveAllocation
+                _ = await db.InsertAsync(new DB.CachedLeaveAllocation
                 {
                     EmployeeId = employeeId,
                     Year = year,
@@ -435,12 +435,12 @@ namespace PFE.Services
             SQLiteAsyncConnection db = await GetDatabaseAsync();
 
             // Supprimer les anciens types de congés en cache pour cet employé
-            await db.ExecuteAsync("DELETE FROM cached_leave_types WHERE EmployeeId = ?", employeeId);
+            _ = await db.ExecuteAsync("DELETE FROM cached_leave_types WHERE EmployeeId = ?", employeeId);
 
             // Insérer les nouveaux types combinés
             foreach (LeaveTypeItem leaveType in leaveTypes)
             {
-                await db.InsertAsync(new DB.CachedLeaveType
+                _ = await db.InsertAsync(new DB.CachedLeaveType
                 {
                     EmployeeId = employeeId,
                     LeaveTypeId = leaveType.Id,
@@ -474,7 +474,7 @@ namespace PFE.Services
         public async Task ClearLeaveTypesAsync(int employeeId)
         {
             SQLiteAsyncConnection db = await GetDatabaseAsync();
-            await db.ExecuteAsync("DELETE FROM cached_leave_types WHERE EmployeeId = ?", employeeId);
+            _ = await db.ExecuteAsync("DELETE FROM cached_leave_types WHERE EmployeeId = ?", employeeId);
             System.Diagnostics.Debug.WriteLine($"DatabaseService: Types de congés supprimés du cache pour employé {employeeId}");
         }
 
@@ -487,12 +487,12 @@ namespace PFE.Services
             SQLiteAsyncConnection db = await GetDatabaseAsync();
 
             // Supprimer les anciennes dates bloquées pour cet employé
-            await db.ExecuteAsync("DELETE FROM cached_blocked_dates WHERE EmployeeId = ?", employeeId);
+            _ = await db.ExecuteAsync("DELETE FROM cached_blocked_dates WHERE EmployeeId = ?", employeeId);
 
             // Insérer les nouvelles dates
-            foreach (var (date, leaveId, status) in blockedDates)
+            foreach ((DateTime date, int leaveId, string? status) in blockedDates)
             {
-                await db.InsertAsync(new DB.CachedBlockedDate
+                _ = await db.InsertAsync(new DB.CachedBlockedDate
                 {
                     EmployeeId = employeeId,
                     LeaveId = leaveId,
@@ -523,7 +523,7 @@ namespace PFE.Services
         public async Task ClearBlockedDatesAsync(int employeeId)
         {
             SQLiteAsyncConnection db = await GetDatabaseAsync();
-            await db.ExecuteAsync("DELETE FROM cached_blocked_dates WHERE EmployeeId = ?", employeeId);
+            _ = await db.ExecuteAsync("DELETE FROM cached_blocked_dates WHERE EmployeeId = ?", employeeId);
             System.Diagnostics.Debug.WriteLine($"DatabaseService: Dates bloquées supprimées du cache pour employé {employeeId}");
         }
 

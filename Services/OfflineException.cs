@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace PFE.Services
+﻿namespace PFE.Services
 {
     public class OfflineException : Exception
     {

@@ -1,4 +1,3 @@
-using PFE.Models.Database;
 using PFE.Models;
 using DB = PFE.Models.Database;
 
@@ -195,5 +194,4 @@ namespace PFE.Services
 
         #endregion
     }
-
 }

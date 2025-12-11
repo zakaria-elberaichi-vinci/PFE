@@ -1,7 +1,6 @@
 ﻿using System.Net;
 using DotNetEnv;
 using Microsoft.Extensions.Logging;
-using PFE;
 using PFE.Context;
 using PFE.Services;
 using PFE.ViewModels;
@@ -9,7 +8,6 @@ using PFE.Views;
 using Plugin.LocalNotification;
 using Syncfusion.Licensing;
 using Syncfusion.Maui.Core.Hosting;
-
 
 namespace PFE
 {

@@ -1,8 +1,6 @@
 ﻿using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using PFE.Models.Database;
-using PFE.Services;
-
 
 namespace PFE.Services
 {
@@ -12,7 +10,7 @@ namespace PFE.Services
         private readonly SemaphoreSlim _mutex = new(1, 1);
         private readonly OdooClient _odooClient;
         private readonly ILogger<OfflineService> _logger;
-        private readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
+        private readonly JsonSerializerOptions _jsonOptions = new()
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             WriteIndented = false
@@ -31,7 +29,10 @@ namespace PFE.Services
         /// <summary>
         /// Réinitialise le flag de synchronisation (à appeler après avoir rafraîchi la liste)
         /// </summary>
-        public void ClearSyncFlag() => HasSyncCompleted = false;
+        public void ClearSyncFlag()
+        {
+            HasSyncCompleted = false;
+        }
 
         public OfflineService(OdooClient odooClient, ILogger<OfflineService> logger)
         {
@@ -51,26 +52,28 @@ namespace PFE.Services
             try
             {
                 List<PendingLeaveRequest> list = await ReadAllAsync().ConfigureAwait(false);
-                
+
                 // Assigner un ID temporaire si nécessaire
                 if (item.Id == 0)
                 {
                     _localIdCounter = list.Count > 0 ? list.Max(x => x.Id) + 1 : 1;
                     item.Id = _localIdCounter;
                 }
-                
+
                 list.Add(item);
                 await WriteAllAsync(list).ConfigureAwait(false);
                 _logger.LogInformation("Demande hors-ligne enregistrée (Id={Id}).", item.Id);
             }
             finally
             {
-                _mutex.Release();
+                _ = _mutex.Release();
             }
 
             // Essayer d'envoyer immédiatement si la connexion est disponible
             if (Connectivity.Current.NetworkAccess == NetworkAccess.Internet)
+            {
                 _ = TryFlushPendingAsync();
+            }
         }
 
         public async Task<List<PendingLeaveRequest>> GetAllPendingAsync()
@@ -82,7 +85,7 @@ namespace PFE.Services
             }
             finally
             {
-                _mutex.Release();
+                _ = _mutex.Release();
             }
         }
 
@@ -114,7 +117,7 @@ namespace PFE.Services
                 _logger.LogInformation("Début de la synchronisation de {Count} demande(s) hors-ligne.", pending.Count);
                 RaiseSyncStatusChanged(pending.Count, 0, 0, false);
 
-                List<PendingLeaveRequest> remaining = new();
+                List<PendingLeaveRequest> remaining = [];
                 int successCount = 0;
                 int failedCount = 0;
 
@@ -149,14 +152,14 @@ namespace PFE.Services
                 }
 
                 await WriteAllAsync(remaining).ConfigureAwait(false);
-                
-                _logger.LogInformation("Synchronisation terminée : {Success} succès, {Failed} échecs, {Remaining} en attente.", 
+
+                _logger.LogInformation("Synchronisation terminée : {Success} succès, {Failed} échecs, {Remaining} en attente.",
                     successCount, failedCount, remaining.Count);
                 RaiseSyncStatusChanged(remaining.Count, successCount, failedCount, true);
             }
             finally
             {
-                _mutex.Release();
+                _ = _mutex.Release();
             }
         }
 
@@ -165,18 +168,17 @@ namespace PFE.Services
             try
             {
                 if (!File.Exists(_filePath))
-                    return new List<PendingLeaveRequest>();
+                {
+                    return [];
+                }
 
                 string json = await File.ReadAllTextAsync(_filePath).ConfigureAwait(false);
-                if (string.IsNullOrWhiteSpace(json))
-                    return new List<PendingLeaveRequest>();
-
-                return JsonSerializer.Deserialize<List<PendingLeaveRequest>>(json, _jsonOptions) ?? new List<PendingLeaveRequest>();
+                return string.IsNullOrWhiteSpace(json) ? [] : JsonSerializer.Deserialize<List<PendingLeaveRequest>>(json, _jsonOptions) ?? [];
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Impossible de lire les demandes hors-ligne depuis le fichier. Retourne une liste vide.");
-                return new List<PendingLeaveRequest>();
+                return [];
             }
         }
 
@@ -205,14 +207,14 @@ namespace PFE.Services
         private void RaiseSyncStatusChanged(int pendingCount, int successCount, int failedCount, bool isComplete)
         {
             System.Diagnostics.Debug.WriteLine($"[OfflineService] RaiseSyncStatusChanged: pending={pendingCount}, success={successCount}, failed={failedCount}, complete={isComplete}");
-            
+
             // Marquer qu'une synchronisation réussie a eu lieu
             if (isComplete && successCount > 0)
             {
                 HasSyncCompleted = true;
                 System.Diagnostics.Debug.WriteLine("[OfflineService] HasSyncCompleted = true");
             }
-            
+
             SyncStatusChanged?.Invoke(this, new SyncStatusEventArgs
             {
                 PendingCount = pendingCount,

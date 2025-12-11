@@ -613,7 +613,7 @@ namespace PFE.Services
 
             HttpResponseMessage res = await _httpClient.PostAsync(_baseUrl, BuildJsonContent(payload));
             string text = await res.Content.ReadAsStringAsync();
-            res.EnsureSuccessStatusCode();
+            _ = res.EnsureSuccessStatusCode();
 
             // Vérifier les erreurs JSON-RPC (comme Session expired)
             CheckForOdooError(text);
@@ -639,7 +639,7 @@ namespace PFE.Services
 
             HttpResponseMessage res = await _httpClient.PostAsync(_baseUrl, BuildJsonContent(payload));
             string text = await res.Content.ReadAsStringAsync();
-            res.EnsureSuccessStatusCode();
+            _ = res.EnsureSuccessStatusCode();
 
             // Vérifier les erreurs JSON-RPC (comme Session expired)
             CheckForOdooError(text);
@@ -658,14 +658,14 @@ namespace PFE.Services
                 if (root.TryGetProperty("error", out JsonElement errorEl))
                 {
                     string errorMessage = "Erreur Odoo";
-                    
+
                     // Essayer de récupérer le message d'erreur
-                    if (errorEl.TryGetProperty("message", out JsonElement msgEl) && 
+                    if (errorEl.TryGetProperty("message", out JsonElement msgEl) &&
                         msgEl.ValueKind == JsonValueKind.String)
                     {
                         errorMessage = msgEl.GetString() ?? errorMessage;
                     }
-                    
+
                     // Récupérer aussi le nom de l'erreur si disponible
                     if (errorEl.TryGetProperty("data", out JsonElement dataEl) &&
                         dataEl.TryGetProperty("name", out JsonElement nameEl) &&

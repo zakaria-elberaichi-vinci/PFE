@@ -312,3 +312,10 @@ dotnet_diagnostic.CA1852.severity = suggestion
 
 # CA2016: Forward CancellationToken to methods
 dotnet_diagnostic.CA2016.severity = suggestion
+
+# IDE0300: Use collection expression for array
+dotnet_diagnostic.IDE0300.severity = suggestion
+
+# IDE0305: Use collection expression for fluent
+dotnet_diagnostic.IDE0305.severity = suggestion
+

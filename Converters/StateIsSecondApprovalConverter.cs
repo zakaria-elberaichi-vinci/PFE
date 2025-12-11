@@ -1,5 +1,4 @@
-﻿using System;
-using System.Globalization;
+﻿using System.Globalization;
 
 namespace PFE.Converters
 {
@@ -11,6 +10,7 @@ namespace PFE.Converters
             {
                 return state == "validate1"; // Odoo state for Second Approval
             }
+
             return false;
         }
 

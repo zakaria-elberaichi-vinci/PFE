@@ -1,7 +1,7 @@
-﻿using PFE.Context;
-using PFE.Models.Database;
-using System.Globalization;
+﻿using System.Globalization;
 using System.Resources;
+using PFE.Context;
+using PFE.Models.Database;
 using PFE.Services;
 using PFE.Views;
 using Plugin.LocalNotification;

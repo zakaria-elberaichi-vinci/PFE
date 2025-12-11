@@ -19,14 +19,14 @@ namespace PFE.Views
         protected override async void OnAppearing()
         {
             base.OnAppearing();
-            
+
             // Vérifier si une synchronisation a eu lieu pendant qu'on était ailleurs
             if (_offlineService.HasSyncCompleted)
             {
                 System.Diagnostics.Debug.WriteLine("[LeavesPage] Sync détectée, rafraîchissement forcé...");
                 _offlineService.ClearSyncFlag();
             }
-            
+
             await _vm.LoadAsync();
         }
     }

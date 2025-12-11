@@ -2,14 +2,11 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
-using Microsoft.Maui.Networking;
-using PFE.Helpers;
 using PFE.Models;
 using PFE.Models.Database;
 using PFE.Services;
 using Syncfusion.Maui.Calendar;
 using static PFE.Helpers.DateHelper;
-using DB = PFE.Models.Database;
 
 namespace PFE.ViewModels
 {
@@ -83,7 +80,9 @@ namespace PFE.ViewModels
             private set
             {
                 if (Set(ref _leaveTypes, value))
+                {
                     OnPropertyChanged(nameof(LeaveTypes));
+                }
             }
         }
 
@@ -189,7 +188,9 @@ namespace PFE.ViewModels
             private set
             {
                 if (Set(ref _isSyncing, value))
+                {
                     OnPropertyChanged(nameof(IsSyncing));
+                }
             }
         }
 
@@ -212,7 +213,9 @@ namespace PFE.ViewModels
             private set
             {
                 if (Set(ref _showSyncStatus, value))
+                {
                     OnPropertyChanged(nameof(ShowSyncStatus));
+                }
             }
         }
 
@@ -222,7 +225,9 @@ namespace PFE.ViewModels
             private set
             {
                 if (Set(ref _isOffline, value))
+                {
                     OnPropertyChanged(nameof(IsOffline));
+                }
             }
         }
 
@@ -324,7 +329,7 @@ namespace PFE.ViewModels
 
                             foreach (DateTime day in ExpandRangeToDays(start, end))
                             {
-                                _blockedDatesSet.Add(day);
+                                _ = _blockedDatesSet.Add(day);
                                 blockedDatesForCache.Add((day, leave.Id, leave.Status));
                             }
                         }
@@ -370,7 +375,7 @@ namespace PFE.ViewModels
             {
                 foreach (DateTime date in cached)
                 {
-                    _blockedDatesSet.Add(date);
+                    _ = _blockedDatesSet.Add(date);
                 }
 
                 System.Diagnostics.Debug.WriteLine($"Dates bloquées chargées depuis le cache ({cached.Count} dates)");
@@ -463,14 +468,7 @@ namespace PFE.ViewModels
                 LeaveTypes = [];
                 SelectedLeaveType = null;
 
-                if (IsOffline)
-                {
-                    ErrorMessage = "Connectez-vous à Internet une première fois pour charger les types de congé.";
-                }
-                else
-                {
-                    ErrorMessage = "Aucun type de congé disponible.";
-                }
+                ErrorMessage = IsOffline ? "Connectez-vous à Internet une première fois pour charger les types de congé." : "Aucun type de congé disponible.";
             }
         }
 
@@ -562,7 +560,9 @@ namespace PFE.ViewModels
         }
 
         private void OnPropertyChanged(string propertyName)
-            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
 
         private async void OnConnectivityChanged(object? sender, ConnectivityChangedEventArgs e)
         {

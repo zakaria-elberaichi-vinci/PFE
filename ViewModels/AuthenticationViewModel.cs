@@ -157,7 +157,9 @@ namespace PFE.ViewModels
             {
                 string? pwd = await SecureStorage.GetAsync(PasswordKey);
                 if (!string.IsNullOrEmpty(pwd))
+                {
                     Password = pwd;
+                }
             }
             catch
             {
@@ -170,7 +172,7 @@ namespace PFE.ViewModels
             // Toujours sauvegarder (RememberMe toujours activé)
             Preferences.Set(RememberMeKey, true);
             Preferences.Set(LoginKey, Login);
-            
+
             try
             {
                 await SecureStorage.SetAsync(PasswordKey, Password ?? string.Empty);
@@ -181,7 +183,9 @@ namespace PFE.ViewModels
             }
         }
 
-        private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
+        private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+        {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
     }
 }
