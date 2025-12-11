@@ -408,15 +408,28 @@ namespace PFE.ViewModels
                         List<LeaveTypeItem> typesWithAllocation = allocations
                             .Select(a => new LeaveTypeItem(
                                 Id: a.LeaveTypeId,
-                                Name: $"{a.LeaveTypeName} ({a.TotalRemaining} restants sur {a.TotalAllocated})",
+                                Name: a.LeaveTypeName,
                                 RequiresAllocation: true,
                                 Days: a.TotalRemaining
                             ))
                             .OrderByDescending(t => t.Days ?? 0)
                             .ToList();
 
-                        // Ne garder que les types avec allocation (les autres ne sont pas sélectionnables)
-                        List<LeaveTypeItem> combinedTypes = typesWithAllocation;
+                        // Types sans allocation
+                        List<LeaveTypeItem> typesWithoutAllocationFormatted = typesWithoutAllocation
+                            .Select(t => new LeaveTypeItem(
+                                Id: t.Id,
+                                Name: t.Name,
+                                RequiresAllocation: false,
+                                Days: null
+                            ))
+                            .OrderBy(t => t.Name)
+                            .ToList();
+
+                        // Combiner : d'abord les types avec allocation (triés par jours décroissant), puis les types sans allocation
+                        List<LeaveTypeItem> combinedTypes = typesWithAllocation
+                            .Concat(typesWithoutAllocationFormatted)
+                            .ToList();
 
                         // Sauvegarder les types combinés dans la base de données
                         await _databaseService.SaveLeaveTypesAsync(_employeeId, combinedTypes);

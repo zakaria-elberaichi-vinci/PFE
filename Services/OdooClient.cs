@@ -1087,7 +1087,11 @@ namespace PFE.Services
                 throw new InvalidOperationException("Votre demande chevauche sur un congé qui a déjà été demandé ou pris.");
             }
 
-            if (!await HasValidAllocationAsync(leaveTypeId))
+            // Vérifier si le type de congé nécessite une allocation
+            bool requiresAllocation = await DoesLeaveTypeRequireAllocationAsync(leaveTypeId);
+
+            // Seulement vérifier l'allocation si le type de congé l'exige
+            if (requiresAllocation && !await HasValidAllocationAsync(leaveTypeId))
             {
                 throw new InvalidOperationException("Aucune allocation valide ne couvre les dates demandées pour ce type de congé.");
             }
@@ -1129,6 +1133,72 @@ namespace PFE.Services
                 : resEl.ValueKind != JsonValueKind.Number
                 ? throw new Exception("Réponse Odoo inattendue (result n'est pas un entier) : " + text)
                 : resEl.GetInt32();
+        }
+
+        /// <summary>
+        /// Vérifie si un type de congé nécessite une allocation
+        /// </summary>
+        private async Task<bool> DoesLeaveTypeRequireAllocationAsync(int leaveTypeId)
+        {
+            EnsureAuthenticated();
+
+            object[] domain = new object[]
+            {
+                new object[] { "id", "=", leaveTypeId }
+            };
+
+            string[] fields = new string[] { "requires_allocation" };
+
+            var payload = new
+            {
+                jsonrpc = "2.0",
+                method = "call",
+                @params = new
+                {
+                    model = "hr.leave.type",
+                    method = "search_read",
+                    args = new object[] { domain, fields },
+                    kwargs = new { limit = 1 }
+                },
+                id = 804
+            };
+
+            HttpResponseMessage res = await _httpClient.PostAsync(_baseUrl, BuildJsonContent(payload));
+            string text = await res.Content.ReadAsStringAsync();
+            _ = res.EnsureSuccessStatusCode();
+
+            using JsonDocument doc = JsonDocument.Parse(text);
+            JsonElement root = doc.RootElement;
+
+            if (!root.TryGetProperty("result", out JsonElement resEl) ||
+                resEl.ValueKind != JsonValueKind.Array ||
+                resEl.GetArrayLength() == 0)
+            {
+                // Par défaut, considérer qu'une allocation est requise si on ne peut pas déterminer
+                return true;
+            }
+
+            JsonElement first = resEl[0];
+
+            // Dans Odoo, requires_allocation peut être "yes", "no" ou un booléen
+            if (first.TryGetProperty("requires_allocation", out JsonElement reqEl))
+            {
+                if (reqEl.ValueKind == JsonValueKind.True)
+                {
+                    return true;
+                }
+                if (reqEl.ValueKind == JsonValueKind.False)
+                {
+                    return false;
+                }
+                if (reqEl.ValueKind == JsonValueKind.String)
+                {
+                    string val = reqEl.GetString() ?? "";
+                    return val.Equals("yes", StringComparison.OrdinalIgnoreCase);
+                }
+            }
+
+            return true;
         }
 
         public async Task<string> GetCurrentEmployeeNameAsync()
