@@ -85,16 +85,16 @@ namespace PFE.ViewModels
 
                 if (success)
                 {
-                    // Sauvegarder les credentials
+                
                     await PersistCredentialsAsync();
 
-                    // Sauvegarder la session pour le mode offline
+                 
                     await SaveUserSessionAsync();
 
-                    // Démarrer le service de synchronisation
+                   
                     _syncService.Start();
 
-                    // Démarrer le service approprié selon le rôle
+              
                     if (_odooClient.session.Current.IsManager)
                     {
                         _backgroundNotificationService.Start();

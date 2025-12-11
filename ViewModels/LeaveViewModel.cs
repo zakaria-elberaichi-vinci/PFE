@@ -113,7 +113,7 @@ namespace PFE.ViewModels
             InitializeYears();
             InitializeStatuses();
 
-            // S'abonner aux événements de synchronisation
+            
             _offlineService.SyncStatusChanged += OnSyncStatusChanged;
             Connectivity.Current.ConnectivityChanged += OnConnectivityChanged;
         }
@@ -163,7 +163,7 @@ namespace PFE.ViewModels
                     return;
                 }
 
-                // Initialiser l'employeeId en premier (important pour le cache)
+                
                 if (_odooClient.session.Current.EmployeeId.HasValue)
                 {
                     _employeeId = _odooClient.session.Current.EmployeeId.Value;
@@ -171,7 +171,7 @@ namespace PFE.ViewModels
 
                 if (IsOffline)
                 {
-                    // Mode hors-ligne : charger depuis le cache
+                    
                     System.Diagnostics.Debug.WriteLine("[LeaveViewModel] Mode hors-ligne, chargement depuis le cache...");
                     await LoadFromCacheAsync();
                     return;
@@ -181,13 +181,13 @@ namespace PFE.ViewModels
                 List<Leave> list = await _odooClient.GetLeavesAsync(SelectedStateEn);
                 System.Diagnostics.Debug.WriteLine($"[LeaveViewModel] {list.Count} congés récupérés");
 
-                // Sauvegarder dans le cache (tous les congés, pas seulement ceux filtrés)
+               
                 if (string.IsNullOrEmpty(SelectedStateEn) && _employeeId > 0)
                 {
                     await _databaseService.SaveLeavesAsync(_employeeId, list);
                 }
 
-                // Filtrer par année si nécessaire
+                
                 if (SelectedYear.HasValue)
                 {
                     list = list.Where(l => l.StartDate.Year == SelectedYear.Value).ToList();
@@ -209,7 +209,7 @@ namespace PFE.ViewModels
                 System.Diagnostics.Debug.WriteLine($"[LeaveViewModel] Erreur réseau HttpRequestException: {ex.Message}");
                 IsOffline = true;
                 
-                // Charger depuis le cache en cas d'erreur réseau
+                
                 if (_employeeId > 0)
                 {
                     await LoadFromCacheAsync();

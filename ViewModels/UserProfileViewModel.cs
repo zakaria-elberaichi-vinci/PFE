@@ -136,10 +136,6 @@ namespace PFE.ViewModels
                 OnPropertyChanged(nameof(IsAuthenticated));
             }
         }
-
-        /// <summary>
-        /// Vide le cache local (décisions en attente, demandes en cache, etc.)
-        /// </summary>
         private async Task ClearCacheAsync()
         {
             if (IsBusy) return;
@@ -152,12 +148,10 @@ namespace PFE.ViewModels
             {
                 await _databaseService.InitializeAsync();
 
-                // Vider le cache des demandes à approuver (si manager)
                 if (_odooClient.session.Current.IsManager)
                 {
                     await _databaseService.ClearLeavesToApproveCacheAsync(UserId);
-                    
-                    // Supprimer toutes les décisions de ce manager
+             
                     var allDecisions = await _databaseService.GetAllLeaveDecisionsAsync(UserId);
                     foreach (var decision in allDecisions)
                     {
@@ -165,10 +159,10 @@ namespace PFE.ViewModels
                     }
                 }
 
-                // Vider les notifications vues
+              
                 await _databaseService.ClearSeenNotificationsAsync(UserId);
 
-                // Vider les notifications de changement de statut (pour employés)
+             
                 if (_odooClient.session.Current.EmployeeId.HasValue)
                 {
                     await _databaseService.ClearNotifiedLeavesAsync(_odooClient.session.Current.EmployeeId.Value);
@@ -177,7 +171,6 @@ namespace PFE.ViewModels
                 SuccessMessage = "✓ Cache vidé avec succès !";
                 System.Diagnostics.Debug.WriteLine("UserProfileViewModel: Cache vidé");
 
-                // Effacer le message après quelques secondes
                 _ = ClearSuccessMessageAfterDelayAsync();
             }
             catch (Exception ex)

@@ -40,9 +40,6 @@ namespace PFE.ViewModels
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
-        /// <summary>
-        /// Événement déclenché quand une synchronisation a réussi (pour afficher un pop-up)
-        /// </summary>
         public event EventHandler<int>? SyncCompleted;
 
         public LeaveRequestViewModel(OdooClient odooClient, OfflineService offlineService, IDatabaseService databaseService)
@@ -276,7 +273,7 @@ namespace PFE.ViewModels
         {
             ErrorMessage = string.Empty;
 
-            // Vérifier la connectivité au démarrage
+          
             IsOffline = Connectivity.Current.NetworkAccess != NetworkAccess.Internet;
 
             if (!IsEmployee)
@@ -286,7 +283,7 @@ namespace PFE.ViewModels
                 return;
             }
 
-            // Initialiser l'employeeId global
+           
             _employeeId = _odooClient.session.Current.UserId!.Value;
 
             await LoadLeaveTypesAsync();
@@ -294,9 +291,7 @@ namespace PFE.ViewModels
             await RefreshPendingCountAsync();
         }
 
-        /// <summary>
-        /// Rafraîchit le compteur de demandes en attente
-        /// </summary>
+      
         private async Task RefreshPendingCountAsync()
         {
             try
@@ -354,7 +349,7 @@ namespace PFE.ViewModels
                 IsBusy = true;
                 ErrorMessage = string.Empty;
 
-                // Vérifier la connectivité
+                
                 bool isOnline = Connectivity.Current.NetworkAccess == NetworkAccess.Internet;
 
                 if (isOnline)
@@ -365,7 +360,7 @@ namespace PFE.ViewModels
 
                         _blockedDatesSet.Clear();
 
-                        // Préparer les données pour le cache
+                       
                         List<(DateTime date, int leaveId, string status)> blockedDatesForCache = [];
 
                         foreach (Leave leave in leaves)
@@ -380,7 +375,7 @@ namespace PFE.ViewModels
                             }
                         }
 
-                        // Sauvegarder en cache
+                       
                         await _databaseService.SaveBlockedDatesAsync(_employeeId, blockedDatesForCache);
 
                         System.Diagnostics.Debug.WriteLine($"Dates bloquées récupérées du serveur et mises en cache ({_blockedDatesSet.Count} dates)");
@@ -439,7 +434,7 @@ namespace PFE.ViewModels
                 IsBusy = true;
                 ErrorMessage = string.Empty;
 
-                // Vérifier la connectivité
+                
                 bool isOnline = Connectivity.Current.NetworkAccess == NetworkAccess.Internet;
 
                 if (isOnline)
@@ -450,7 +445,7 @@ namespace PFE.ViewModels
 
                         List<AllocationSummary> allocations = await _odooClient.GetAllocationsSummaryAsync();
 
-                        // Types avec allocation - triés par jours restants décroissant
+                        
                         List<LeaveTypeItem> typesWithAllocation = allocations
                             .Select(a => new LeaveTypeItem(
                                 Id: a.LeaveTypeId,
@@ -472,12 +467,12 @@ namespace PFE.ViewModels
                             .OrderBy(t => t.Name)
                             .ToList();
 
-                        // Combiner : d'abord les types avec allocation (triés par jours décroissant), puis les types sans allocation
+                        
                         List<LeaveTypeItem> combinedTypes = typesWithAllocation
                             .Concat(typesWithoutAllocationFormatted)
                             .ToList();
 
-                        // Sauvegarder les types combinés dans la base de données
+                      
                         await _databaseService.SaveLeaveTypesAsync(_employeeId, combinedTypes);
 
                         LeaveTypes = new ObservableCollection<LeaveTypeItem>(combinedTypes);
@@ -536,7 +531,6 @@ namespace PFE.ViewModels
             {
                 IsBusy = true;
 
-                // Si hors-ligne, ne pas appeler le serveur
                 if (Connectivity.Current.NetworkAccess != NetworkAccess.Internet)
                 {
                     PendingLeaveRequest pending = new()
@@ -634,14 +628,14 @@ namespace PFE.ViewModels
 
             if (e.NetworkAccess == NetworkAccess.Internet)
             {
-                // Connexion rétablie : rafraîchir toutes les données
+                
                 await LoadLeaveTypesAsync();
                 await LoadBlockedDatesAsync();
                 await RefreshPendingCountAsync();
             }
             else
             {
-                // Connexion perdue : charger depuis le cache
+               
                 await LoadLeaveTypesFromCacheAsync();
                 await LoadBlockedDatesFromCacheAsync();
             }
@@ -661,7 +655,7 @@ namespace PFE.ViewModels
                 {
                     IsSyncing = false;
 
-                    // Rafraîchir le compteur
+              
                     await RefreshPendingCountAsync();
 
                     if (e.SuccessCount > 0 && e.PendingCount == 0)
@@ -669,7 +663,7 @@ namespace PFE.ViewModels
                         SyncMessage = $"✓ {e.SuccessCount} demande{(e.SuccessCount > 1 ? "s synchronisées" : " synchronisée")} avec succès";
                         ShowSyncStatus = true;
 
-                        // Déclencher l'événement pour afficher le pop-up
+                        
                         SyncCompleted?.Invoke(this, e.SuccessCount);
 
                         _ = Task.Run(async () =>
