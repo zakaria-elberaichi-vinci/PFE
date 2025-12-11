@@ -36,8 +36,14 @@ namespace PFE.ViewModels
         private string _syncMessage = string.Empty;
         private bool _showSyncStatus;
         private bool _isOffline;
+        private int _pendingRequestsCount;
 
         public event PropertyChangedEventHandler? PropertyChanged;
+
+        /// <summary>
+        /// Événement déclenché quand une synchronisation a réussi (pour afficher un pop-up)
+        /// </summary>
+        public event EventHandler<int>? SyncCompleted;
 
         public LeaveRequestViewModel(OdooClient odooClient, OfflineService offlineService, IDatabaseService databaseService)
         {
@@ -55,6 +61,30 @@ namespace PFE.ViewModels
             Connectivity.Current.ConnectivityChanged += OnConnectivityChanged;
             _offlineService.SyncStatusChanged += OnSyncStatusChanged;
         }
+
+        #region Propriétés de synchronisation
+
+        /// <summary>
+        /// Nombre de demandes en attente de synchronisation
+        /// </summary>
+        public int PendingRequestsCount
+        {
+            get => _pendingRequestsCount;
+            private set
+            {
+                if (_pendingRequestsCount == value) return;
+                _pendingRequestsCount = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(HasPendingRequests));
+            }
+        }
+
+        /// <summary>
+        /// Indique s'il y a des demandes en attente de synchronisation
+        /// </summary>
+        public bool HasPendingRequests => PendingRequestsCount > 0;
+
+        #endregion
 
         public CalendarDateRange? SelectedRange
         {
@@ -261,7 +291,23 @@ namespace PFE.ViewModels
 
             await LoadLeaveTypesAsync();
             await LoadBlockedDatesAsync();
-            await CheckPendingRequestsAsync();
+            await RefreshPendingCountAsync();
+        }
+
+        /// <summary>
+        /// Rafraîchit le compteur de demandes en attente
+        /// </summary>
+        private async Task RefreshPendingCountAsync()
+        {
+            try
+            {
+                List<PendingLeaveRequest> pending = await _offlineService.GetAllPendingAsync();
+                PendingRequestsCount = pending.Count;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error RefreshPendingCountAsync: {ex.Message}");
+            }
         }
 
         private async Task OnDatesChangedAsync()
@@ -493,6 +539,7 @@ namespace PFE.ViewModels
                     };
 
                     await _offlineService.AddPendingAsync(pending);
+                    PendingRequestsCount++;
 
                     SyncMessage = "⏳ Demande enregistrée hors-ligne. Elle sera synchronisée automatiquement.";
 
@@ -527,6 +574,7 @@ namespace PFE.ViewModels
                 try
                 {
                     await _offlineService.AddPendingAsync(pending);
+                    PendingRequestsCount++;
 
                     SyncMessage = "⏳ Demande enregistrée hors-ligne. Elle sera synchronisée automatiquement.";
 
@@ -562,7 +610,7 @@ namespace PFE.ViewModels
             return true;
         }
 
-        private void OnPropertyChanged(string propertyName)
+        private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
@@ -576,7 +624,7 @@ namespace PFE.ViewModels
                 // Connexion rétablie : rafraîchir toutes les données
                 await LoadLeaveTypesAsync();
                 await LoadBlockedDatesAsync();
-                await CheckPendingRequestsAsync();
+                await RefreshPendingCountAsync();
             }
             else
             {
@@ -588,38 +636,51 @@ namespace PFE.ViewModels
 
         private void OnSyncStatusChanged(object? sender, SyncStatusEventArgs e)
         {
-            if (!e.IsComplete)
+            MainThread.BeginInvokeOnMainThread(async () =>
             {
-                IsSyncing = true;
-                ShowSyncStatus = false;
-                SyncMessage = $"Synchronisation de {e.PendingCount} demande{(e.PendingCount > 1 ? "s" : "")} en attente...";
-            }
-            else
-            {
-                IsSyncing = false;
-
-                if (e.SuccessCount > 0 && e.PendingCount == 0)
+                if (!e.IsComplete)
                 {
-                    SyncMessage = $"✓ {e.SuccessCount} demande{(e.SuccessCount > 1 ? "s synchronisées" : " synchronisée")} avec succès";
-                    ShowSyncStatus = true;
-                    _ = Task.Run(async () =>
-                    {
-                        await Task.Delay(5000);
-                        SyncMessage = string.Empty;
-                        ShowSyncStatus = false;
-                    });
-                }
-                else if (e.PendingCount > 0)
-                {
-                    SyncMessage = $"⚠ {e.PendingCount} demande{(e.PendingCount > 1 ? "s" : "")} en attente de synchronisation";
-                    ShowSyncStatus = true;
+                    IsSyncing = true;
+                    ShowSyncStatus = false;
+                    SyncMessage = $"Synchronisation de {e.PendingCount} demande{(e.PendingCount > 1 ? "s" : "")} en attente...";
                 }
                 else
                 {
-                    SyncMessage = string.Empty;
-                    ShowSyncStatus = false;
+                    IsSyncing = false;
+
+                    // Rafraîchir le compteur
+                    await RefreshPendingCountAsync();
+
+                    if (e.SuccessCount > 0 && e.PendingCount == 0)
+                    {
+                        SyncMessage = $"✓ {e.SuccessCount} demande{(e.SuccessCount > 1 ? "s synchronisées" : " synchronisée")} avec succès";
+                        ShowSyncStatus = true;
+
+                        // Déclencher l'événement pour afficher le pop-up
+                        SyncCompleted?.Invoke(this, e.SuccessCount);
+
+                        _ = Task.Run(async () =>
+                        {
+                            await Task.Delay(5000);
+                            await MainThread.InvokeOnMainThreadAsync(() =>
+                            {
+                                SyncMessage = string.Empty;
+                                ShowSyncStatus = false;
+                            });
+                        });
+                    }
+                    else if (e.PendingCount > 0)
+                    {
+                        SyncMessage = $"⚠ {e.PendingCount} demande{(e.PendingCount > 1 ? "s" : "")} en attente de synchronisation";
+                        ShowSyncStatus = true;
+                    }
+                    else
+                    {
+                        SyncMessage = string.Empty;
+                        ShowSyncStatus = false;
+                    }
                 }
-            }
+            });
         }
 
         public async Task CheckPendingRequestsAsync()
@@ -627,6 +688,7 @@ namespace PFE.ViewModels
             try
             {
                 List<PendingLeaveRequest> pending = await _offlineService.GetAllPendingAsync();
+                PendingRequestsCount = pending.Count;
 
                 if (pending.Count > 0)
                 {
@@ -636,6 +698,7 @@ namespace PFE.ViewModels
                     await Task.Delay(2000);
 
                     pending = await _offlineService.GetAllPendingAsync();
+                    PendingRequestsCount = pending.Count;
 
                     if (pending.Count == 0)
                     {

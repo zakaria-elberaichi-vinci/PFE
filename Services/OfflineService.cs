@@ -9,6 +9,7 @@ namespace PFE.Services
         private readonly IDatabaseService _databaseService;
         private readonly ILogger<OfflineService> _logger;
         private readonly SemaphoreSlim _syncLock = new(1, 1);
+        private bool _isReauthenticating = false;
 
         public event EventHandler<SyncStatusEventArgs>? SyncStatusChanged;
 
@@ -72,11 +73,16 @@ namespace PFE.Services
                 return;
             }
 
-            // Nécessite session authentifiée
+            // Si pas authentifié localement, tenter une ré-authentification
             if (!_odooClient.session.Current.IsAuthenticated)
             {
-                _logger.LogDebug("Utilisateur non authentifié, flush différé.");
-                return;
+                _logger.LogDebug("Utilisateur non authentifié localement, tentative de ré-authentification...");
+                bool reauthSuccess = await TryReauthenticateAsync();
+                if (!reauthSuccess)
+                {
+                    _logger.LogDebug("Ré-authentification échouée, flush différé.");
+                    return;
+                }
             }
 
             // Éviter les synchronisations concurrentes
@@ -123,6 +129,42 @@ namespace PFE.Services
                         _logger.LogInformation("Demande hors-ligne envoyée avec succès (tempId={TempId} -> odooId={OdooId}).", p.Id, createdId);
                         successCount++;
                     }
+                    catch (Exception ex) when (IsSessionExpiredError(ex))
+                    {
+                        // Session expirée - tenter une ré-authentification
+                        _logger.LogWarning("Session Odoo expirée, tentative de ré-authentification...");
+                        await _databaseService.UpdateSyncStatusAsync(p.Id, SyncStatus.Pending);
+
+                        bool reauthSuccess = await TryReauthenticateAsync();
+                        if (reauthSuccess)
+                        {
+                            // Réessayer après ré-authentification
+                            try
+                            {
+                                await _databaseService.UpdateSyncStatusAsync(p.Id, SyncStatus.Syncing);
+                                int createdId = await _odooClient.CreateLeaveRequestAsync(
+                                    leaveTypeId: p.LeaveTypeId,
+                                    startDate: p.StartDate,
+                                    endDate: p.EndDate,
+                                    reason: p.Reason
+                                );
+                                await _databaseService.UpdateSyncStatusAsync(p.Id, SyncStatus.Synced, null, createdId);
+                                _logger.LogInformation("Demande {Id} synchronisée après ré-authentification (odooId={OdooId}).", p.Id, createdId);
+                                successCount++;
+                            }
+                            catch (Exception retryEx)
+                            {
+                                await _databaseService.UpdateSyncStatusAsync(p.Id, SyncStatus.Pending, retryEx.Message);
+                                _logger.LogWarning(retryEx, "Échec après ré-authentification pour demande {Id}.", p.Id);
+                                failedCount++;
+                            }
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Ré-authentification échouée, demande {Id} reste en attente.", p.Id);
+                            failedCount++;
+                        }
+                    }
                     catch (InvalidOperationException ex)
                     {
                         // Erreur métier : ne pas réessayer infiniment, marquer comme échec définitif
@@ -152,6 +194,79 @@ namespace PFE.Services
             finally
             {
                 _syncLock.Release();
+            }
+        }
+
+        /// <summary>
+        /// Vérifie si l'erreur est une erreur de session expirée Odoo
+        /// </summary>
+        private static bool IsSessionExpiredError(Exception ex)
+        {
+            string message = ex.Message.ToLowerInvariant();
+            return message.Contains("session expired") ||
+                   message.Contains("sessionexpired") ||
+                   message.Contains("session_expired") ||
+                   message.Contains("odoo session expired") ||
+                   message.Contains("non authentifié");
+        }
+
+        /// <summary>
+        /// Tente de se ré-authentifier avec les credentials sauvegardés
+        /// </summary>
+        private async Task<bool> TryReauthenticateAsync()
+        {
+            if (_isReauthenticating)
+            {
+                _logger.LogDebug("Ré-authentification déjà en cours.");
+                return false;
+            }
+
+            _isReauthenticating = true;
+
+            try
+            {
+                // Récupérer les credentials sauvegardés
+                string login = Preferences.Get("auth.login", string.Empty);
+                string? password = null;
+
+                try
+                {
+                    password = await SecureStorage.GetAsync("auth.password");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Erreur lors de la lecture du mot de passe depuis SecureStorage.");
+                }
+
+                if (string.IsNullOrEmpty(login) || string.IsNullOrEmpty(password))
+                {
+                    _logger.LogDebug("Credentials non disponibles pour la ré-authentification.");
+                    return false;
+                }
+
+                _logger.LogInformation("Tentative de ré-authentification pour {Login}...", login);
+
+                bool success = await _odooClient.LoginAsync(login, password);
+
+                if (success)
+                {
+                    _logger.LogInformation("Ré-authentification réussie pour {Login}.", login);
+                }
+                else
+                {
+                    _logger.LogWarning("Ré-authentification échouée pour {Login}.", login);
+                }
+
+                return success;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Exception lors de la ré-authentification.");
+                return false;
+            }
+            finally
+            {
+                _isReauthenticating = false;
             }
         }
 

@@ -78,6 +78,7 @@ namespace PFE.Services
         private Task? _syncTask;
         private readonly TimeSpan _syncInterval = TimeSpan.FromSeconds(10);
         private bool _isReauthenticating = false;
+        private bool _isSyncingAfterReconnect = false;
 
         public bool IsRunning => _syncTask != null && !_syncTask.IsCompleted;
         public bool IsOnline => Connectivity.Current.NetworkAccess == NetworkAccess.Internet;
@@ -129,12 +130,76 @@ namespace PFE.Services
         {
             if (e.NetworkAccess == NetworkAccess.Internet)
             {
-                System.Diagnostics.Debug.WriteLine("SyncService: Connexion rétablie, synchronisation...");
+                System.Diagnostics.Debug.WriteLine("SyncService: Connexion rétablie, préparation de la synchronisation...");
 
-                // Attendre un peu pour laisser la connexion s'établir
-                await Task.Delay(1000);
+                // Éviter les syncs multiples simultanées lors du rétablissement de la connexion
+                if (_isSyncingAfterReconnect)
+                {
+                    System.Diagnostics.Debug.WriteLine("SyncService: Synchronisation après reconnexion déjà en cours, ignorée.");
+                    return;
+                }
 
-                await SyncNowAsync();
+                _isSyncingAfterReconnect = true;
+
+                try
+                {
+                    // Attendre plus longtemps pour laisser la connexion s'établir complètement
+                    await Task.Delay(2000);
+
+                    // Vérifier que la connexion est toujours active
+                    if (Connectivity.Current.NetworkAccess != NetworkAccess.Internet)
+                    {
+                        System.Diagnostics.Debug.WriteLine("SyncService: Connexion perdue avant la sync, annulation.");
+                        return;
+                    }
+
+                    // Tentative de ré-authentification avant la synchronisation
+                    System.Diagnostics.Debug.WriteLine("SyncService: Tentative de ré-authentification après reconnexion...");
+                    bool reauthSuccess = await TryReauthenticateAsync();
+                    
+                    if (reauthSuccess)
+                    {
+                        System.Diagnostics.Debug.WriteLine("SyncService: Ré-authentification réussie, lancement de la synchronisation.");
+                    }
+                    else
+                    {
+                        System.Diagnostics.Debug.WriteLine("SyncService: Ré-authentification échouée, tentative de sync avec session existante.");
+                    }
+
+                    // Tenter la synchronisation avec retry
+                    int maxRetries = 3;
+                    for (int i = 0; i < maxRetries; i++)
+                    {
+                        try
+                        {
+                            System.Diagnostics.Debug.WriteLine($"SyncService: Tentative de synchronisation {i + 1}/{maxRetries}...");
+                            await SyncNowAsync();
+                            System.Diagnostics.Debug.WriteLine("SyncService: Synchronisation après reconnexion terminée avec succès.");
+                            break;
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"SyncService: Erreur lors de la tentative {i + 1} - {ex.Message}");
+                            
+                            if (i < maxRetries - 1)
+                            {
+                                // Attendre avant de réessayer
+                                await Task.Delay(2000 * (i + 1));
+                                
+                                // Vérifier que la connexion est toujours active
+                                if (Connectivity.Current.NetworkAccess != NetworkAccess.Internet)
+                                {
+                                    System.Diagnostics.Debug.WriteLine("SyncService: Connexion perdue, arrêt des tentatives.");
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                finally
+                {
+                    _isSyncingAfterReconnect = false;
+                }
             }
         }
 

@@ -47,7 +47,8 @@ public partial class App : Application
         {
             ISyncService syncService = _services.GetRequiredService<ISyncService>();
             syncService.DecisionsSynced += OnDecisionsSynced;
-            System.Diagnostics.Debug.WriteLine("App: Abonné aux événements de synchronisation");
+            syncService.RequestsSynced += OnRequestsSynced;
+            System.Diagnostics.Debug.WriteLine("App: Abonné aux événements de synchronisation (décisions et demandes)");
         }
         catch (Exception ex)
         {
@@ -82,6 +83,37 @@ public partial class App : Application
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"App: Erreur affichage popup sync - {ex.Message}");
+            }
+        });
+    }
+
+    /// <summary>
+    /// Appelé quand des demandes de congé ont été synchronisées
+    /// </summary>
+    private async void OnRequestsSynced(object? sender, int count)
+    {
+        System.Diagnostics.Debug.WriteLine($"App: OnRequestsSynced - {count} demande(s)");
+
+        await MainThread.InvokeOnMainThreadAsync(async () =>
+        {
+            try
+            {
+                string message = count == 1
+                    ? "Votre demande de congé a été synchronisée avec succès !"
+                    : $"{count} demandes de congé ont été synchronisées avec succès !";
+
+                if (MainPage != null)
+                {
+                    await MainPage.DisplayAlert(
+                        "✓ Synchronisation terminée",
+                        message,
+                        "OK"
+                    );
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"App: Erreur affichage popup sync requests - {ex.Message}");
             }
         });
     }

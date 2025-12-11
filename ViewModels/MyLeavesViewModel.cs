@@ -22,6 +22,7 @@ namespace PFE.ViewModels
         private string _calendarErrorMessage = string.Empty;
         private bool _isOffline;
         private string _syncMessage = string.Empty;
+        private bool _isReauthenticating = false;
 
         // Données calendrier
         private int _totalAllocated;
@@ -198,9 +199,14 @@ namespace PFE.ViewModels
             {
                 if (!IsEmployee)
                 {
-                    ListErrorMessage = "Veuillez vous connecter en tant qu'employé.";
-                    Leaves.Clear();
-                    return;
+                    // Tenter une ré-authentification si pas connecté
+                    bool reauthSuccess = await TryReauthenticateAsync();
+                    if (!reauthSuccess || !IsEmployee)
+                    {
+                        ListErrorMessage = "Veuillez vous connecter en tant qu'employé.";
+                        Leaves.Clear();
+                        return;
+                    }
                 }
 
                 if (IsOffline)
@@ -209,7 +215,29 @@ namespace PFE.ViewModels
                     return;
                 }
 
-                List<Leave> list = await _odooClient.GetLeavesAsync(SelectedStateEn);
+                List<Leave> list;
+                try
+                {
+                    list = await _odooClient.GetLeavesAsync(SelectedStateEn);
+                }
+                catch (Exception ex) when (IsSessionExpiredError(ex))
+                {
+                    // Session expirée - tenter une ré-authentification
+                    System.Diagnostics.Debug.WriteLine($"MyLeavesViewModel: Session expirée, tentative de ré-authentification...");
+                    bool reauthSuccess = await TryReauthenticateAsync();
+
+                    if (reauthSuccess)
+                    {
+                        // Réessayer après ré-authentification
+                        list = await _odooClient.GetLeavesAsync(SelectedStateEn);
+                    }
+                    else
+                    {
+                        ListErrorMessage = "Session expirée. Veuillez vous reconnecter.";
+                        Leaves.Clear();
+                        return;
+                    }
+                }
 
                 Leaves.Clear();
                 foreach (Leave item in list)
@@ -244,21 +272,53 @@ namespace PFE.ViewModels
             {
                 if (!IsEmployee)
                 {
-                    CalendarErrorMessage = "Veuillez vous connecter en tant qu'employé.";
-                    TotalAllocated = 0;
-                    TotalTaken = 0;
-                    TotalRemaining = 0;
-                    Appointments.Clear();
-                    return;
+                    // Tenter une ré-authentification si pas connecté
+                    bool reauthSuccess = await TryReauthenticateAsync();
+                    if (!reauthSuccess || !IsEmployee)
+                    {
+                        CalendarErrorMessage = "Veuillez vous connecter en tant qu'employé.";
+                        TotalAllocated = 0;
+                        TotalTaken = 0;
+                        TotalRemaining = 0;
+                        Appointments.Clear();
+                        return;
+                    }
                 }
 
-                List<AllocationSummary> summaries = await _odooClient.GetAllocationsSummaryAsync();
+                List<AllocationSummary> summaries;
+                List<Leave> leaves;
+
+                try
+                {
+                    summaries = await _odooClient.GetAllocationsSummaryAsync();
+                    leaves = await _odooClient.GetLeavesAsync();
+                }
+                catch (Exception ex) when (IsSessionExpiredError(ex))
+                {
+                    // Session expirée - tenter une ré-authentification
+                    System.Diagnostics.Debug.WriteLine($"MyLeavesViewModel: Session expirée (calendrier), tentative de ré-authentification...");
+                    bool reauthSuccess = await TryReauthenticateAsync();
+
+                    if (reauthSuccess)
+                    {
+                        // Réessayer après ré-authentification
+                        summaries = await _odooClient.GetAllocationsSummaryAsync();
+                        leaves = await _odooClient.GetLeavesAsync();
+                    }
+                    else
+                    {
+                        CalendarErrorMessage = "Session expirée. Veuillez vous reconnecter.";
+                        TotalAllocated = 0;
+                        TotalTaken = 0;
+                        TotalRemaining = 0;
+                        Appointments.Clear();
+                        return;
+                    }
+                }
 
                 TotalAllocated = summaries.Sum(s => s.TotalAllocated);
                 TotalTaken = summaries.Sum(s => s.TotalTaken);
                 TotalRemaining = summaries.Sum(s => s.TotalRemaining);
-
-                List<Leave> leaves = await _odooClient.GetLeavesAsync();
 
                 Appointments.Clear();
 
@@ -293,6 +353,84 @@ namespace PFE.ViewModels
             {
                 IsCalendarBusy = false;
                 OnPropertyChanged(nameof(IsEmployee));
+            }
+        }
+
+        #endregion
+
+        #region Ré-authentification
+
+        /// <summary>
+        /// Vérifie si l'erreur est une erreur de session expirée Odoo
+        /// </summary>
+        private static bool IsSessionExpiredError(Exception ex)
+        {
+            string message = ex.Message.ToLowerInvariant();
+            return message.Contains("session expired") ||
+                   message.Contains("sessionexpired") ||
+                   message.Contains("session_expired") ||
+                   message.Contains("odoo session expired") ||
+                   message.Contains("non authentifié");
+        }
+
+        /// <summary>
+        /// Tente de se ré-authentifier avec les credentials sauvegardés
+        /// </summary>
+        private async Task<bool> TryReauthenticateAsync()
+        {
+            if (_isReauthenticating)
+            {
+                System.Diagnostics.Debug.WriteLine("MyLeavesViewModel: Ré-authentification déjà en cours");
+                return false;
+            }
+
+            _isReauthenticating = true;
+
+            try
+            {
+                // Récupérer les credentials sauvegardés
+                string login = Preferences.Get("auth.login", string.Empty);
+                string? password = null;
+
+                try
+                {
+                    password = await SecureStorage.GetAsync("auth.password");
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"MyLeavesViewModel: Erreur lecture SecureStorage - {ex.Message}");
+                }
+
+                if (string.IsNullOrEmpty(login) || string.IsNullOrEmpty(password))
+                {
+                    System.Diagnostics.Debug.WriteLine("MyLeavesViewModel: Credentials non disponibles pour la ré-authentification");
+                    return false;
+                }
+
+                System.Diagnostics.Debug.WriteLine($"MyLeavesViewModel: Tentative de ré-authentification pour {login}...");
+
+                // Tenter la connexion
+                bool success = await _odooClient.LoginAsync(login, password);
+
+                if (success)
+                {
+                    System.Diagnostics.Debug.WriteLine($"MyLeavesViewModel: Ré-authentification réussie pour {login}");
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"MyLeavesViewModel: Ré-authentification échouée pour {login}");
+                }
+
+                return success;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"MyLeavesViewModel: Exception lors de la ré-authentification - {ex.Message}");
+                return false;
+            }
+            finally
+            {
+                _isReauthenticating = false;
             }
         }
 
