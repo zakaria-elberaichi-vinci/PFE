@@ -21,11 +21,4 @@ namespace PFE.Models.Database
         public DateTime? LastSyncAttempt { get; set; }
         public int? OdooLeaveId { get; set; }
     }
-    public enum SyncStatus
-    {
-        Pending = 0,
-        Syncing = 1,
-        Synced = 2,
-        Failed = 3
-    }
 }

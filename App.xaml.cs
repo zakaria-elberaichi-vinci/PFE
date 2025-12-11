@@ -1,4 +1,6 @@
-﻿using System.Globalization;
+﻿using PFE.Context;
+using PFE.Models.Database;
+using System.Globalization;
 using System.Resources;
 using PFE.Services;
 using PFE.Views;
@@ -57,53 +59,165 @@ public partial class App : Application
         try
         {
             bool rememberMe = Preferences.Get("auth.rememberme", false);
+            System.Diagnostics.Debug.WriteLine($"AutoLogin: RememberMe = {rememberMe}");
+
             if (!rememberMe)
             {
-                System.Diagnostics.Debug.WriteLine("AutoLogin: RememberMe désactivé");
-                return false;
+                System.Diagnostics.Debug.WriteLine("AutoLogin: RememberMe désactivé, tentative offline quand même...");
+                // Même si RememberMe est false, on vérifie s'il y a une session sauvegardée
+                return await TryOfflineLoginAsync();
             }
 
             string login = Preferences.Get("auth.login", string.Empty);
             string? password = await SecureStorage.GetAsync("auth.password");
 
+            System.Diagnostics.Debug.WriteLine($"AutoLogin: login={login}, password={(string.IsNullOrEmpty(password) ? "vide" : "***")}");
+
             if (string.IsNullOrEmpty(login) || string.IsNullOrEmpty(password))
             {
-                System.Diagnostics.Debug.WriteLine("AutoLogin: Credentials manquants");
-                return false;
+                System.Diagnostics.Debug.WriteLine("AutoLogin: Credentials manquants, tentative offline...");
+                return await TryOfflineLoginAsync();
             }
 
-            System.Diagnostics.Debug.WriteLine($"AutoLogin: Tentative de connexion pour {login}");
-            OdooClient odooClient = _services.GetRequiredService<OdooClient>();
-            bool success = await odooClient.LoginAsync(login, password);
+            System.Diagnostics.Debug.WriteLine($"AutoLogin: Tentative de connexion Odoo pour {login}");
 
-            if (success)
+            // Initialiser la DB d'abord
+            IDatabaseService databaseService = _services.GetRequiredService<IDatabaseService>();
+            await databaseService.InitializeAsync();
+
+            // Tenter la connexion à Odoo
+            OdooClient odooClient = _services.GetRequiredService<OdooClient>();
+
+            try
             {
-                System.Diagnostics.Debug.WriteLine("AutoLogin: Connexion réussie !");
-                if (odooClient.session.Current.IsManager)
+                bool success = await odooClient.LoginAsync(login, password);
+
+                if (success)
                 {
-                    IBackgroundNotificationService notifService = _services.GetRequiredService<IBackgroundNotificationService>();
-                    notifService.Start();
+                    System.Diagnostics.Debug.WriteLine("AutoLogin: Connexion Odoo réussie !");
+
+                    // Sauvegarder la session pour le mode offline futur
+                    await SaveUserSessionAsync(odooClient, databaseService);
+
+                    // Démarrer les services
+                    StartBackgroundServices(odooClient);
+
+                    return true;
                 }
                 else
                 {
-                    IBackgroundLeaveStatusService statusService = _services.GetRequiredService<IBackgroundLeaveStatusService>();
-                    statusService.Start();
+                    System.Diagnostics.Debug.WriteLine("AutoLogin: LoginAsync a retourné false (credentials invalides?)");
+                    // Ne pas nettoyer les credentials ici, essayer offline d'abord
+                    return await TryOfflineLoginAsync();
                 }
-
-                return true;
             }
-            else
+            catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine("AutoLogin: Échec de connexion (credentials invalides ou expirés)");
-                Preferences.Remove("auth.login");
-                _ = SecureStorage.Remove("auth.password");
-                return false;
+                // TOUTE exception lors du login = essayer mode offline
+                System.Diagnostics.Debug.WriteLine($"AutoLogin: Exception lors du login Odoo: {ex.GetType().Name} - {ex.Message}");
+                return await TryOfflineLoginAsync();
             }
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"AutoLogin: Erreur - {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"AutoLogin: Erreur générale - {ex.GetType().Name} - {ex.Message}");
+            return await TryOfflineLoginAsync();
+        }
+    }
+
+    /// <summary>
+    /// Tente de restaurer la session depuis la base de données locale (mode offline)
+    /// </summary>
+    private async Task<bool> TryOfflineLoginAsync()
+    {
+        try
+        {
+            System.Diagnostics.Debug.WriteLine("AutoLogin Offline: Début...");
+
+            IDatabaseService databaseService = _services.GetRequiredService<IDatabaseService>();
+            await databaseService.InitializeAsync();
+
+            // Récupérer la dernière session sauvegardée
+            UserSession? savedSession = await databaseService.GetLastActiveSessionAsync();
+
+            if (savedSession == null)
+            {
+                System.Diagnostics.Debug.WriteLine("AutoLogin Offline: Aucune session sauvegardée dans la DB");
+                return false;
+            }
+
+            System.Diagnostics.Debug.WriteLine($"AutoLogin Offline: Session trouvée - UserId={savedSession.UserId}, IsManager={savedSession.IsManager}, EmployeeId={savedSession.EmployeeId}");
+
+            // Restaurer la session dans le contexte
+            SessionContext sessionContext = _services.GetRequiredService<SessionContext>();
+            sessionContext.Current = sessionContext.Current with
+            {
+                IsAuthenticated = true,
+                UserId = savedSession.UserId,
+                IsManager = savedSession.IsManager,
+                EmployeeId = savedSession.EmployeeId
+            };
+
+            System.Diagnostics.Debug.WriteLine($"AutoLogin Offline: Session restaurée dans SessionContext - IsAuthenticated={sessionContext.Current.IsAuthenticated}");
+
+            // Démarrer le service de sync (il synchronisera quand la connexion reviendra)
+            ISyncService syncService = _services.GetRequiredService<ISyncService>();
+            syncService.Start();
+
+            System.Diagnostics.Debug.WriteLine("AutoLogin Offline: SUCCESS - Session restaurée !");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"AutoLogin Offline: ERREUR - {ex.GetType().Name} - {ex.Message}");
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Sauvegarde la session utilisateur pour le mode offline
+    /// </summary>
+    private async Task SaveUserSessionAsync(OdooClient odooClient, IDatabaseService databaseService)
+    {
+        try
+        {
+            UserSession session = new()
+            {
+                UserId = odooClient.session.Current.UserId ?? 0,
+                EmployeeId = odooClient.session.Current.EmployeeId,
+                IsManager = odooClient.session.Current.IsManager,
+                Email = Preferences.Get("auth.login", string.Empty),
+                LastLoginAt = DateTime.UtcNow
+            };
+
+            await databaseService.SaveUserSessionAsync(session);
+            System.Diagnostics.Debug.WriteLine($"AutoLogin: Session sauvegardée - UserId={session.UserId}, IsManager={session.IsManager}, EmployeeId={session.EmployeeId}");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"AutoLogin: Erreur sauvegarde session - {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Démarre les services en arrière-plan
+    /// </summary>
+    private void StartBackgroundServices(OdooClient odooClient)
+    {
+        // Démarrer le service de synchronisation
+        ISyncService syncService = _services.GetRequiredService<ISyncService>();
+        syncService.Start();
+
+        // Démarrer les services de notification selon le rôle
+        if (odooClient.session.Current.IsManager)
+        {
+            IBackgroundNotificationService notifService = _services.GetRequiredService<IBackgroundNotificationService>();
+            notifService.Start();
+        }
+        else
+        {
+            IBackgroundLeaveStatusService statusService = _services.GetRequiredService<IBackgroundLeaveStatusService>();
+            statusService.Start();
         }
     }
 
