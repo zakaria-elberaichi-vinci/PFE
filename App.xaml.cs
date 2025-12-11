@@ -33,6 +33,57 @@ public partial class App : Application
                 VerticalOptions = LayoutOptions.Center
             }
         };
+
+        // S'abonner aux événements de synchronisation
+        SubscribeToSyncEvents();
+    }
+
+    /// <summary>
+    /// S'abonne aux événements de synchronisation pour afficher des popups
+    /// </summary>
+    private void SubscribeToSyncEvents()
+    {
+        try
+        {
+            ISyncService syncService = _services.GetRequiredService<ISyncService>();
+            syncService.DecisionsSynced += OnDecisionsSynced;
+            System.Diagnostics.Debug.WriteLine("App: Abonné aux événements de synchronisation");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"App: Erreur abonnement sync events - {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Appelé quand des décisions ont été synchronisées
+    /// </summary>
+    private async void OnDecisionsSynced(object? sender, int count)
+    {
+        System.Diagnostics.Debug.WriteLine($"App: OnDecisionsSynced - {count} décision(s)");
+
+        await MainThread.InvokeOnMainThreadAsync(async () =>
+        {
+            try
+            {
+                string message = count == 1
+                    ? "1 décision a été synchronisée avec succès !"
+                    : $"{count} décisions ont été synchronisées avec succès !";
+
+                if (MainPage != null)
+                {
+                    await MainPage.DisplayAlert(
+                        "✓ Synchronisation terminée",
+                        message,
+                        "OK"
+                    );
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"App: Erreur affichage popup sync - {ex.Message}");
+            }
+        });
     }
 
     [Obsolete]

@@ -47,6 +47,12 @@ namespace PFE.Services
         /// Événement déclenché quand une synchronisation est terminée
         /// </summary>
         event EventHandler? SyncCompleted;
+
+        /// <summary>
+        /// Événement déclenché quand des décisions ont été synchronisées avec succès
+        /// Paramètre: nombre de décisions synchronisées
+        /// </summary>
+        event EventHandler<int>? DecisionsSynced;
     }
 
     /// <summary>
@@ -68,6 +74,7 @@ namespace PFE.Services
 
         public event EventHandler<int>? PendingCountChanged;
         public event EventHandler? SyncCompleted;
+        public event EventHandler<int>? DecisionsSynced;
 
         public SyncService(
             OdooClient odooClient,
@@ -209,7 +216,7 @@ namespace PFE.Services
                 }
             }
 
-            bool anySynced = false;
+            int syncedCount = 0;
 
             foreach (PendingLeaveDecision decision in decisions)
             {
@@ -235,7 +242,7 @@ namespace PFE.Services
                     // Succès - marquer comme synchronisé
                     await _databaseService.UpdateDecisionSyncStatusAsync(decision.Id, SyncStatus.Synced);
                     System.Diagnostics.Debug.WriteLine($"SyncService: Décision {decision.Id} synchronisée avec succès");
-                    anySynced = true;
+                    syncedCount++;
                 }
                 catch (Exception ex) when (IsSessionExpiredError(ex))
                 {
@@ -265,7 +272,7 @@ namespace PFE.Services
 
                             await _databaseService.UpdateDecisionSyncStatusAsync(decision.Id, SyncStatus.Synced);
                             System.Diagnostics.Debug.WriteLine($"SyncService: Décision {decision.Id} synchronisée après réauth");
-                            anySynced = true;
+                            syncedCount++;
                         }
                         catch (Exception retryEx)
                         {
@@ -290,10 +297,11 @@ namespace PFE.Services
             // Mettre à jour le compteur
             await UpdatePendingCountAsync();
 
-            // Notifier que la sync est terminée
-            if (anySynced)
+            // Notifier le nombre de décisions synchronisées
+            if (syncedCount > 0)
             {
-                System.Diagnostics.Debug.WriteLine("SyncService: Synchronisation terminée avec succès, notification...");
+                System.Diagnostics.Debug.WriteLine($"SyncService: {syncedCount} décision(s) synchronisée(s), notification...");
+                DecisionsSynced?.Invoke(this, syncedCount);
                 SyncCompleted?.Invoke(this, EventArgs.Empty);
             }
         }
