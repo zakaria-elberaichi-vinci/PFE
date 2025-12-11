@@ -53,21 +53,86 @@ namespace PFE.ViewModels
             );
 
             // Écouter les changements du compteur de décisions en attente
-            _syncService.PendingCountChanged += (s, count) =>
-            {
-                PendingDecisionsCount = count;
-            };
+            _syncService.PendingCountChanged += OnPendingCountChanged;
 
             // Recharger la liste après une synchronisation réussie
-            _syncService.SyncCompleted += async (s, e) =>
-            {
-                await LoadAsync();
-            };
+            _syncService.SyncCompleted += OnSyncCompleted;
 
             RefreshOdooCommand = new RelayCommand(
                     async _ => await RefreshLeavesFromOdooAsync(),
                     _ => !IsBusy
             );
+
+            ClearCacheCommand = new RelayCommand(
+                    async _ => await ClearCacheAsync(),
+                    _ => !IsBusy
+            );
+        }
+
+        private void OnPendingCountChanged(object? sender, int count)
+        {
+            // Mettre à jour sur le thread principal
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                PendingDecisionsCount = count;
+                System.Diagnostics.Debug.WriteLine($"ManageLeavesViewModel: PendingCountChanged -> {count}");
+                
+                // Si plus de décisions en attente et qu'on était en mode offline, afficher un message de succès
+                if (count == 0 && IsOfflineMode)
+                {
+                    SuccessMessage = "✓ Toutes les décisions ont été synchronisées !";
+                    IsOfflineMode = false;
+                    
+                    // Effacer le message après quelques secondes
+                    _ = ClearSuccessMessageAfterDelayAsync();
+                }
+            });
+        }
+
+        private async void OnSyncCompleted(object? sender, EventArgs e)
+        {
+            System.Diagnostics.Debug.WriteLine("ManageLeavesViewModel: SyncCompleted reçu");
+            
+            // Recharger les données sur le thread principal
+            await MainThread.InvokeOnMainThreadAsync(async () =>
+            {
+                // Recalculer le compteur depuis la DB
+                await RefreshPendingCountAsync();
+                
+                // Recharger la liste
+                await LoadAsync();
+            });
+        }
+
+        private async Task RefreshPendingCountAsync()
+        {
+            try
+            {
+                List<PendingLeaveDecision> pendingDecisions = await _databaseService.GetUnsyncedLeaveDecisionsAsync();
+                int newCount = pendingDecisions.Count;
+                
+                if (PendingDecisionsCount != newCount)
+                {
+                    PendingDecisionsCount = newCount;
+                    System.Diagnostics.Debug.WriteLine($"ManageLeavesViewModel: RefreshPendingCount -> {newCount}");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"ManageLeavesViewModel: Erreur RefreshPendingCount - {ex.Message}");
+            }
+        }
+
+        private async Task ClearSuccessMessageAfterDelayAsync()
+        {
+            await Task.Delay(5000);
+            await MainThread.InvokeOnMainThreadAsync(() =>
+            {
+                if (SuccessMessage.Contains("synchronisées"))
+                {
+                    SuccessMessage = string.Empty;
+                }
+            });
         }
 
         public bool IsManager => _odoo.session.Current.IsManager;
@@ -190,6 +255,7 @@ namespace PFE.ViewModels
         public ICommand ApproveCommand { get; }
         public ICommand RefuseCommand { get; }
         public ICommand RefreshOdooCommand { get; }
+        public ICommand ClearCacheCommand { get; }
 
         public event EventHandler<string>? NotificationRequested;
 
@@ -680,6 +746,75 @@ namespace PFE.ViewModels
             finally
             {
                 IsBusy = false;
+            }
+        }
+
+        /// <summary>
+        /// Vide le cache local (décisions en attente et demandes en cache)
+        /// </summary>
+        private async Task ClearCacheAsync()
+        {
+            if (IsBusy) return;
+
+            IsBusy = true;
+            ErrorMessage = string.Empty;
+            SuccessMessage = string.Empty;
+
+            try
+            {
+                // Vider le cache des demandes à approuver
+                await _databaseService.ClearLeavesToApproveCacheAsync(ManagerUserId);
+
+                // Supprimer TOUTES les décisions (y compris Pending et Failed)
+                await ClearAllPendingDecisionsAsync();
+
+                // Rafraîchir le compteur
+                PendingDecisionsCount = 0;
+                OnPropertyChanged(nameof(HasPendingDecisions));
+
+                SuccessMessage = "✓ Cache vidé avec succès !";
+                System.Diagnostics.Debug.WriteLine("ManageLeavesViewModel: Cache vidé");
+
+                // Recharger les données
+                await LoadAsync();
+
+                // Effacer le message après quelques secondes
+                _ = ClearSuccessMessageAfterDelayAsync();
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = $"Erreur lors du vidage du cache : {ex.Message}";
+                System.Diagnostics.Debug.WriteLine($"ManageLeavesViewModel: Erreur ClearCache - {ex.Message}");
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
+
+        /// <summary>
+        /// Supprime toutes les décisions en attente pour ce manager
+        /// </summary>
+        private async Task ClearAllPendingDecisionsAsync()
+        {
+            try
+            {
+                // Récupérer toutes les décisions de ce manager
+                List<PendingLeaveDecision> allDecisions = await _databaseService.GetAllLeaveDecisionsAsync(ManagerUserId);
+                
+                // Supprimer chaque décision
+                foreach (var decision in allDecisions)
+                {
+                    await _databaseService.DeletePendingLeaveDecisionAsync(decision.Id);
+                    System.Diagnostics.Debug.WriteLine($"ManageLeavesViewModel: Décision {decision.Id} supprimée");
+                }
+
+                System.Diagnostics.Debug.WriteLine($"ManageLeavesViewModel: {allDecisions.Count} décision(s) supprimée(s)");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"ManageLeavesViewModel: Erreur ClearAllPendingDecisions - {ex.Message}");
+                throw;
             }
         }
     }

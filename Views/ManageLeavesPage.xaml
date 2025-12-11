@@ -7,12 +7,12 @@
              BackgroundColor="#0F172A"
              Title="Demandes à traiter">
 
-    <Application.Resources>
+    <ContentPage.Resources>
         <ResourceDictionary>
             <conv:StringNotEmptyConverter x:Key="StringNotEmptyConverter" />
             <conv:StateIsSecondApprovalConverter x:Key="SecondApprovalConverter" />
         </ResourceDictionary>
-    </Application.Resources>
+    </ContentPage.Resources>
 
     <Grid RowDefinitions="Auto,*">
         <ScrollView Grid.Row="1">
@@ -30,6 +30,80 @@
                            TextColor="#9CA3AF" />
                 </VerticalStackLayout>
 
+                <!-- Indicateur hors-ligne -->
+                <Frame IsVisible="{Binding IsOfflineMode}"
+                       Padding="12"
+                       BackgroundColor="#DC2626"
+                       CornerRadius="8"
+                       HasShadow="False"
+                       Margin="0,0,0,5">
+                    <HorizontalStackLayout Spacing="10"
+                                           HorizontalOptions="Center">
+                        <Label Text="📴"
+                               FontSize="16"
+                               VerticalOptions="Center" />
+                        <Label Text="Mode hors-ligne - Données en cache"
+                               TextColor="White"
+                               FontSize="14"
+                               FontAttributes="Bold"
+                               VerticalOptions="Center" />
+                    </HorizontalStackLayout>
+                </Frame>
+
+                <!-- Indicateur de décisions en attente de synchronisation -->
+                <Frame IsVisible="{Binding HasPendingDecisions}"
+                       Padding="12"
+                       BackgroundColor="#FFA500"
+                       CornerRadius="8"
+                       HasShadow="False"
+                       Margin="0,0,0,5">
+                    <HorizontalStackLayout Spacing="10"
+                                           HorizontalOptions="Center">
+                        <ActivityIndicator IsRunning="True"
+                                           Color="White"
+                                           WidthRequest="20"
+                                           HeightRequest="20" />
+                        <Label TextColor="White"
+                               FontSize="14"
+                               FontAttributes="Bold"
+                               VerticalOptions="Center">
+                            <Label.Text>
+                                <Binding Path="PendingDecisionsCount" 
+                                         StringFormat="⏳ {0} décision(s) en attente de synchronisation" />
+                            </Label.Text>
+                        </Label>
+                    </HorizontalStackLayout>
+                </Frame>
+
+                <!-- Message d'information (session restaurée, etc.) -->
+                <Frame IsVisible="{Binding InfoMessage, Converter={StaticResource StringNotEmptyConverter}}"
+                       Padding="12"
+                       BackgroundColor="#3B82F6"
+                       CornerRadius="8"
+                       HasShadow="False"
+                       Margin="0,0,0,5">
+                    <Label Text="{Binding InfoMessage}"
+                           TextColor="White"
+                           FontSize="14"
+                           FontAttributes="Bold"
+                           HorizontalTextAlignment="Center" />
+                </Frame>
+
+                <!-- Message de succès -->
+                <Frame IsVisible="{Binding SuccessMessage, Converter={StaticResource StringNotEmptyConverter}}"
+                       Padding="12"
+                       BackgroundColor="#22C55E"
+                       CornerRadius="8"
+                       HasShadow="False"
+                       Margin="0,0,0,5">
+                    <Label Text="{Binding SuccessMessage}"
+                           TextColor="White"
+                           FontSize="14"
+                           FontAttributes="Bold"
+                           HorizontalTextAlignment="Center" />
+                </Frame>
+
+                <!-- Message d'erreur -->
                 <Label Text="{Binding ErrorMessage}"
                        TextColor="#F97373"
                        HorizontalTextAlignment="Center"
@@ -43,10 +117,27 @@
                                    HorizontalOptions="Center"
                                    VerticalOptions="Center" />
                 
-                <Button Text="Actualiser"
-                        Command="{Binding RefreshOdooCommand}"        
-                        HorizontalOptions="End"
-                        Margin="0,0,0,10"/>
+                <!-- Boutons d'action -->
+                <HorizontalStackLayout Spacing="10"
+                                       HorizontalOptions="End"
+                                       Margin="0,0,0,10">
+                    <Button Text="🗑️ Vider cache"
+                            Command="{Binding ClearCacheCommand}"
+                            BackgroundColor="#6B7280"
+                            TextColor="White"
+                            CornerRadius="8"
+                            HeightRequest="36"
+                            FontSize="12"
+                            Padding="12,0" />
+                    <Button Text="Actualiser"
+                            Command="{Binding RefreshOdooCommand}"
+                            BackgroundColor="#3B82F6"
+                            TextColor="White"
+                            CornerRadius="8"
+                            HeightRequest="36"
+                            FontSize="12"
+                            Padding="12,0" />
+                </HorizontalStackLayout>
 
                 <CollectionView ItemsSource="{Binding Leaves}"
                                 IsVisible="{Binding IsManager}"
