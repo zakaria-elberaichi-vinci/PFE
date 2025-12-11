@@ -117,27 +117,15 @@
                                    HorizontalOptions="Center"
                                    VerticalOptions="Center" />
                 
-                <!-- Boutons d'action -->
-                <HorizontalStackLayout Spacing="10"
-                                       HorizontalOptions="End"
-                                       Margin="0,0,0,10">
-                    <Button Text="🗑️ Vider cache"
-                            Command="{Binding ClearCacheCommand}"
-                            BackgroundColor="#6B7280"
-                            TextColor="White"
-                            CornerRadius="8"
-                            HeightRequest="36"
-                            FontSize="12"
-                            Padding="12,0" />
-                    <Button Text="Actualiser"
-                            Command="{Binding RefreshOdooCommand}"
-                            BackgroundColor="#3B82F6"
-                            TextColor="White"
-                            CornerRadius="8"
-                            HeightRequest="36"
-                            FontSize="12"
-                            Padding="12,0" />
-                </HorizontalStackLayout>
+                <!-- Bouton Actualiser -->
+                <Button Text="Actualiser"
+                        Command="{Binding RefreshOdooCommand}"
+                        BackgroundColor="#3B82F6"
+                        TextColor="White"
+                        CornerRadius="8"
+                        HeightRequest="40"
+                        HorizontalOptions="End"
+                        Margin="0,0,0,10" />
 
                 <CollectionView ItemsSource="{Binding Leaves}"
                                 IsVisible="{Binding IsManager}"

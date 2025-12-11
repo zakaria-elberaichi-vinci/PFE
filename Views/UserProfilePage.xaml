@@ -42,6 +42,19 @@
                        LineBreakMode="WordWrap"
                        IsVisible="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyConverter}}" />
 
+                <!-- Message de succès -->
+                <Frame IsVisible="{Binding SuccessMessage, Converter={StaticResource StringNotEmptyConverter}}"
+                   Padding="12"
+                   BackgroundColor="#22C55E"
+                   CornerRadius="8"
+                   HasShadow="False"
+                   Margin="0,0,0,5">
+                <Label Text="{Binding SuccessMessage}"
+                       TextColor="White"
+                       FontSize="14"
+                       FontAttributes="Bold"
+                       HorizontalTextAlignment="Center" />
+            </Frame>
 
                 <ContentView IsVisible="{Binding IsAuthenticated}">
                     <Frame CornerRadius="18"
@@ -127,6 +140,38 @@
                         </ScrollView>
                     </Frame>
                 </ContentView>
+
+                <!-- Section Paramètres -->
+                <Frame CornerRadius="18"
+                       HasShadow="True"
+                       Padding="18"
+                       BackgroundColor="#111827"
+                       BorderColor="#1F2937"
+                       Margin="0,10,0,0">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Paramètres"
+                               FontSize="18"
+                               FontAttributes="Bold"
+                               TextColor="#E5E7EB" />
+                        
+                        <Label Text="Gérez les données locales de l'application"
+                               FontSize="12"
+                               TextColor="#9CA3AF" />
+
+                        <Button Text="🗑️ Vider le cache local"
+                                Command="{Binding ClearCacheCommand}"
+                                BackgroundColor="#6B7280"
+                                TextColor="White"
+                                CornerRadius="8"
+                                HeightRequest="44"
+                                FontSize="14" />
+                        
+                        <Label Text="Supprime les données en cache et les décisions en attente de synchronisation."
+                               FontSize="11"
+                               TextColor="#6B7280"
+                               HorizontalTextAlignment="Center" />
+                    </VerticalStackLayout>
+                </Frame>
 
             </VerticalStackLayout>
         </Grid>
