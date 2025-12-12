@@ -633,12 +633,51 @@ namespace PFE.Services
                     c.EndDate,
                     c.Status,
                     c.Days,
-                    null // FirstApprover n'est pas stocké dans le cache
+                    null
                 ))
                 .OrderByDescending(l => l.StartDate)
                 .ToList();
 
             System.Diagnostics.Debug.WriteLine($"DatabaseService: {result.Count} congés récupérés depuis le cache pour employé {employeeId}");
+
+            return result;
+        }
+
+        /// <summary>
+        /// Récupère TOUS les congés en cache, sans filtre d'employeeId (pour démo offline)
+        /// </summary>
+        public async Task<List<Leave>> GetAllCachedLeavesAsync(string? status = null, int? year = null)
+        {
+            SQLiteAsyncConnection db = await GetDatabaseAsync();
+
+            List<DB.CachedLeave> cached = await db.Table<DB.CachedLeave>().ToListAsync();
+            
+            System.Diagnostics.Debug.WriteLine($"DatabaseService: {cached.Count} congés TOTAUX dans le cache");
+
+            if (!string.IsNullOrEmpty(status))
+            {
+                cached = cached.Where(x => x.Status == status).ToList();
+            }
+
+            if (year.HasValue)
+            {
+                cached = cached.Where(x => x.Year == year.Value).ToList();
+            }
+
+            List<Leave> result = cached
+                .Select(c => new Leave(
+                    c.LeaveId,
+                    c.LeaveType,
+                    c.StartDate,
+                    c.EndDate,
+                    c.Status,
+                    c.Days,
+                    null
+                ))
+                .OrderByDescending(l => l.StartDate)
+                .ToList();
+
+            System.Diagnostics.Debug.WriteLine($"DatabaseService: {result.Count} congés après filtrage");
 
             return result;
         }

@@ -89,9 +89,6 @@
 		<MauiXaml Update="Controls\ConfirmationPopup.xaml">
 			<Generator>MSBuild:Compile</Generator>
 		</MauiXaml>
-		<MauiXaml Update="Views\CalendarPage.xaml">
-			<Generator>MSBuild:Compile</Generator>
-		</MauiXaml>
 		<MauiXaml Update="Views\LeaveRequestPage.xaml">
 			<Generator>MSBuild:Compile</Generator>
 		</MauiXaml>

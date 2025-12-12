@@ -10,10 +10,25 @@ using static PFE.Helpers.LeaveStatusHelper;
 
 namespace PFE.ViewModels
 {
+    public class StatusItem
+    {
+        public string LabelFr { get; init; } = default!;
+        public string? ValueEn { get; init; }
+        public override string ToString() => LabelFr;
+    }
+
+    public class YearItem
+    {
+        public string Label { get; init; } = default!;
+        public int? Value { get; init; }
+        public override string ToString() => Label;
+    }
+
     public class MyLeavesViewModel : INotifyPropertyChanged
     {
         private readonly OdooClient _odooClient;
         private readonly OfflineService _offlineService;
+        private readonly IDatabaseService _databaseService;
 
         private bool _isListBusy;
         private bool _isCalendarBusy;
@@ -32,10 +47,11 @@ namespace PFE.ViewModels
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
-        public MyLeavesViewModel(OdooClient odooClient, OfflineService offlineService)
+        public MyLeavesViewModel(OdooClient odooClient, OfflineService offlineService, IDatabaseService databaseService)
         {
             _odooClient = odooClient;
             _offlineService = offlineService;
+            _databaseService = databaseService;
 
             Leaves = [];
             Appointments = [];
@@ -205,21 +221,49 @@ namespace PFE.ViewModels
 
             try
             {
+                await _databaseService.InitializeAsync();
+
+                // Recuperer l'employeeId
+                int employeeId = _odooClient.session.Current.EmployeeId ?? 0;
+                
+                // Si pas d'employeeId depuis la session, essayer depuis la DB
+                if (employeeId <= 0)
+                {
+                    var savedSession = await _databaseService.GetLastActiveSessionAsync();
+                    if (savedSession?.EmployeeId != null)
+                    {
+                        employeeId = savedSession.EmployeeId.Value;
+                    }
+                }
+
+                System.Diagnostics.Debug.WriteLine($"[MyLeavesViewModel] EmployeeId={employeeId}, IsOffline={IsOffline}");
+
+                // MODE OFFLINE : Charger depuis le cache
+                if (IsOffline)
+                {
+                    System.Diagnostics.Debug.WriteLine("[MyLeavesViewModel] Mode offline - chargement depuis cache");
+                    await LoadFromCacheAsync(employeeId);
+                    return;
+                }
+
+                // MODE ONLINE : Charger depuis Odoo
                 if (!IsEmployee)
                 {
                     bool reauthSuccess = await TryReauthenticateAsync();
                     if (!reauthSuccess || !IsEmployee)
                     {
-                        ListErrorMessage = "Veuillez vous connecter en tant qu'employé.";
-                        Leaves.Clear();
+                        // En cas d'echec, essayer le cache
+                        if (employeeId > 0)
+                        {
+                            await LoadFromCacheAsync(employeeId);
+                        }
+                        else
+                        {
+                            ListErrorMessage = "Veuillez vous connecter en tant qu'employe.";
+                            Leaves.Clear();
+                        }
                         return;
                     }
-                }
-
-                if (IsOffline)
-                {
-                    ListErrorMessage = "Mode hors-ligne. Connectez-vous pour voir vos congés.";
-                    return;
                 }
 
                 List<Leave> list;
@@ -227,26 +271,35 @@ namespace PFE.ViewModels
                 {
                     list = await _odooClient.GetLeavesAsync(SelectedStateEn);
                 }
-                catch (Exception ex) when (IsSessionExpiredError(ex))
+                catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"MyLeavesViewModel: Session expirée, tentative de ré-authentification...");
-                    bool reauthSuccess = await TryReauthenticateAsync();
-
-                    if (reauthSuccess)
+                    System.Diagnostics.Debug.WriteLine($"[MyLeavesViewModel] Erreur serveur: {ex.Message}");
+                    
+                    // En cas d'erreur reseau, charger depuis le cache
+                    if (employeeId > 0)
                     {
-                        list = await _odooClient.GetLeavesAsync(SelectedStateEn);
+                        IsOffline = true;
+                        await LoadFromCacheAsync(employeeId);
                     }
                     else
                     {
-                        ListErrorMessage = "Session expirée. Veuillez vous reconnecter.";
-                        Leaves.Clear();
-                        return;
+                        ListErrorMessage = $"Erreur: {ex.Message}";
                     }
+                    return;
                 }
 
+                // Sauvegarder en cache
+                employeeId = _odooClient.session.Current.EmployeeId ?? employeeId;
+                if (employeeId > 0)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[MyLeavesViewModel] Sauvegarde de {list.Count} conges en cache");
+                    await _databaseService.SaveLeavesAsync(employeeId, list);
+                }
+
+                // Appliquer filtre annee
                 if (SelectedYearItem?.Value != null)
                 {
-                    list = list.Where(l => l.StartDate.Year == SelectedYearItem?.Value).ToList();
+                    list = list.Where(l => l.StartDate.Year == SelectedYearItem.Value).ToList();
                 }
 
                 Leaves.Clear();
@@ -257,17 +310,73 @@ namespace PFE.ViewModels
 
                 if (Leaves.Count == 0)
                 {
-                    ListErrorMessage = "Aucun congé trouvé.";
+                    ListErrorMessage = "Aucun conge trouve.";
                 }
             }
             catch (Exception ex)
             {
-                ListErrorMessage = $"Impossible de charger vos congés : {ex.Message}";
+                System.Diagnostics.Debug.WriteLine($"[MyLeavesViewModel] Erreur: {ex.Message}");
+                ListErrorMessage = $"Erreur: {ex.Message}";
             }
             finally
             {
                 IsListBusy = false;
                 OnPropertyChanged(nameof(IsEmployee));
+            }
+        }
+
+        /// <summary>
+        /// Charge les conges depuis le cache SQLite
+        /// </summary>
+        private async Task LoadFromCacheAsync(int employeeId)
+        {
+            try
+            {
+                if (employeeId <= 0)
+                {
+                    // Essayer de recuperer tous les conges du cache
+                    var allLeaves = await _databaseService.GetAllCachedLeavesAsync(null, SelectedYearItem?.Value);
+                    
+                    if (allLeaves.Count == 0)
+                    {
+                        ListErrorMessage = "Mode hors-ligne. Aucun conge en cache.";
+                        Leaves.Clear();
+                        return;
+                    }
+
+                    Leaves.Clear();
+                    foreach (var leave in allLeaves)
+                    {
+                        Leaves.Add(leave);
+                    }
+                    return;
+                }
+
+                string? statusFilter = null;
+                if (SelectedStatusItem != null && SelectedStatusItem.LabelFr != "(Tous)")
+                {
+                    statusFilter = SelectedStatusItem.LabelFr;
+                }
+
+                var cachedLeaves = await _databaseService.GetCachedLeavesAsync(employeeId, statusFilter, SelectedYearItem?.Value);
+                
+                System.Diagnostics.Debug.WriteLine($"[MyLeavesViewModel] {cachedLeaves.Count} conges charges depuis le cache");
+
+                Leaves.Clear();
+                foreach (var leave in cachedLeaves)
+                {
+                    Leaves.Add(leave);
+                }
+
+                if (Leaves.Count == 0)
+                {
+                    ListErrorMessage = "Mode hors-ligne. Aucun conge en cache.";
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MyLeavesViewModel] Erreur cache: {ex.Message}");
+                ListErrorMessage = "Impossible de charger depuis le cache.";
             }
         }
 

@@ -45,12 +45,14 @@ public partial class DashboardPage : ContentPage
             Application.Current.MainPage = new NavigationPage(loginPage);
         };
 
+        // Demander un conge (fonctionne online ET offline)
         BtnNewLeave.Clicked += async (s, e) =>
         {
             LeaveRequestPage leaveRequestPage = _services.GetRequiredService<LeaveRequestPage>();
             await Navigation.PushAsync(leaveRequestPage);
         };
 
+        // Voir mes conges (fonctionne online ET offline)
         BtnCalendar.Clicked += async (s, e) =>
         {
             MyLeavesPage myLeavesPage = _services.GetRequiredService<MyLeavesPage>();
@@ -58,14 +60,18 @@ public partial class DashboardPage : ContentPage
         };
     }
 
-    protected override async void OnAppearing()
+    protected override void OnAppearing()
     {
         base.OnAppearing();
+
         bool isManager = _client.session.Current.IsManager;
         bool isEmployee = !isManager;
 
+        // Boutons pour employes - TOUJOURS visibles (online et offline)
         BtnNewLeave.IsVisible = isEmployee;
         BtnCalendar.IsVisible = isEmployee;
+
+        // Bouton manager
         BtnManageLeaves.IsVisible = isManager;
 
         if (isManager)

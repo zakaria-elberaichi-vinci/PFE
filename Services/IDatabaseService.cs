@@ -100,6 +100,10 @@ namespace PFE.Services
         #region CachedLeave (Congés de l'employé - Cache offline)
         Task SaveLeavesAsync(int employeeId, List<Leave> leaves);
         Task<List<Leave>> GetCachedLeavesAsync(int employeeId, string? status = null, int? year = null);
+        /// <summary>
+        /// Récupère TOUS les congés en cache, sans filtre d'employeeId (pour démo offline)
+        /// </summary>
+        Task<List<Leave>> GetAllCachedLeavesAsync(string? status = null, int? year = null);
         Task ClearCachedLeavesAsync(int employeeId);
 
         #endregion

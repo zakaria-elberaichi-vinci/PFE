@@ -15,12 +15,12 @@
             <VerticalStackLayout Grid.Row="0"
                                  Spacing="6"
                                  Margin="0,10,0,20">
-                <Label Text="Bienvenue 👋"
+                <Label Text="Bienvenue"
                        FontSize="28"
                        FontAttributes="Bold"
                        TextColor="White" />
 
-                <Label Text="Vous êtes maintenant connecté à Odoo."
+                <Label Text="Vous etes maintenant connecte a Odoo."
                        FontSize="14"
                        TextColor="#9CA3AF" />
             </VerticalStackLayout>
@@ -39,7 +39,7 @@
                                FontAttributes="Bold"
                                TextColor="White" />
 
-                        <Button Text="Voir mes congés"
+                        <Button Text="Voir mes conges"
                                 x:Name="BtnCalendar"
                                 BackgroundColor="#0EA5E9"
                                 TextColor="White"
@@ -48,7 +48,7 @@
                                 FontSize="14"
                                 IsVisible="False" />
 
-                        <Button Text="Rentrer une demande de congé"
+                        <Button Text="Demander un conge"
                                 x:Name="BtnNewLeave"
                                 BackgroundColor="#3B82F6"
                                 TextColor="White"
@@ -58,7 +58,7 @@
                                 IsVisible="False" />
 
                         <Button x:Name="BtnManageLeaves"
-                                Text="Gérer les demandes de congés"
+                                Text="Gerer les demandes de conges"
                                 BackgroundColor="#F59E0B"
                                 TextColor="White"
                                 CornerRadius="12"
@@ -88,7 +88,7 @@
                                 HeightRequest="48"
                                 FontSize="14" />
 
-                        <Button Text="Se déconnecter"
+                        <Button Text="Se deconnecter"
                                 x:Name="BtnLogout"
                                 BackgroundColor="#DC2626"
                                 TextColor="White"
