@@ -5,13 +5,18 @@ using PFE.Models.Database;
 using PFE.Services;
 using PFE.Views;
 using Plugin.LocalNotification;
+using Plugin.LocalNotification.EventArgs;
 using Syncfusion.Maui.Scheduler;
+#if WINDOWS
+using Microsoft.Toolkit.Uwp.Notifications;
+#endif
 
 namespace PFE;
 
 public partial class App : Application
 {
     private readonly IServiceProvider _services;
+    private bool _pendingNavigationToManageLeaves = false;
 
     [Obsolete]
     public App(IServiceProvider services)
@@ -35,10 +40,110 @@ public partial class App : Application
         };
 
         SubscribeToSyncEvents();
+        SubscribeToNotificationEvents();
     }
 
     /// <summary>
-    /// S'abonne aux événements de synchronisation pour afficher des popups
+    /// S'abonne aux evenements de clic sur notification
+    /// </summary>
+    private void SubscribeToNotificationEvents()
+    {
+#if ANDROID || IOS || MACCATALYST
+        try
+        {
+            LocalNotificationCenter.Current.NotificationActionTapped += OnNotificationTapped;
+            System.Diagnostics.Debug.WriteLine("App: Abonne aux evenements de notification (mobile)");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"App: Erreur abonnement notification events - {ex.Message}");
+        }
+#elif WINDOWS
+        try
+        {
+            ToastNotificationManagerCompat.OnActivated += OnWindowsNotificationActivated;
+            System.Diagnostics.Debug.WriteLine("App: Abonne aux evenements de notification (Windows)");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"App: Erreur abonnement notification Windows - {ex.Message}");
+        }
+#endif
+    }
+
+#if WINDOWS
+    /// <summary>
+    /// Appele quand l'utilisateur clique sur une notification Windows
+    /// </summary>
+    private void OnWindowsNotificationActivated(ToastNotificationActivatedEventArgsCompat e)
+    {
+        System.Diagnostics.Debug.WriteLine($"App: Notification Windows cliquee - Args: {e.Argument}");
+        
+        if (e.Argument.Contains("openLeave"))
+        {
+            _pendingNavigationToManageLeaves = true;
+            MainThread.BeginInvokeOnMainThread(() => NavigateToManageLeaves());
+        }
+    }
+#endif
+
+    /// <summary>
+    /// Appele quand l'utilisateur clique sur une notification mobile
+    /// </summary>
+    private void OnNotificationTapped(NotificationActionEventArgs e)
+    {
+        System.Diagnostics.Debug.WriteLine($"App: Notification cliquee - ReturningData: {e.Request.ReturningData}");
+
+        if (string.IsNullOrEmpty(e.Request.ReturningData))
+        {
+            return;
+        }
+
+        if (e.Request.ReturningData.StartsWith("openLeave:"))
+        {
+            _pendingNavigationToManageLeaves = true;
+            MainThread.BeginInvokeOnMainThread(() => NavigateToManageLeaves());
+        }
+    }
+
+    /// <summary>
+    /// Navigue vers la page de gestion des conges
+    /// </summary>
+    private async void NavigateToManageLeaves()
+    {
+        try
+        {
+            System.Diagnostics.Debug.WriteLine("App: NavigateToManageLeaves - Debut");
+            
+            // Attendre que MainPage soit pret
+            int attempts = 0;
+            while (MainPage == null || MainPage is not NavigationPage)
+            {
+                await Task.Delay(100);
+                attempts++;
+                if (attempts > 50) // 5 secondes max
+                {
+                    System.Diagnostics.Debug.WriteLine("App: NavigateToManageLeaves - Timeout, MainPage non pret");
+                    return;
+                }
+            }
+
+            if (MainPage is NavigationPage navPage)
+            {
+                ManageLeavesPage manageLeavesPage = _services.GetRequiredService<ManageLeavesPage>();
+                await navPage.Navigation.PushAsync(manageLeavesPage);
+                System.Diagnostics.Debug.WriteLine("App: Navigation vers ManageLeavesPage reussie");
+                _pendingNavigationToManageLeaves = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"App: Erreur navigation depuis notification - {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// S'abonne aux evenements de synchronisation pour afficher des popups
     /// </summary>
     [Obsolete]
     private void SubscribeToSyncEvents()
@@ -48,7 +153,7 @@ public partial class App : Application
             ISyncService syncService = _services.GetRequiredService<ISyncService>();
             syncService.DecisionsSynced += OnDecisionsSynced;
             syncService.RequestsSynced += OnRequestsSynced;
-            System.Diagnostics.Debug.WriteLine("App: Abonné aux événements de synchronisation (décisions et demandes)");
+            System.Diagnostics.Debug.WriteLine("App: Abonne aux evenements de synchronisation");
         }
         catch (Exception ex)
         {

@@ -129,7 +129,7 @@ namespace PFE.Services
 
         private async Task SendNotificationAsync(LeaveToApprove leave)
         {
-            string title = "?? Nouvelle demande de congé";
+            string title = "Nouvelle demande de conge";
             string body = $"{leave.EmployeeName}\nDu {leave.StartDate:dd/MM/yyyy} au {leave.EndDate:dd/MM/yyyy}";
 
 #if WINDOWS
@@ -139,6 +139,8 @@ namespace PFE.Services
                     .AddText(title)
                     .AddText(leave.EmployeeName)
                     .AddText($"Du {leave.StartDate:dd/MM/yyyy} au {leave.EndDate:dd/MM/yyyy} ({leave.Days} jour(s))")
+                    .AddArgument("action", "openLeave")
+                    .AddArgument("leaveId", leave.Id.ToString())
                     .Show();
 
                 System.Diagnostics.Debug.WriteLine($"Notification Windows: {leave.EmployeeName}");
@@ -157,7 +159,8 @@ namespace PFE.Services
                     Title = title,
                     Description = body,
                     BadgeNumber = 1,
-                    CategoryType = NotificationCategoryType.Status
+                    CategoryType = NotificationCategoryType.Status,
+                    ReturningData = $"openLeave:{leave.Id}"
                 };
 
                 await LocalNotificationCenter.Current.Show(request);
