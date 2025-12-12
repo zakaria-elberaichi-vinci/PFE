@@ -23,6 +23,12 @@ namespace PFE.Models.Database
         /// <summary>
         /// Échec de la synchronisation
         /// </summary>
-        Failed = 3
+        Failed = 3,
+
+        /// <summary>
+        /// Décision en conflit - déjà traitée par un autre manager
+        /// Ne sera pas re-synchronisée
+        /// </summary>
+        Conflicted = 4
     }
 }

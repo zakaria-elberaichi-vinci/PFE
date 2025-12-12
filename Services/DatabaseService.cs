@@ -232,8 +232,10 @@ namespace PFE.Services
         public async Task<List<DB.PendingLeaveDecision>> GetUnsyncedLeaveDecisionsAsync()
         {
             SQLiteAsyncConnection db = await GetDatabaseAsync();
+            // Ne retourner que les decisions en attente (Pending)
+            // Les decisions Failed et Conflicted ne sont pas re-synchronisees automatiquement
             return await db.Table<DB.PendingLeaveDecision>()
-                .Where(x => x.SyncStatus == DB.SyncStatus.Pending || x.SyncStatus == DB.SyncStatus.Failed)
+                .Where(x => x.SyncStatus == DB.SyncStatus.Pending)
                 .OrderBy(x => x.DecisionDate)
                 .ToListAsync();
         }

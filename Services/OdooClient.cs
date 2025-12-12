@@ -795,7 +795,7 @@ namespace PFE.Services
             string today = DateTime.Today.ToString("yyyy-MM-dd");
 
             object[] domain = new object[]
-            {
+                {
         new object[] { "employee_id", "=", session.Current.EmployeeId!.Value },
         new object[] { "state", "=", "validate" },
         new object[] { "date_from", "<=", today },
@@ -1281,6 +1281,81 @@ namespace PFE.Services
 
             System.Diagnostics.Debug.WriteLine($"{text}");
             return root.TryGetProperty("result", out JsonElement countEl) && countEl.ValueKind == JsonValueKind.Number && countEl.GetInt32() > 0;
+        }
+
+        /// <summary>
+        /// Recupere le statut actuel d'une demande de conge depuis Odoo
+        /// </summary>
+        /// <param name="leaveId">ID de la demande de conge</param>
+        /// <returns>Le statut actuel (state) ou null si non trouve</returns>
+        public async Task<string?> GetLeaveCurrentStatusAsync(int leaveId)
+        {
+            EnsureAuthenticated();
+
+            var payload = new
+            {
+                jsonrpc = "2.0",
+                method = "call",
+                @params = new
+                {
+                    model = "hr.leave",
+                    method = "search_read",
+                    args = new object[]
+                    {
+                        new object[] { new object[] { "id", "=", leaveId } },
+                        new string[] { "state" }
+                    },
+                    kwargs = new { limit = 1 }
+                },
+                id = 900
+            };
+
+            HttpResponseMessage res = await _httpClient.PostAsync(_baseUrl, BuildJsonContent(payload));
+            string text = await res.Content.ReadAsStringAsync();
+            _ = res.EnsureSuccessStatusCode();
+
+            using JsonDocument doc = JsonDocument.Parse(text);
+            JsonElement root = doc.RootElement;
+
+            if (root.TryGetProperty("error", out _))
+            {
+                return null;
+            }
+
+            if (!root.TryGetProperty("result", out JsonElement resEl) ||
+                resEl.ValueKind != JsonValueKind.Array ||
+                resEl.GetArrayLength() == 0)
+            {
+                return null;
+            }
+
+            JsonElement first = resEl[0];
+            if (first.TryGetProperty("state", out JsonElement stateEl) &&
+                stateEl.ValueKind == JsonValueKind.String)
+            {
+                return stateEl.GetString();
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Verifie si une demande de conge a deja ete traitee (validee ou refusee)
+        /// </summary>
+        /// <param name="leaveId">ID de la demande</param>
+        /// <returns>True si la demande est encore en attente (confirm/validate1), False si deja traitee</returns>
+        public async Task<bool> IsLeaveStillPendingAsync(int leaveId)
+        {
+            string? currentStatus = await GetLeaveCurrentStatusAsync(leaveId);
+            
+            if (string.IsNullOrEmpty(currentStatus))
+            {
+                // Si on ne peut pas recuperer le statut, on considere qu'elle est traitee pour eviter les conflits
+                return false;
+            }
+
+            // Les statuts en attente sont "confirm" et "validate1"
+            return currentStatus == "confirm" || currentStatus == "validate1";
         }
     }
 }

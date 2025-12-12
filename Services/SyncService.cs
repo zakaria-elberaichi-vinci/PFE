@@ -64,6 +64,23 @@ namespace PFE.Services
         /// Paramètre: nombre de demandes synchronisées
         /// </summary>
         event EventHandler<int>? RequestsSynced;
+
+        /// <summary>
+        /// Evenement declenche quand des decisions ont ete annulees car deja traitees par quelqu'un d'autre
+        /// Parametre: liste des decisions en conflit (employeeName, decisionType)
+        /// </summary>
+        event EventHandler<List<ConflictedDecision>>? DecisionsConflicted;
+    }
+
+    /// <summary>
+    /// Represente une decision en conflit (deja traitee par quelqu'un d'autre)
+    /// </summary>
+    public class ConflictedDecision
+    {
+        public string EmployeeName { get; set; } = string.Empty;
+        public string DecisionType { get; set; } = string.Empty;
+        public DateTime LeaveStartDate { get; set; }
+        public DateTime LeaveEndDate { get; set; }
     }
 
     /// <summary>
@@ -89,6 +106,7 @@ namespace PFE.Services
         public event EventHandler? SyncCompleted;
         public event EventHandler<int>? DecisionsSynced;
         public event EventHandler<int>? RequestsSynced;
+        public event EventHandler<List<ConflictedDecision>>? DecisionsConflicted;
 
         public SyncService(
             OdooClient odooClient,
@@ -279,12 +297,34 @@ namespace PFE.Services
             System.Diagnostics.Debug.WriteLine($"SyncService: {decisions.Count} décision(s) à synchroniser");
 
             int syncedCount = 0;
+            List<ConflictedDecision> conflictedDecisions = new();
 
             foreach (PendingLeaveDecision decision in decisions)
             {
                 try
                 {
                     System.Diagnostics.Debug.WriteLine($"SyncService: Traitement décision {decision.Id} - {decision.DecisionType} pour congé {decision.LeaveId}");
+
+                    // VERIFICATION DU CONFLIT: Verifier si la demande est encore en attente
+                    bool isStillPending = await _odooClient.IsLeaveStillPendingAsync(decision.LeaveId);
+
+                    if (!isStillPending)
+                    {
+                        // La demande a deja ete traitee par quelqu'un d'autre
+                        System.Diagnostics.Debug.WriteLine($"SyncService: CONFLIT - La demande {decision.LeaveId} a deja ete traitee!");
+
+                        conflictedDecisions.Add(new ConflictedDecision
+                        {
+                            EmployeeName = decision.EmployeeName,
+                            DecisionType = decision.DecisionType == "approve" ? "approbation" : "refus",
+                            LeaveStartDate = decision.LeaveStartDate,
+                            LeaveEndDate = decision.LeaveEndDate
+                        });
+
+                        // Marquer la decision comme "Conflicted" - ne sera plus re-traitee
+                        await _databaseService.UpdateDecisionSyncStatusAsync(decision.Id, SyncStatus.Conflicted, "Deja traitee par un autre manager");
+                        continue;
+                    }
 
                     await _databaseService.UpdateDecisionSyncStatusAsync(decision.Id, SyncStatus.Syncing);
 
@@ -311,6 +351,21 @@ namespace PFE.Services
                     {
                         try
                         {
+                            // Reverifier le conflit apres re-authentification
+                            bool stillPending = await _odooClient.IsLeaveStillPendingAsync(decision.LeaveId);
+                            if (!stillPending)
+                            {
+                                conflictedDecisions.Add(new ConflictedDecision
+                                {
+                                    EmployeeName = decision.EmployeeName,
+                                    DecisionType = decision.DecisionType == "approve" ? "approbation" : "refus",
+                                    LeaveStartDate = decision.LeaveStartDate,
+                                    LeaveEndDate = decision.LeaveEndDate
+                                });
+                                await _databaseService.UpdateDecisionSyncStatusAsync(decision.Id, SyncStatus.Conflicted, "Deja traitee par un autre manager");
+                                continue;
+                            }
+
                             await _databaseService.UpdateDecisionSyncStatusAsync(decision.Id, SyncStatus.Syncing);
                             if (decision.DecisionType == "approve")
                             {
@@ -342,6 +397,13 @@ namespace PFE.Services
             }
 
             await UpdatePendingCountsAsync();
+
+            // Notifier les decisions en conflit (une seule fois)
+            if (conflictedDecisions.Count > 0)
+            {
+                System.Diagnostics.Debug.WriteLine($"SyncService: {conflictedDecisions.Count} décision(s) en conflit");
+                DecisionsConflicted?.Invoke(this, conflictedDecisions);
+            }
 
             if (syncedCount > 0)
             {
