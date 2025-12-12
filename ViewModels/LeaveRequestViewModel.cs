@@ -350,9 +350,7 @@ namespace PFE.ViewModels
                 IsBusy = true;
                 ErrorMessage = string.Empty;
 
-                bool isOnline = Connectivity.Current.NetworkAccess == NetworkAccess.Internet;
-
-                if (isOnline)
+                if (!IsOffline)
                 {
                     try
                     {
@@ -432,9 +430,7 @@ namespace PFE.ViewModels
                 IsBusy = true;
                 ErrorMessage = string.Empty;
 
-                bool isOnline = Connectivity.Current.NetworkAccess == NetworkAccess.Internet;
-
-                if (isOnline)
+                if (!IsOffline)
                 {
                     try
                     {
@@ -449,7 +445,6 @@ namespace PFE.ViewModels
                                 RequiresAllocation: true,
                                 Days: a.TotalRemaining
                             ))
-                            .OrderByDescending(t => t.Days ?? 0)
                             .ToList();
 
                         List<LeaveTypeItem> typesWithoutAllocationFormatted = typesWithoutAllocation
@@ -459,7 +454,6 @@ namespace PFE.ViewModels
                                 RequiresAllocation: false,
                                 Days: null
                             ))
-                            .OrderBy(t => t.Name)
                             .ToList();
 
                         List<LeaveTypeItem> combinedTypes = typesWithAllocation
@@ -524,7 +518,7 @@ namespace PFE.ViewModels
             {
                 IsBusy = true;
 
-                if (Connectivity.Current.NetworkAccess != NetworkAccess.Internet)
+                if (IsOffline)
                 {
                     PendingLeaveRequest pending = new()
                     {

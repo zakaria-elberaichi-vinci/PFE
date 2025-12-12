@@ -74,6 +74,8 @@ public partial class DashboardPage : ContentPage
         // Bouton manager
         BtnManageLeaves.IsVisible = isManager;
 
+        BtnProfile.IsVisible = Connectivity.Current.NetworkAccess == NetworkAccess.Internet;
+
         if (isManager)
         {
             _backgroundNotificationService.Start();
