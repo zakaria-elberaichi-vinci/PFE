@@ -304,7 +304,7 @@ namespace PFE.Services
                             prefetch_fields = false
                         },
                         limit = 0,
-                        order = "request_date_from asc"
+                        order = "create_date desc"
                     }
                 },
                 id = 2
@@ -526,7 +526,7 @@ namespace PFE.Services
                             "can_refuse"
                         },
                         limit = 0,
-                        order = "request_date_from"
+                        order = "create_date desc"
                     }
                 },
                 id = 1
@@ -1063,8 +1063,7 @@ namespace PFE.Services
             }
 
             return summaries
-                    .OrderBy(s => s.LeaveTypeName)
-                    .ThenBy(s => s.LeaveTypeId)
+                    .OrderByDescending(t => t.TotalRemaining)
                     .ToList();
         }
 
