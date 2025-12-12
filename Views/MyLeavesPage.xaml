@@ -16,6 +16,7 @@
 
     <Grid RowDefinitions="Auto,Auto,*">
         
+        <!-- Switch Liste/Calendrier -->
         <Frame Grid.Row="0"
                CornerRadius="12"
                Padding="12"
@@ -45,6 +46,7 @@
             </HorizontalStackLayout>
         </Frame>
 
+        <!-- Stats Allocations - TOUJOURS VISIBLE -->
         <Frame x:Name="StatsFrame"
                Grid.Row="1"
                BackgroundColor="#111827"
@@ -53,7 +55,7 @@
                Padding="16"
                Margin="20,16,20,0"
                BorderColor="#1F2937"
-               IsVisible="False">
+               IsVisible="True">
             <HorizontalStackLayout Spacing="20"
                                    HorizontalOptions="Center">
                 <Frame BackgroundColor="#1E40AF"
@@ -124,13 +126,14 @@
             </HorizontalStackLayout>
         </Frame>
 
+        <!-- VUE LISTE -->
         <Grid x:Name="ListViewContainer"
               Grid.Row="2"
               Margin="20,16,20,20"
               RowDefinitions="Auto,Auto,Auto,*"
               IsVisible="True">
 
-            <!-- Indicateur mode hors-ligne (statique) -->
+            <!-- Indicateur mode hors-ligne -->
             <Frame Grid.Row="0"
                    CornerRadius="10"
                    Padding="12"
@@ -149,7 +152,7 @@
                 </HorizontalStackLayout>
             </Frame>
 
-            <!-- Message de synchronisation (statique) -->
+            <!-- Message de synchronisation -->
             <Frame Grid.Row="1"
                    CornerRadius="10"
                    Padding="12"
@@ -164,7 +167,7 @@
                        HorizontalTextAlignment="Center" />
             </Frame>
 
-            <!-- Filtres (statique) -->
+            <!-- Filtres -->
             <Frame Grid.Row="2"
                    CornerRadius="16"
                    Padding="14"
@@ -209,7 +212,7 @@
                 </VerticalStackLayout>
             </Frame>
 
-            <!-- Liste des conges (scrollable) -->
+            <!-- Liste des conges -->
             <CollectionView Grid.Row="3"
                             ItemsSource="{Binding Leaves}"
                             IsVisible="{Binding IsEmployee}">
@@ -292,6 +295,7 @@
             </CollectionView>
         </Grid>
 
+        <!-- VUE CALENDRIER -->
         <Frame x:Name="CalendarViewContainer"
                Grid.Row="2"
                Margin="20,16,20,20"

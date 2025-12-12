@@ -67,9 +67,32 @@ namespace PFE.ViewModels
             Connectivity.Current.ConnectivityChanged += OnConnectivityChanged;
         }
 
-        #region Propriétés communes
+        #region Proprietes communes
 
-        public bool IsEmployee => _odooClient.session.Current.IsAuthenticated && !_odooClient.session.Current.IsManager;
+        /// <summary>
+        /// Retourne true si l'utilisateur est un employe (pas manager)
+        /// En mode offline, on verifie aussi la session sauvegardee
+        /// </summary>
+        public bool IsEmployee
+        {
+            get
+            {
+                // Verifier d'abord la session Odoo
+                if (_odooClient.session.Current.IsAuthenticated)
+                {
+                    return !_odooClient.session.Current.IsManager;
+                }
+                
+                // En mode offline, on considere l'utilisateur comme employe par defaut
+                // (la plupart des utilisateurs sont des employes)
+                if (IsOffline)
+                {
+                    return true;
+                }
+                
+                return false;
+            }
+        }
 
         public bool IsOffline
         {
@@ -193,11 +216,14 @@ namespace PFE.ViewModels
 
         #endregion
 
-        #region Méthodes de chargement
+        #region Methodes de chargement
 
         public async Task LoadAsync(bool isCalendarView)
         {
             IsOffline = Connectivity.Current.NetworkAccess != NetworkAccess.Internet;
+
+            // Charger les allocations dans les deux vues
+            await LoadAllocationsAsync();
 
             if (isCalendarView)
             {
@@ -206,6 +232,96 @@ namespace PFE.ViewModels
             else
             {
                 await LoadListAsync();
+            }
+        }
+
+        /// <summary>
+        /// Charge les allocations (online ou depuis cache)
+        /// </summary>
+        private async Task LoadAllocationsAsync()
+        {
+            try
+            {
+                await _databaseService.InitializeAsync();
+                
+                int employeeId = _odooClient.session.Current.EmployeeId ?? 0;
+                if (employeeId <= 0)
+                {
+                    var savedSession = await _databaseService.GetLastActiveSessionAsync();
+                    if (savedSession?.EmployeeId != null)
+                    {
+                        employeeId = savedSession.EmployeeId.Value;
+                    }
+                }
+
+                if (IsOffline)
+                {
+                    // MODE OFFLINE : Charger depuis le cache
+                    await LoadAllocationsFromCacheAsync(employeeId);
+                }
+                else
+                {
+                    // MODE ONLINE : Charger depuis Odoo et sauvegarder en cache
+                    try
+                    {
+                        List<AllocationSummary> summaries = await _odooClient.GetAllocationsSummaryAsync();
+                        
+                        TotalAllocated = summaries.Sum(s => s.TotalAllocated);
+                        TotalTaken = summaries.Sum(s => s.TotalTaken);
+                        TotalRemaining = summaries.Sum(s => s.TotalRemaining);
+
+                        // Sauvegarder en cache
+                        if (employeeId > 0)
+                        {
+                            await _databaseService.SaveAllocationSummariesAsync(employeeId, summaries);
+                            System.Diagnostics.Debug.WriteLine($"[MyLeavesViewModel] Allocations sauvegardees en cache: {TotalAllocated}/{TotalTaken}/{TotalRemaining}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[MyLeavesViewModel] Erreur chargement allocations: {ex.Message}");
+                        // Fallback sur le cache
+                        await LoadAllocationsFromCacheAsync(employeeId);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MyLeavesViewModel] Erreur LoadAllocationsAsync: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Charge les allocations depuis le cache SQLite
+        /// </summary>
+        private async Task LoadAllocationsFromCacheAsync(int employeeId)
+        {
+            try
+            {
+                if (employeeId <= 0)
+                {
+                    System.Diagnostics.Debug.WriteLine("[MyLeavesViewModel] Pas d'employeeId pour charger les allocations du cache");
+                    return;
+                }
+
+                List<AllocationSummary> cachedSummaries = await _databaseService.GetAllocationSummariesAsync(employeeId);
+                
+                if (cachedSummaries.Count > 0)
+                {
+                    TotalAllocated = cachedSummaries.Sum(s => s.TotalAllocated);
+                    TotalTaken = cachedSummaries.Sum(s => s.TotalTaken);
+                    TotalRemaining = cachedSummaries.Sum(s => s.TotalRemaining);
+                    
+                    System.Diagnostics.Debug.WriteLine($"[MyLeavesViewModel] Allocations chargees depuis cache: {TotalAllocated}/{TotalTaken}/{TotalRemaining}");
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine("[MyLeavesViewModel] Aucune allocation en cache");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MyLeavesViewModel] Erreur LoadAllocationsFromCacheAsync: {ex.Message}");
             }
         }
 
@@ -392,55 +508,67 @@ namespace PFE.ViewModels
 
             try
             {
+                await _databaseService.InitializeAsync();
+                
+                int employeeId = _odooClient.session.Current.EmployeeId ?? 0;
+                if (employeeId <= 0)
+                {
+                    var savedSession = await _databaseService.GetLastActiveSessionAsync();
+                    if (savedSession?.EmployeeId != null)
+                    {
+                        employeeId = savedSession.EmployeeId.Value;
+                    }
+                }
+
+                // MODE OFFLINE : Charger depuis le cache
+                if (IsOffline)
+                {
+                    System.Diagnostics.Debug.WriteLine("[MyLeavesViewModel] Calendrier mode offline");
+                    await LoadCalendarFromCacheAsync(employeeId);
+                    return;
+                }
+
+                // MODE ONLINE
                 if (!IsEmployee)
                 {
                     bool reauthSuccess = await TryReauthenticateAsync();
                     if (!reauthSuccess || !IsEmployee)
                     {
-                        CalendarErrorMessage = "Veuillez vous connecter en tant qu'employé.";
-                        TotalAllocated = 0;
-                        TotalTaken = 0;
-                        TotalRemaining = 0;
-                        Appointments.Clear();
+                        if (employeeId > 0)
+                        {
+                            await LoadCalendarFromCacheAsync(employeeId);
+                        }
+                        else
+                        {
+                            CalendarErrorMessage = "Veuillez vous connecter en tant qu'employe.";
+                            Appointments.Clear();
+                        }
                         return;
                     }
                 }
 
-                List<AllocationSummary> summaries;
                 List<Leave> leaves;
-
                 try
                 {
-                    summaries = await _odooClient.GetAllocationsSummaryAsync();
                     leaves = await _odooClient.GetLeavesAsync();
                 }
-                catch (Exception ex) when (IsSessionExpiredError(ex))
+                catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"MyLeavesViewModel: Session expirée (calendrier), tentative de ré-authentification...");
-                    bool reauthSuccess = await TryReauthenticateAsync();
-
-                    if (reauthSuccess)
-                    {
-                        summaries = await _odooClient.GetAllocationsSummaryAsync();
-                        leaves = await _odooClient.GetLeavesAsync();
-                    }
-                    else
-                    {
-                        CalendarErrorMessage = "Session expirée. Veuillez vous reconnecter.";
-                        TotalAllocated = 0;
-                        TotalTaken = 0;
-                        TotalRemaining = 0;
-                        Appointments.Clear();
-                        return;
-                    }
+                    System.Diagnostics.Debug.WriteLine($"[MyLeavesViewModel] Erreur calendrier: {ex.Message}");
+                    IsOffline = true;
+                    await LoadCalendarFromCacheAsync(employeeId);
+                    return;
                 }
 
-                TotalAllocated = summaries.Sum(s => s.TotalAllocated);
-                TotalTaken = summaries.Sum(s => s.TotalTaken);
-                TotalRemaining = summaries.Sum(s => s.TotalRemaining);
+                // Sauvegarder en cache
+                employeeId = _odooClient.session.Current.EmployeeId ?? employeeId;
+                if (employeeId > 0)
+                {
+                    await _databaseService.SaveLeavesAsync(employeeId, leaves);
+                }
 
+                // Creer les appointments
                 Appointments.Clear();
-
                 foreach (Leave leave in leaves)
                 {
                     string colorHex = LeaveTypeHelper.GetColorHex(leave.Type);
@@ -462,16 +590,76 @@ namespace PFE.ViewModels
             }
             catch (Exception ex)
             {
-                CalendarErrorMessage = $"Impossible de charger les données : {ex.Message}";
-                TotalAllocated = 0;
-                TotalTaken = 0;
-                TotalRemaining = 0;
+                CalendarErrorMessage = $"Erreur: {ex.Message}";
                 Appointments.Clear();
             }
             finally
             {
                 IsCalendarBusy = false;
                 OnPropertyChanged(nameof(IsEmployee));
+            }
+        }
+
+        /// <summary>
+        /// Charge le calendrier depuis le cache SQLite
+        /// </summary>
+        private async Task LoadCalendarFromCacheAsync(int employeeId)
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine($"[MyLeavesViewModel] LoadCalendarFromCacheAsync - employeeId={employeeId}");
+                
+                List<Leave> cachedLeaves;
+                
+                if (employeeId > 0)
+                {
+                    cachedLeaves = await _databaseService.GetCachedLeavesAsync(employeeId, null, null);
+                    System.Diagnostics.Debug.WriteLine($"[MyLeavesViewModel] GetCachedLeavesAsync retourne {cachedLeaves.Count} conges");
+                }
+                else
+                {
+                    cachedLeaves = await _databaseService.GetAllCachedLeavesAsync(null, null);
+                    System.Diagnostics.Debug.WriteLine($"[MyLeavesViewModel] GetAllCachedLeavesAsync retourne {cachedLeaves.Count} conges");
+                }
+
+                Appointments.Clear();
+                
+                foreach (Leave leave in cachedLeaves)
+                {
+                    string colorHex = LeaveTypeHelper.GetColorHex(leave.Type);
+                    Brush background = new SolidColorBrush(Color.FromArgb(colorHex));
+
+                    string notes = $"Statut: {leave.Status}\n";
+
+                    var appointment = new SchedulerAppointment
+                    {
+                        Subject = $"{leave.Type} : {leave.Days} {(leave.Days > 1 ? "jours" : "jour")}",
+                        StartTime = leave.StartDate,
+                        EndTime = leave.EndDate,
+                        IsAllDay = true,
+                        Background = background,
+                        Notes = notes,
+                    };
+                    
+                    Appointments.Add(appointment);
+                    System.Diagnostics.Debug.WriteLine($"[MyLeavesViewModel] Appointment ajoute: {leave.Type} du {leave.StartDate:dd/MM} au {leave.EndDate:dd/MM}");
+                }
+
+                System.Diagnostics.Debug.WriteLine($"[MyLeavesViewModel] Total appointments: {Appointments.Count}");
+
+                if (Appointments.Count == 0)
+                {
+                    CalendarErrorMessage = "Mode hors-ligne. Aucun conge en cache.";
+                }
+                else
+                {
+                    CalendarErrorMessage = string.Empty;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[MyLeavesViewModel] Erreur LoadCalendarFromCacheAsync: {ex.Message}");
+                CalendarErrorMessage = "Impossible de charger depuis le cache.";
             }
         }
 

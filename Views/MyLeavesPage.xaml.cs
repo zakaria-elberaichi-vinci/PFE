@@ -45,7 +45,6 @@ namespace PFE.Views
             CalendarLabel.FontAttributes = isCalendarView ? FontAttributes.Bold : FontAttributes.None;
             CalendarLabel.TextColor = isCalendarView ? Color.FromArgb("#60A5FA") : Color.FromArgb("#9CA3AF");
 
-            StatsFrame.IsVisible = isCalendarView;
             ListViewContainer.IsVisible = !isCalendarView;
             CalendarViewContainer.IsVisible = isCalendarView;
         }
