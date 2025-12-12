@@ -153,12 +153,59 @@ public partial class App : Application
             ISyncService syncService = _services.GetRequiredService<ISyncService>();
             syncService.DecisionsSynced += OnDecisionsSynced;
             syncService.RequestsSynced += OnRequestsSynced;
-            System.Diagnostics.Debug.WriteLine("App: Abonne aux evenements de synchronisation");
+            syncService.DecisionsConflicted += OnDecisionsConflicted;
+            System.Diagnostics.Debug.WriteLine("App: Abonne aux evenements de synchronisation (incluant conflits)");
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"App: Erreur abonnement sync events - {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Appele quand des decisions ont ete annulees car deja traitees par quelqu'un d'autre
+    /// </summary>
+    private async void OnDecisionsConflicted(object? sender, List<ConflictedDecision> conflicts)
+    {
+        System.Diagnostics.Debug.WriteLine($"App: OnDecisionsConflicted - {conflicts.Count} conflit(s)");
+
+        await MainThread.InvokeOnMainThreadAsync(async () =>
+        {
+            try
+            {
+                string message;
+                
+                if (conflicts.Count == 1)
+                {
+                    var conflict = conflicts[0];
+                    message = $"Votre {conflict.DecisionType} pour la demande de {conflict.EmployeeName} " +
+                              $"(du {conflict.LeaveStartDate:dd/MM/yyyy} au {conflict.LeaveEndDate:dd/MM/yyyy}) " +
+                              $"n'a pas ete prise en compte car cette demande a deja ete traitee par un autre manager.";
+                }
+                else
+                {
+                    message = $"{conflicts.Count} de vos decisions n'ont pas ete prises en compte car ces demandes ont deja ete traitees par un autre manager:\n\n";
+                    
+                    foreach (var conflict in conflicts)
+                    {
+                        message += $"• {conflict.EmployeeName} ({conflict.LeaveStartDate:dd/MM} - {conflict.LeaveEndDate:dd/MM})\n";
+                    }
+                }
+
+                if (MainPage != null)
+                {
+                    await MainPage.DisplayAlert(
+                        "⚠ Decisions non appliquees",
+                        message,
+                        "OK"
+                    );
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"App: Erreur affichage popup conflit - {ex.Message}");
+            }
+        });
     }
 
     /// <summary>
